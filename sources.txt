@@ -1,0 +1,11 @@
+water adsorption isotherms in ZIF-8 and ZIF-71
+https://pubs.rsc.org/en/content/articlelanding/2013/cc/c3cc39116g/unauth Fig. 2, 308 K.
+
+ethene, ZIF-8 293 K https://pubs.acs.org/doi/10.1021/la401471g
+ethene, ZIF-71 293 K https://www.researchgate.net/profile/Frerich-Keil/publication/306241227_OlefinParaffin_Separation_Potential_of_ZIF-9_and_ZIF-71_A_Combined_Experimental_and_Theoretical_Study/links/59f9e46b458515de05ce5177/Olefin-Paraffin-Separation-Potential-of-ZIF-9-and-ZIF-71-A-Combined-Experimental-and-Theoretical-Study.pdf
+"Olefin/Paraffin Separation Potential of ZIF-9 and ZIF-71: A
+Combined Experimental and Theoretical Study"
+
+CO2 in ZIF-8 https://pubs.rsc.org/en/content/articlelanding/2011/NJ/C0NJ00836B
+CO2 in ZIF-71: https://pubs.acs.org/doi/10.1021/ja104035j
+
