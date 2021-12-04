@@ -230,47 +230,73 @@ md"
 # distributions of normal and anomalous gas compositions"
 
 # ╔═╡ 5a34b2d4-ef98-4f40-bd3e-58a30da79b69
-function business_as_usual()
+function sample_normal_gas_composition()
 	μ_p = [200e-6, 
-		   410e-6, 
+		   500e-6, 
 		   0.9 * 3.1690 * 0.01]
-	Σ = [1e-6 0.1e-6 0.0;
-		 0.1e-6  1e-6 0.0;
-		 0.0  0.0  (0.05 * 0.9 * 3.1690 * 0.01)^2]
+	Σ = [0.1e-6 0.05e-6 0.0;
+		 0.05e-6  0.3e-6 0.0;
+		 0.0  0.0  (0.01 * 0.9 * 3.1690 * 0.01)^2]
 	
-	return MvNormal(μ_p, Σ)
+	p_distn = MvNormal(μ_p, Σ)
+	p = rand(p_distn)
+	if any(p .< 0.0)
+		return sample_normal_gas_composition()
+	end
+	return p
 end
 
-# ╔═╡ 8391d21f-425c-4006-ad44-f816fba78530
-function too_much_co2()
-	μ_p = [200e-6, 
-		   12000e-6, 
-		   0.5 * 3.1690 * 0.01]
-	Σ = [1e-6 0.0 0.0;
-		 0.0  1e-6 0.0;
-		 0.0  0.0  1e-9]
-	
-	return MvNormal(μ_p, Σ)
-end
+# ╔═╡ 8fd1c12a-7156-4ef3-b412-ceaf46fa09af
+gases
 
 # ╔═╡ 356eff8e-af53-434e-ad6e-c99522e9d816
 begin
-	p_usual = business_as_usual()
-	
 	n_gas_compositions = 100
 	gas_compositions = zeros(3, n_gas_compositions)
 	for g = 1:n_gas_compositions
-		gas_compositions[:, g] = rand(p_usual)
+		gas_compositions[:, g] = sample_normal_gas_composition()
 	end
 	gas_compositions
 end
 
 # ╔═╡ 89111b51-3d25-412e-bc9a-bbb89caa5109
 begin
+	function viz_slices_of_composition_space(ps::Matrix{Float64})
+		n_compositions = size(ps)[2]
+		@assert size(ps)[1] == length(gases)
+
+		fig = Figure(resolution=(1200, 1200))
+		for i = 1:length(gases)
+			for j = 1:length(gases)
+				if i > j 
+					continue
+				end
+				if i == j
+					ax = Axis(fig[i, j], 
+						      xlabel="p " * gases[i] * " [ppm]",
+							  ylabel="# compositions",
+							  aspect=AxisAspect(1)
+					)
+					hist!(ps[i, :] * 1e6)
+				else
+					ax = Axis(fig[i, j], 
+						      xlabel="p " * gases[i] * " [ppm]",
+							  ylabel="p " * gases[j] * " [ppm]",
+							  aspect=DataAspect()
+					)
+					scatter!(ps[i, :] * 1e6, ps[j, :] * 1e6)
+				end
+			end
+		end
+		fig
+	end
 	# fig2 = Figure()
 	# ax2 = Axis(fig2[1, 1])
-	fig2 = scatter(gas_compositions[1, :], gas_compositions[2, :], gas_compositions[3, :])
+	# fig2 = scatter(gas_compositions[1, :], gas_compositions[2, :], gas_compositions[3, :])
 end	# fig2end
+
+# ╔═╡ c0a1fa1b-a338-41d3-900c-246a0ed7e870
+viz_slices_of_composition_space(gas_compositions)
 
 # ╔═╡ 4b70e3f7-3de6-4974-aae6-9b81a5eb50bc
 md"construct Henry coefficient matrix"
@@ -301,10 +327,11 @@ m_anomaly = H * [1000e-6, 410e-6, 0.5 * 3.1690 * 0.01]
 
 # ╔═╡ fb1e63c7-a206-4e04-95d9-5b2d6cc42b72
 begin
-	fig_r = Figure()
+	fig_r = Figure(resolution=(700, 700))
 	ax_r = Axis(fig_r[1, 1], 
 		        xlabel="m, " * mofs[1], 
 		        ylabel="m, " * mofs[2], 
+				aspect=DataAspect(),
 		        title="sensor array responses")
 	scatter!(m[1, :], m[2, :], strokewidth=2, color=(:white, 0.0))
 	# scatter!([m_anomaly[1]], [m_anomaly[2]], marker=:x, color=:red)
@@ -1605,9 +1632,10 @@ version = "3.5.0+0"
 # ╠═91b9b1e1-82a0-4d5a-9979-69f122689774
 # ╟─1dc4c81b-16e8-4d27-9f67-898f308b4739
 # ╠═5a34b2d4-ef98-4f40-bd3e-58a30da79b69
-# ╠═8391d21f-425c-4006-ad44-f816fba78530
+# ╠═8fd1c12a-7156-4ef3-b412-ceaf46fa09af
 # ╠═356eff8e-af53-434e-ad6e-c99522e9d816
 # ╠═89111b51-3d25-412e-bc9a-bbb89caa5109
+# ╠═c0a1fa1b-a338-41d3-900c-246a0ed7e870
 # ╟─4b70e3f7-3de6-4974-aae6-9b81a5eb50bc
 # ╠═de055259-2bf7-4315-a2c7-e6b7edcbd36a
 # ╠═8acdbf27-8601-4dac-8952-99afe8947eca
