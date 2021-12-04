@@ -1,42 +1,78 @@
 ### A Pluto.jl notebook ###
-# v0.16.1
+# v0.17.2
 
 using Markdown
 using InteractiveUtils
 
 # ╔═╡ 9ad61154-5156-11ec-3267-835b5b247a07
-using CairoMakie,CSV, DataFrames, ColorSchemes, Optim, Distributions, PlutoUI
+using CairoMakie,CSV, DataFrames, ColorSchemes, Optim, Distributions, PlutoUI, Colors
 
-# ╔═╡ 4181b395-fb4b-4528-a63f-79b225c753ca
-function fit_Henry(data::DataFrame)
-	function minimize_me(θ)
-		H = θ[1]
-		
-		ℓ = 0.0
-		for row in eachrow(data)
-			nᵢ = row["N(g/g)"]
-			pᵢ = row["P(bar)"]
-			
-			n̂ᵢ = H * pᵢ
-			
-			ℓ += (nᵢ - n̂ᵢ) ^ 2
-		end
-		return ℓ
-	end
-	H_guess = data[1, "N(g/g)"] / data[1, "P(bar)"]
-       
-	res = optimize(minimize_me, [H_guess], Newton())
-	return res.minimizer[1]
-end
+# ╔═╡ c2de81ae-b7cd-4c2a-bc92-36f3fcb473e0
+set_theme!(    
+	Theme(
+        palette = (color=[c for c in ColorSchemes.Dark2_5], marker=[:circle, :utriangle, :cross, :rect, :diamond, :dtriangle, :pentagon, :xcross]),
+        textcolor = :gray40,
+        linewidth=4,
+        fontsize=20,
+        resolution = (520, 400),
+        Axis = (
+            backgroundcolor = RGB(0.96, 1.0, 0.98),
+            xgridcolor = (:black, 0.15),
+            ygridcolor = (:black, 0.15),
+            leftspinevisible = false,
+            rightspinevisible = false,
+            ygridstyle=:dash,
+            xgridstyle=:dash,
+            bottomspinevisible = false,
+            topspinevisible = false,
+            xminorticksvisible = false,
+            yminorticksvisible = false,
+            xticksvisible = false,
+            yticksvisible = false,
+            xlabelpadding = 3,
+            ylabelpadding = 3
+        ),
+        Legend = (
+            framevisible = true,
+            titlehalign=:left,
+            titlesize=16,
+            labelsize=16,
+            framecolor=(:black, 0.5)
+            # padding = (1, 0, 0, 0),
+        ),
+        Axis3 = (
+            xgridcolor = (:black, 0.07),
+            ygridcolor = (:black, 0.07),
+            zgridcolor = (:black, 0.07),
+            xspinesvisible = false,
+            yspinesvisible = false,
+            zspinesvisible = false,
+            xticksvisible = false,
+            yticksvisible = false,
+            zticksvisible = false,
+        ),
+        Colorbar = (
+            ticksvisible = false,
+            spinewidth = 0,
+            ticklabelpad = 5,
+        )
+    )
+)
 
-# ╔═╡ c28b0246-4834-4dc1-9df2-e45e9076b6aa
-set_theme!(theme_light()); update_theme!(fontsize=20)
+# ╔═╡ 8ea725cc-f024-4acb-902d-a96d28c2607b
+md"# read and prepare gas adsorption data
+
+pertaining to two MOFs and three gases:
+"
 
 # ╔═╡ 9ae6955b-833b-4b3c-8451-2a06f3f8e378
 mofs = ["ZIF-71", "ZIF-8"]
 
 # ╔═╡ 513e4761-c30d-4d8b-9f6f-0eac9b38ae67
 gases = ["C2H4", "CO2", "H2O"]
+
+# ╔═╡ 9e70de23-af3f-4d72-86c9-6d4c74323488
+md"...some helpers for dealing with the gases."
 
 # ╔═╡ 14bc4f53-0db3-46ad-9238-8c40e10f7276
 gas_to_molecular_wt = Dict("C2H4" => 28.05, 
@@ -48,6 +84,12 @@ gas_to_pretty_name = Dict("C2H4" => "C₂H₄", "CO2" => "CO₂", "H2O" => "H₂
 
 # ╔═╡ b1b740a8-79cc-4a07-b9f9-876df532cede
 gas_to_color = Dict(zip(gases, ColorSchemes.Accent_3))
+
+# ╔═╡ d40ad75a-0662-431a-a227-93d388b89562
+md"`.csv` files containing the gas adsorption data (with sources listed as a comment) are in `data`. the function `isotherm_data` reads the data into a data frame and converts the units into:
+* pressure [bar]
+* gas uptake [g gas/g MOF]
+"
 
 # ╔═╡ a1788db5-3453-4e8b-b11a-23f87b958cf3
 isotherm_filename(mof::String, gas::String) = joinpath("data", mof, gas * ".csv")
@@ -96,57 +138,86 @@ function isotherm_data(mof::String, gas::String; remove_old_pressure_cols::Bool=
 		data = data[:, cols_we_want]
 	end
 	sort!(data, "P(bar)")
+
+	# rename to m and p to make more sense with paper
+	rename!(data, Dict("P(bar)" => "p (bar)", "N(g/g)" => "m (g/g)"))
 	
 	return data
 end
 
-# ╔═╡ 34a0b335-a759-438c-bac1-cd98e5745b5f
-isotherm_data("ZIF-71", "C2H4")
+# ╔═╡ 42dfb005-a0a2-4d79-b075-84e95d293c0f
+data = isotherm_data(mofs[1], gases[2]) # example
+
+# ╔═╡ 91e543d5-0c79-4342-8f55-54ab0fc121ee
+md"`fit_henry` fits Henry coefficients to the data. Henry's law is $m=Hp$ with $m$ the mass adsorbed and $p$ the partial pressure and $H$ the Henry coefficient.
+
+henry coefficients stored in dictionary `henry_coeffs`.
+"
+
+# ╔═╡ 4181b395-fb4b-4528-a63f-79b225c753ca
+function fit_Henry(data::DataFrame)
+	function minimize_me(θ)
+		H = θ[1]
+		
+		ℓ = 0.0
+		for row in eachrow(data)
+			nᵢ = row["m (g/g)"]
+			pᵢ = row["p (bar)"]
+			
+			n̂ᵢ = H * pᵢ
+			
+			ℓ += (nᵢ - n̂ᵢ) ^ 2
+		end
+		return ℓ
+	end
+	H_guess = data[1, "m (g/g)"] / data[1, "p (bar)"]
+       
+	res = optimize(minimize_me, [H_guess], Newton())
+	return res.minimizer[1]
+end
 
 # ╔═╡ 3a452f88-af8c-48cb-8f22-e775eebcfd9a
 begin
-	Hs = Dict{String, Dict{String, Float64}}()
+	henry_coeffs = Dict{String, Dict{String, Float64}}()
 	for mof in mofs
-		Hs[mof] = Dict{String, Float64}()
+		henry_coeffs[mof] = Dict{String, Float64}()
 		for gas in gases
 			data = isotherm_data(mof, gas)
-			Hs[mof][gas] = fit_Henry(data[1:2, :])
+			henry_coeffs[mof][gas] = fit_Henry(data[1:2, :])
 		end
 	end
-	Hs
+	henry_coeffs
 end
 
-# ╔═╡ 42dfb005-a0a2-4d79-b075-84e95d293c0f
-data = isotherm_data(mofs[1], gases[2])
+# ╔═╡ ae91d774-a08c-422e-90fb-d8eef1cdc8bc
+md"let's visualize the fits of the Henry coefficients to the data"
 
 # ╔═╡ 7e22f09b-16e2-42e7-8033-8e93179528d6
 function viz_adsorption_data(mof::String; viz_henry::Bool=true)
 	fig = Figure()
-	ax = Axis(fig[1, 1], xlabel="P(bar)", ylabel="N(g/g)")
+	ax = Axis(fig[1, 1], xlabel="p (bar)", ylabel="m (g gas/g MOF)", title=mof)
 	for gas in gases
 		data = isotherm_data(mof, gas)
-		scatter!(data[:, "P(bar)"], data[:, "N(g/g)"], 
-			     color=gas_to_color[gas], label=gas_to_pretty_name[gas])
+		scatter!(data[:, "p (bar)"], data[:, "m (g/g)"],
+			     strokewidth=2, color=(:white, 0.0),
+			     strokecolor=gas_to_color[gas], label=gas_to_pretty_name[gas])
 	end
 	if viz_henry
-		ps = [0.0, 0.25]
+		ps = [0.0, 0.5]
 		# ps = range(0.0, 1.0, length=100)
 		for gas in gases
 			# data = isotherm_data(mof, gas)
-			ns = Hs[mof][gas] * ps
+			ms = henry_coeffs[mof][gas] * ps
 			# opt_langmuir_params = fit_Langmuir_isotherm(data[1:7, :])
 			# ns = [n_langmuir(pᵢ, opt_langmuir_params) for pᵢ in ps]
-			lines!(ps, ns, color=gas_to_color[gas])
+			lines!(ps, ms, color=gas_to_color[gas])
 		end
 	end
 	axislegend(position=:rb)
-	# xlims!(0.0, 0.21)
-	ylims!(0.0, 0.05)
+	xlims!(0.0, 0.5)
+	ylims!(0.0, 0.025)
 	fig
 end
-
-# ╔═╡ 95c00ad7-39ea-4abc-a9bf-ed63caa608e1
-
 
 # ╔═╡ 796fcce5-d491-46fb-8bcb-fc0cb371d6d0
 viz_adsorption_data(mofs[1])
@@ -154,37 +225,42 @@ viz_adsorption_data(mofs[1])
 # ╔═╡ 91b9b1e1-82a0-4d5a-9979-69f122689774
 viz_adsorption_data(mofs[2])
 
-# ╔═╡ d8ddd7a6-c911-4415-bba4-e718263bb947
-gases
+# ╔═╡ 1dc4c81b-16e8-4d27-9f67-898f308b4739
+md"
+# distributions of normal and anomalous gas compositions"
 
-# ╔═╡ eb31de98-65ae-4836-873b-939a61b2ef97
+# ╔═╡ 5a34b2d4-ef98-4f40-bd3e-58a30da79b69
+function business_as_usual()
+	μ_p = [200e-6, 
+		   410e-6, 
+		   0.9 * 3.1690 * 0.01]
+	Σ = [1e-6 0.1e-6 0.0;
+		 0.1e-6  1e-6 0.0;
+		 0.0  0.0  (0.05 * 0.9 * 3.1690 * 0.01)^2]
+	
+	return MvNormal(μ_p, Σ)
+end
 
-
-# ╔═╡ 3d5ac29a-4eaf-493d-94b1-db2d8a2b9496
-sqrt(10e-6)
-
-# ╔═╡ 4b1f4d60-4c9d-4a26-9ea8-d74ce2403577
-begin
-	μ_p = [200e-6, 410e-6, 0.5 * 3.1690 * 0.01]
+# ╔═╡ 8391d21f-425c-4006-ad44-f816fba78530
+function too_much_co2()
+	μ_p = [200e-6, 
+		   12000e-6, 
+		   0.5 * 3.1690 * 0.01]
 	Σ = [1e-6 0.0 0.0;
 		 0.0  1e-6 0.0;
 		 0.0  0.0  1e-9]
 	
-	p_distn = MvNormal(μ_p, Σ)
+	return MvNormal(μ_p, Σ)
 end
-
-# ╔═╡ 5a34b2d4-ef98-4f40-bd3e-58a30da79b69
-Σ
-
-# ╔═╡ 06adfbdf-d667-4772-a0c6-a876d563c6e1
-gases
 
 # ╔═╡ 356eff8e-af53-434e-ad6e-c99522e9d816
 begin
+	p_usual = business_as_usual()
+	
 	n_gas_compositions = 100
 	gas_compositions = zeros(3, n_gas_compositions)
 	for g = 1:n_gas_compositions
-		gas_compositions[:, g] = rand(p_distn)
+		gas_compositions[:, g] = rand(p_usual)
 	end
 	gas_compositions
 end
@@ -193,20 +269,17 @@ end
 begin
 	# fig2 = Figure()
 	# ax2 = Axis(fig2[1, 1])
-	scatter(gas_compositions[1, :], gas_compositions[2, :], gas_compositions[3, :])
-	# fig2
-end
+	fig2 = scatter(gas_compositions[1, :], gas_compositions[2, :], gas_compositions[3, :])
+end	# fig2end
+
+# ╔═╡ 4b70e3f7-3de6-4974-aae6-9b81a5eb50bc
+md"construct Henry coefficient matrix"
 
 # ╔═╡ de055259-2bf7-4315-a2c7-e6b7edcbd36a
-begin
-	H = zeros(length(mofs), length(gases))
-	for m = 1:length(mofs)
-		for g = 1:length(gases)
-			H[m, g] = Hs[mofs[m]][gases[g]]
-		end
-	end
-	H
-end
+H = [henry_coeffs[mof][gas] for mof in mofs, gas in gases]
+
+# ╔═╡ 8acdbf27-8601-4dac-8952-99afe8947eca
+md"sensor array responses"
 
 # ╔═╡ fa3afdfa-0713-4bff-964e-344ce6706ec9
 m = H * gas_compositions
@@ -229,11 +302,14 @@ m_anomaly = H * [1000e-6, 410e-6, 0.5 * 3.1690 * 0.01]
 # ╔═╡ fb1e63c7-a206-4e04-95d9-5b2d6cc42b72
 begin
 	fig_r = Figure()
-	ax_r = Axis(fig_r[1, 1], xlabel="m, " * mofs[1], ylabel="m, " * mofs[2])
-	scatter!(m[1, :], m[2, :])
-	scatter!([m_anomaly[1]], [m_anomaly[2]], marker=:x, color=:red)
-	xlims!(0, nothing)
-	ylims!(0, nothing)
+	ax_r = Axis(fig_r[1, 1], 
+		        xlabel="m, " * mofs[1], 
+		        ylabel="m, " * mofs[2], 
+		        title="sensor array responses")
+	scatter!(m[1, :], m[2, :], strokewidth=2, color=(:white, 0.0))
+	# scatter!([m_anomaly[1]], [m_anomaly[2]], marker=:x, color=:red)
+	# xlims!(0, nothing)
+	# ylims!(0, nothing)
 	fig_r
 end
 
@@ -243,6 +319,7 @@ PLUTO_PROJECT_TOML_CONTENTS = """
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 ColorSchemes = "35d6a980-a343-548e-a6ea-1d62b119f2f4"
+Colors = "5ae59095-9a9b-59fe-a467-6f913c188581"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 Optim = "429524aa-4258-5aef-a3af-852621145aeb"
@@ -252,6 +329,7 @@ PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 CSV = "~0.9.11"
 CairoMakie = "~0.6.6"
 ColorSchemes = "~3.15.0"
+Colors = "~0.12.8"
 DataFrames = "~1.2.2"
 Distributions = "~0.25.34"
 Optim = "~1.5.0"
@@ -628,9 +706,9 @@ version = "0.21.0+0"
 
 [[Glib_jll]]
 deps = ["Artifacts", "Gettext_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Libiconv_jll", "Libmount_jll", "PCRE_jll", "Pkg", "Zlib_jll"]
-git-tree-sha1 = "7bf67e9a481712b3dbe9cb3dac852dc4b1162e02"
+git-tree-sha1 = "74ef6288d071f58033d54fd6708d4bc23a8b8972"
 uuid = "7746bdde-850d-59dc-9ae8-88ece973131d"
-version = "2.68.3+0"
+version = "2.68.3+1"
 
 [[Graphics]]
 deps = ["Colors", "LinearAlgebra", "NaNMath"]
@@ -657,9 +735,9 @@ version = "1.0.2"
 
 [[HarfBuzz_jll]]
 deps = ["Artifacts", "Cairo_jll", "Fontconfig_jll", "FreeType2_jll", "Glib_jll", "Graphite2_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Pkg"]
-git-tree-sha1 = "8a954fed8ac097d5be04921d595f741115c1b2ad"
+git-tree-sha1 = "129acf094d168394e80ee1dc4bc06ec835e510a3"
 uuid = "2e76f6c2-a576-52d4-95c1-20adfe4de566"
-version = "2.8.1+0"
+version = "2.8.1+1"
 
 [[Hyperscript]]
 deps = ["Test"]
@@ -872,7 +950,7 @@ uuid = "d3d80556-e9d4-5f37-9878-2ab0fcc64255"
 version = "7.1.1"
 
 [[LinearAlgebra]]
-deps = ["Libdl"]
+deps = ["Libdl", "libblastrampoline_jll"]
 uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 
 [[LogExpFunctions]]
@@ -986,6 +1064,10 @@ deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "7937eda4681660b4d6aeeecc2f7e1c81c8ee4e2f"
 uuid = "e7412a2a-1a6e-54c0-be00-318e2571c051"
 version = "1.3.5+0"
+
+[[OpenBLAS_jll]]
+deps = ["Artifacts", "CompilerSupportLibraries_jll", "Libdl"]
+uuid = "4536629a-c528-5b80-bd46-f80d51c5b363"
 
 [[OpenEXR]]
 deps = ["Colors", "FileIO", "OpenEXR_jll"]
@@ -1158,7 +1240,7 @@ deps = ["InteractiveUtils", "Markdown", "Sockets", "Unicode"]
 uuid = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
 
 [[Random]]
-deps = ["Serialization"]
+deps = ["SHA", "Serialization"]
 uuid = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 
 [[Ratios]]
@@ -1457,6 +1539,10 @@ git-tree-sha1 = "5982a94fcba20f02f42ace44b9894ee2b140fe47"
 uuid = "0ac62f75-1d6f-5e53-bd7c-93b484bb37c0"
 version = "0.15.1+0"
 
+[[libblastrampoline_jll]]
+deps = ["Artifacts", "Libdl", "OpenBLAS_jll"]
+uuid = "8e850b90-86db-534c-a0d3-1478176c7d93"
+
 [[libfdk_aac_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "daacc84a041563f965be61859a36e17c4e4fcd55"
@@ -1498,31 +1584,33 @@ version = "3.5.0+0"
 
 # ╔═╡ Cell order:
 # ╠═9ad61154-5156-11ec-3267-835b5b247a07
-# ╠═4181b395-fb4b-4528-a63f-79b225c753ca
-# ╠═c28b0246-4834-4dc1-9df2-e45e9076b6aa
+# ╟─c2de81ae-b7cd-4c2a-bc92-36f3fcb473e0
+# ╟─8ea725cc-f024-4acb-902d-a96d28c2607b
 # ╠═9ae6955b-833b-4b3c-8451-2a06f3f8e378
 # ╠═513e4761-c30d-4d8b-9f6f-0eac9b38ae67
+# ╟─9e70de23-af3f-4d72-86c9-6d4c74323488
 # ╠═14bc4f53-0db3-46ad-9238-8c40e10f7276
 # ╠═adfcbf80-fe7d-4172-8ba2-081a019aebd7
 # ╠═b1b740a8-79cc-4a07-b9f9-876df532cede
+# ╟─d40ad75a-0662-431a-a227-93d388b89562
 # ╠═a1788db5-3453-4e8b-b11a-23f87b958cf3
 # ╠═aa610383-cb4d-44c6-bb0e-3aaa0c777b0b
-# ╠═34a0b335-a759-438c-bac1-cd98e5745b5f
-# ╠═3a452f88-af8c-48cb-8f22-e775eebcfd9a
 # ╠═42dfb005-a0a2-4d79-b075-84e95d293c0f
+# ╟─91e543d5-0c79-4342-8f55-54ab0fc121ee
+# ╠═4181b395-fb4b-4528-a63f-79b225c753ca
+# ╠═3a452f88-af8c-48cb-8f22-e775eebcfd9a
+# ╟─ae91d774-a08c-422e-90fb-d8eef1cdc8bc
 # ╠═7e22f09b-16e2-42e7-8033-8e93179528d6
-# ╠═95c00ad7-39ea-4abc-a9bf-ed63caa608e1
 # ╠═796fcce5-d491-46fb-8bcb-fc0cb371d6d0
 # ╠═91b9b1e1-82a0-4d5a-9979-69f122689774
-# ╠═d8ddd7a6-c911-4415-bba4-e718263bb947
+# ╟─1dc4c81b-16e8-4d27-9f67-898f308b4739
 # ╠═5a34b2d4-ef98-4f40-bd3e-58a30da79b69
-# ╠═eb31de98-65ae-4836-873b-939a61b2ef97
-# ╠═3d5ac29a-4eaf-493d-94b1-db2d8a2b9496
-# ╠═4b1f4d60-4c9d-4a26-9ea8-d74ce2403577
-# ╠═06adfbdf-d667-4772-a0c6-a876d563c6e1
+# ╠═8391d21f-425c-4006-ad44-f816fba78530
 # ╠═356eff8e-af53-434e-ad6e-c99522e9d816
 # ╠═89111b51-3d25-412e-bc9a-bbb89caa5109
+# ╟─4b70e3f7-3de6-4974-aae6-9b81a5eb50bc
 # ╠═de055259-2bf7-4315-a2c7-e6b7edcbd36a
+# ╠═8acdbf27-8601-4dac-8952-99afe8947eca
 # ╠═fa3afdfa-0713-4bff-964e-344ce6706ec9
 # ╠═f7a644b4-9268-427d-9f7f-f8309e85e979
 # ╠═4fa5006b-2fc8-4f6b-bcd5-73a413cd9959
