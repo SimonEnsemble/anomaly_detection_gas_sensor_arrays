@@ -233,39 +233,25 @@ md"
 begin
 	# water is the background nuissance gas.
 	p_H2O_vapor = 3.1690 * 0.01 # bar
-	p_H2O_distn = Normal(0.9 * p_H2O_vapor, 0.01 * p_H2O_vapor)
 
-	function sample_p_H2O()
-		p_H2O = rand(p_H2O_distn)
-		if p_H2O < 0.0 || p_H2O > p_H2O_vapor
-			return sample_p_H2O()
-		end
-		return p_H2O
-	end
-end
+	μ_H2O = 0.9 * p_H2O_vapor
+	σ_H2O = 0.01 * p_H2O_vapor
+	p_H2O_distn = Normal(μ_H2O, σ_H2O)
 
-# ╔═╡ fec6e04e-a9b2-455a-a3f9-0ee56596ee3d
-begin
-	# joint C2H4-CO2 dist'n
-	μ = [100e-6, 410e-6] # ppm
-	Σ = [0.1e-6 0.05e-6;
-		0.05e-6 0.1e-6
-	]
-	p_C2H4_CO2_distn = MvNormal(μ, Σ)
+	μ_C2H4 = 200e-6
+	σ_C2H4 = 50e-6
+	p_C2H4_distn = Normal(μ_C2H4, σ_C2H4)
+
+	p_CO2_distn = Uniform(410.0e-6, 5000.0e-6)
 end
 
 # ╔═╡ 5a34b2d4-ef98-4f40-bd3e-58a30da79b69
 function sample_normal_gas_composition()
-	p_H2O = sample_p_H2O()
-	p_C2H4_CO2 = rand(p_C2H4_CO2_distn)
 	p = zeros(3)
-	p[findfirst(gases .== "H2O")] = p_H2O
-	p[findfirst(gases .== "C2H4")] = p_C2H4_CO2[1]
-	p[findfirst(gases .== "CO2")] = p_C2H4_CO2[2]
+	p[findfirst(gases .== "H2O")] = rand(p_H2O_distn)
+	p[findfirst(gases .== "C2H4")] = rand(p_C2H4_distn)
+	p[findfirst(gases .== "CO2")] = rand(p_CO2_distn)
 	if any(p .< 0.0)
-		return sample_normal_gas_composition()
-	end
-	if p[findfirst(gases .== "CO2")] < 400e-6
 		return sample_normal_gas_composition()
 	end
 	return p
@@ -296,11 +282,25 @@ end
 viz_H2O_compositions(gas_compositions)
 
 # ╔═╡ 043fd257-59de-4e6d-a037-d79e3e3f5cdb
-gas_compositions_anomaly = [
-	0.0                 1000e-6;
-	1000e-6             410.0e-6;
-	p_H2O_vapor * 0.9   p_H2O_vapor * 0.9
-]
+begin
+	gas_compositions_anomaly = zeros(3, 12)
+	id_anomaly = 1
+	for i = 1:4
+		# ethylene not on
+		gas_compositions_anomaly[:, id_anomaly] = [0.0, 410.0e-6, rand(p_H2O_distn)]
+		id_anomaly += 1
+		# too much ethylene at start-up
+		gas_compositions_anomaly[:, id_anomaly] = [1200.0e-6, 410.0e-6, rand(p_H2O_distn)]
+		id_anomaly += 1
+		# too much CO2 build up
+		gas_compositions_anomaly[:, id_anomaly] = [rand(p_C2H4_distn), rand(Uniform(10000e-6, 15000e-6)), rand(p_H2O_distn)]
+		id_anomaly += 1
+		# loss of humidity
+		# gas_compositions_anomaly[:, id_anomaly] = [rand(p_C2H4_distn), rand(p_CO2_distn), rand(Uniform(0.0, 0.5 * p_H2O_vapor))]
+		# id_anomaly += 1
+	end
+	gas_compositions_anomaly
+end
 
 # ╔═╡ 89111b51-3d25-412e-bc9a-bbb89caa5109
 function viz_C2H4_CO2_composition(gas_compositions::Matrix{Float64})
@@ -1668,7 +1668,6 @@ version = "3.5.0+0"
 # ╠═91b9b1e1-82a0-4d5a-9979-69f122689774
 # ╟─1dc4c81b-16e8-4d27-9f67-898f308b4739
 # ╠═f54bbc76-31d2-41ae-96d8-ca1e17fdfa58
-# ╠═fec6e04e-a9b2-455a-a3f9-0ee56596ee3d
 # ╠═5a34b2d4-ef98-4f40-bd3e-58a30da79b69
 # ╠═8fd1c12a-7156-4ef3-b412-ceaf46fa09af
 # ╠═356eff8e-af53-434e-ad6e-c99522e9d816
