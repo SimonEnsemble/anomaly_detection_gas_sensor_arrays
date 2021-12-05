@@ -229,18 +229,43 @@ viz_adsorption_data(mofs[2])
 md"
 # distributions of normal and anomalous gas compositions"
 
+# ╔═╡ f54bbc76-31d2-41ae-96d8-ca1e17fdfa58
+begin
+	# water is the background nuissance gas.
+	p_H2O_vapor = 3.1690 * 0.01 # bar
+	p_H2O_distn = Normal(0.9 * p_H2O_vapor, 0.01 * p_H2O_vapor)
+
+	function sample_p_H2O()
+		p_H2O = rand(p_H2O_distn)
+		if p_H2O < 0.0 || p_H2O > p_H2O_vapor
+			return sample_p_H2O()
+		end
+		return p_H2O
+	end
+end
+
+# ╔═╡ fec6e04e-a9b2-455a-a3f9-0ee56596ee3d
+begin
+	# joint C2H4-CO2 dist'n
+	μ = [100e-6, 410e-6] # ppm
+	Σ = [0.1e-6 0.05e-6;
+		0.05e-6 0.1e-6
+	]
+	p_C2H4_CO2_distn = MvNormal(μ, Σ)
+end
+
 # ╔═╡ 5a34b2d4-ef98-4f40-bd3e-58a30da79b69
 function sample_normal_gas_composition()
-	μ_p = [200e-6, 
-		   500e-6, 
-		   0.9 * 3.1690 * 0.01]
-	Σ = [0.1e-6 0.05e-6 0.0;
-		 0.05e-6  0.3e-6 0.0;
-		 0.0  0.0  (0.01 * 0.9 * 3.1690 * 0.01)^2]
-	
-	p_distn = MvNormal(μ_p, Σ)
-	p = rand(p_distn)
+	p_H2O = sample_p_H2O()
+	p_C2H4_CO2 = rand(p_C2H4_CO2_distn)
+	p = zeros(3)
+	p[findfirst(gases .== "H2O")] = p_H2O
+	p[findfirst(gases .== "C2H4")] = p_C2H4_CO2[1]
+	p[findfirst(gases .== "CO2")] = p_C2H4_CO2[2]
 	if any(p .< 0.0)
+		return sample_normal_gas_composition()
+	end
+	if p[findfirst(gases .== "CO2")] < 400e-6
 		return sample_normal_gas_composition()
 	end
 	return p
@@ -259,44 +284,59 @@ begin
 	gas_compositions
 end
 
-# ╔═╡ 89111b51-3d25-412e-bc9a-bbb89caa5109
-begin
-	function viz_slices_of_composition_space(ps::Matrix{Float64})
-		n_compositions = size(ps)[2]
-		@assert size(ps)[1] == length(gases)
+# ╔═╡ 8fd3603f-19e4-4a80-a103-df2ada37cd07
+function viz_H2O_compositions(gas_compositions::Matrix{Float64})
+	fig = Figure()
+	ax = Axis(fig[1, 1], xlabel="RH H₂O", ylabel="# compositions")
+	hist!(gas_compositions[3, :] / p_H2O_vapor)
+	fig
+end
 
-		fig = Figure(resolution=(1200, 1200))
-		for i = 1:length(gases)
-			for j = 1:length(gases)
-				if i > j 
-					continue
-				end
-				if i == j
-					ax = Axis(fig[i, j], 
-						      xlabel="p " * gases[i] * " [ppm]",
-							  ylabel="# compositions",
-							  aspect=AxisAspect(1)
-					)
-					hist!(ps[i, :] * 1e6)
-				else
-					ax = Axis(fig[i, j], 
-						      xlabel="p " * gases[i] * " [ppm]",
-							  ylabel="p " * gases[j] * " [ppm]",
-							  aspect=DataAspect()
-					)
-					scatter!(ps[i, :] * 1e6, ps[j, :] * 1e6)
-				end
-			end
-		end
-		fig
-	end
-	# fig2 = Figure()
-	# ax2 = Axis(fig2[1, 1])
-	# fig2 = scatter(gas_compositions[1, :], gas_compositions[2, :], gas_compositions[3, :])
-end	# fig2end
+# ╔═╡ abd52614-0d7f-43bd-a469-51232bd6fa8e
+viz_H2O_compositions(gas_compositions)
+
+# ╔═╡ 043fd257-59de-4e6d-a037-d79e3e3f5cdb
+gas_compositions_anomaly = [
+	0.0                 1000e-6;
+	1000e-6             410.0e-6;
+	p_H2O_vapor * 0.9   p_H2O_vapor * 0.9
+]
+
+# ╔═╡ 89111b51-3d25-412e-bc9a-bbb89caa5109
+function viz_C2H4_CO2_composition(gas_compositions::Matrix{Float64})
+	fig = Figure(resolution=(500, 500))
+    # create panels
+    ax_main  = Axis(fig[2, 1],
+                xlabel="p, $(gas_to_pretty_name[gases[1]]) [ppm]",
+                ylabel="p, $(gas_to_pretty_name[gases[2]]) [ppm]"
+	)
+    ax_top   = Axis(fig[1, 1], ylabel="density", ticklabels=[], aspect=AxisAspect(2))
+    ax_right = Axis(fig[2, 2], xlabel="density", aspect=AxisAspect(0.5))
+    hidedecorations!(ax_top, grid=false, label=false)
+    hidedecorations!(ax_right, grid=false, label=false)
+    linkyaxes!(ax_main, ax_right)
+    linkxaxes!(ax_main, ax_top)
+    for c in 1:2
+        colsize!(fig.layout, c, Relative(.5))
+        rowsize!(fig.layout, c, Relative(.5))
+    end
+    ylims!(ax_right, 0, nothing)
+
+	scatter!(ax_main, gas_compositions[1, :]*1e6, gas_compositions[2, :]*1e6, strokewidth=1,
+			 color=(:white, 0.0))
+	density!(ax_top, gas_compositions[1, :]*1e6)
+	density!(ax_right, gas_compositions[2, :]*1e6, direction=:y)
+
+	scatter!(ax_main, gas_compositions_anomaly[1, :]*1e6, gas_compositions_anomaly[2, :]*1e6)
+
+    # create legend
+    # leg = Legend(fig[1, 2], ax_main, "variety")
+
+    fig
+end
 
 # ╔═╡ c0a1fa1b-a338-41d3-900c-246a0ed7e870
-viz_slices_of_composition_space(gas_compositions)
+viz_C2H4_CO2_composition(gas_compositions)
 
 # ╔═╡ 4b70e3f7-3de6-4974-aae6-9b81a5eb50bc
 md"construct Henry coefficient matrix"
@@ -310,6 +350,9 @@ md"sensor array responses"
 # ╔═╡ fa3afdfa-0713-4bff-964e-344ce6706ec9
 m = H * gas_compositions
 
+# ╔═╡ 4420f8c8-b7d0-4dd8-ba1b-60f3b9f7d89b
+m_anomaly = H * gas_compositions_anomaly
+
 # ╔═╡ f7a644b4-9268-427d-9f7f-f8309e85e979
 with_terminal() do
 	for g = 1:length(gases)
@@ -319,24 +362,17 @@ with_terminal() do
 	end
 end
 
-# ╔═╡ 4fa5006b-2fc8-4f6b-bcd5-73a413cd9959
-1000e-6
-
-# ╔═╡ 4c48485b-48fc-4be7-af30-b6c2093b48ee
-m_anomaly = H * [1000e-6, 410e-6, 0.5 * 3.1690 * 0.01]
-
 # ╔═╡ fb1e63c7-a206-4e04-95d9-5b2d6cc42b72
 begin
 	fig_r = Figure(resolution=(700, 700))
 	ax_r = Axis(fig_r[1, 1], 
-		        xlabel="m, " * mofs[1], 
-		        ylabel="m, " * mofs[2], 
+		        xlabel="m, " * mofs[1] * "[g/g]",
+		        ylabel="m, " * mofs[2] * "[g/g]", 
 				aspect=DataAspect(),
 		        title="sensor array responses")
 	scatter!(m[1, :], m[2, :], strokewidth=2, color=(:white, 0.0))
+	scatter!(m_anomaly[1, :], m_anomaly[2, :])
 	# scatter!([m_anomaly[1]], [m_anomaly[2]], marker=:x, color=:red)
-	# xlims!(0, nothing)
-	# ylims!(0, nothing)
 	fig_r
 end
 
@@ -1631,18 +1667,22 @@ version = "3.5.0+0"
 # ╠═796fcce5-d491-46fb-8bcb-fc0cb371d6d0
 # ╠═91b9b1e1-82a0-4d5a-9979-69f122689774
 # ╟─1dc4c81b-16e8-4d27-9f67-898f308b4739
+# ╠═f54bbc76-31d2-41ae-96d8-ca1e17fdfa58
+# ╠═fec6e04e-a9b2-455a-a3f9-0ee56596ee3d
 # ╠═5a34b2d4-ef98-4f40-bd3e-58a30da79b69
 # ╠═8fd1c12a-7156-4ef3-b412-ceaf46fa09af
 # ╠═356eff8e-af53-434e-ad6e-c99522e9d816
+# ╠═8fd3603f-19e4-4a80-a103-df2ada37cd07
+# ╠═abd52614-0d7f-43bd-a469-51232bd6fa8e
 # ╠═89111b51-3d25-412e-bc9a-bbb89caa5109
+# ╠═043fd257-59de-4e6d-a037-d79e3e3f5cdb
 # ╠═c0a1fa1b-a338-41d3-900c-246a0ed7e870
 # ╟─4b70e3f7-3de6-4974-aae6-9b81a5eb50bc
 # ╠═de055259-2bf7-4315-a2c7-e6b7edcbd36a
 # ╠═8acdbf27-8601-4dac-8952-99afe8947eca
 # ╠═fa3afdfa-0713-4bff-964e-344ce6706ec9
+# ╠═4420f8c8-b7d0-4dd8-ba1b-60f3b9f7d89b
 # ╠═f7a644b4-9268-427d-9f7f-f8309e85e979
-# ╠═4fa5006b-2fc8-4f6b-bcd5-73a413cd9959
-# ╠═4c48485b-48fc-4be7-af30-b6c2093b48ee
 # ╠═fb1e63c7-a206-4e04-95d9-5b2d6cc42b72
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
