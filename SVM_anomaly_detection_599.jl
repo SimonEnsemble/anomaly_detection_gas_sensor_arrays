@@ -5,11 +5,14 @@ using Markdown
 using InteractiveUtils
 
 # ╔═╡ d090131e-6602-4c03-860c-ad3cb6c7844a
-using CairoMakie,CSV, DataFrames, ColorSchemes, Optim, Distributions, PlutoUI, ScikitLearn
+using CairoMakie,CSV, DataFrames, ColorSchemes, Optim, Distributions, PlutoUI, ScikitLearn, Colors
 
 # ╔═╡ 1784c510-5465-11ec-0dd1-13e5a66e4ce6
 md"# Anomaly Detection for gas sensor arrays Using One-Class SVM
 "
+
+# ╔═╡ 06409854-f2b6-4356-ab0c-0c7c7a410d9a
+colors = Dict("normal" => "seagreen", "anomaly" => "firebrick2")
 
 # ╔═╡ e0f94b82-0d4e-4240-a06f-89cb15306a76
 begin
@@ -17,6 +20,58 @@ begin
 	@sk_import svm : OneClassSVM
 	@sk_import preprocessing : StandardScaler
 end
+
+# ╔═╡ 5019e8ac-040f-48fd-98e8-21ff7970aa23
+set_theme!(
+    Theme(
+        palette = (color=[c for c in ColorSchemes.Dark2_5], marker=[:circle, :utriangle, :cross, :rect, :diamond, :dtriangle, :pentagon, :xcross]),
+        textcolor = :gray40,
+        linewidth=4,
+        fontsize=20,
+        resolution = (520, 400),
+        Axis = (
+            backgroundcolor = RGB(0.96, 1.0, 0.98),
+            xgridcolor = (:black, 0.15),
+            ygridcolor = (:black, 0.15),
+            leftspinevisible = false,
+            rightspinevisible = false,
+            ygridstyle=:dash,
+            xgridstyle=:dash,
+            bottomspinevisible = false,
+            topspinevisible = false,
+            xminorticksvisible = false,
+            yminorticksvisible = false,
+            xticksvisible = false,
+            yticksvisible = false,
+            xlabelpadding = 3,
+            ylabelpadding = 3
+        ),
+        Legend = (
+            framevisible = true,
+            titlehalign=:left,
+            titlesize=16,
+            labelsize=16,
+            framecolor=(:black, 0.5)
+            # padding = (1, 0, 0, 0),
+        ),
+        Axis3 = (
+            xgridcolor = (:black, 0.07),
+            ygridcolor = (:black, 0.07),
+            zgridcolor = (:black, 0.07),
+            xspinesvisible = false,
+            yspinesvisible = false,
+            zspinesvisible = false,
+            xticksvisible = false,
+            yticksvisible = false,
+            zticksvisible = false,
+        ),
+        Colorbar = (
+            ticksvisible = false,
+            spinewidth = 0,
+            ticklabelpad = 5,
+        )
+    )
+)
 
 # ╔═╡ d5c471c3-26be-46c0-a174-d580d0ed7f7d
 md"!!! example \"\"
@@ -149,7 +204,7 @@ md"!!! example \"\"
 # ╔═╡ c08184c1-54c1-4139-940f-25d2e6badf55
 function viz_adsorption_data(mof::String; viz_henry::Bool=true)
 	fig = Figure()
-	ax = Axis(fig[1, 1], xlabel="P(bar)", ylabel="m (g gas/g MOF)", title=mof)
+	ax = Axis(fig[1, 1], xlabel="pressure [bar]", ylabel="uptake [g gas/g MOF]", title=mof)
 	for gas in gases
 		data = isotherm_data(mof, gas)
 		scatter!(data[:, "P(bar)"], data[:, "N(g/g)"],
@@ -222,7 +277,7 @@ end
 
 # ╔═╡ 2b285e2f-4ab2-4670-9575-1410552eefed
 begin
-	n_gas_compositions = 100
+	n_gas_compositions = 75
 	gas_compositions = zeros(3, n_gas_compositions)
 	for g = 1:n_gas_compositions
 		gas_compositions[:, g] = sample_normal_gas_composition()
@@ -233,8 +288,9 @@ end
 # ╔═╡ 7b2103a7-2fa6-47fb-9fb4-c0edb3c41c09
 function viz_H2O_compositions(gas_compositions::Matrix{Float64})
 	fig = Figure()
-	ax = Axis(fig[1, 1], xlabel="RH H₂O", ylabel="# compositions")
+	ax = Axis(fig[1, 1], xlabel="p, H₂O [relative humidity]", ylabel="# compositions")
 	hist!(gas_compositions[3, :] / p_H2O_vapor)
+	save("H2O_compositions.pdf", fig)
 	fig
 end
 
@@ -244,9 +300,6 @@ viz_H2O_compositions(gas_compositions)
 # ╔═╡ cf3990ef-4eaa-4f02-ae7b-0836d18081db
 md"!!! example \"\" 
 	function to vizualize ethylene and CO2 compositions, I tried to iteratively add the scatters for the different types of anomalies so I could control their color but it isn't working"
-
-# ╔═╡ d01a36d4-f52b-4772-93fd-9aef43b30295
-collect(1:3:10)
 
 # ╔═╡ ee190ccc-15e4-416a-a58c-21bc62fde1a5
 md"!!! example \"\" 
@@ -275,6 +328,8 @@ end
 
 # ╔═╡ e97d395d-c3ab-4d51-ac52-49eb28659f65
 function viz_C2H4_CO2_composition(gas_compositions::Matrix{Float64})
+
+	
 	fig = Figure(resolution=(500, 500))
     # create panels
     ax_main  = Axis(fig[2, 1],
@@ -293,12 +348,17 @@ function viz_C2H4_CO2_composition(gas_compositions::Matrix{Float64})
     end
     ylims!(ax_right, 0, nothing)
 
-	scatter!(ax_main, gas_compositions[1, :]*1e6, gas_compositions[2, :]*1e6, strokewidth=1,
+	scatter!(ax_main, gas_compositions[1, :]*1e6, gas_compositions[2, :]*1e6, 
+		strokewidth=1, label="normal", strokecolor=colors["normal"],
 			 color=(:white, 0.0))
-	density!(ax_top, gas_compositions[1, :]*1e6)
-	density!(ax_right, gas_compositions[2, :]*1e6, direction=:y)
+	density!(ax_top, gas_compositions[1, :]*1e6, color=(colors["normal"], 0.5))
+	density!(ax_right, gas_compositions[2, :]*1e6, direction=:y, color=(colors["normal"], 0.5))
 
-	scatter!(ax_main, gas_compositions_anomaly[1, :]*1e6, gas_compositions_anomaly[2, :]*1e6)
+	scatter!(ax_main, gas_compositions_anomaly[1, :]*1e6, gas_compositions_anomaly[2, :]*1e6,
+		strokewidth=1, label="anomaly", strokecolor=colors["anomaly"],
+			 color=(:white, 0.0))
+	leg = Legend(fig[1,2], ax_main)
+	# axislegend(ax_main)
 
 
 # FUTURE WORK #
@@ -318,15 +378,12 @@ function viz_C2H4_CO2_composition(gas_compositions::Matrix{Float64})
 
     # create legend
     # leg = Legend(fig[1, 2], ax_main, "variety")
-
+	save("compositions.pdf", fig)
     fig
 end
 
 # ╔═╡ 7e38b475-9f8d-4af0-a044-a02cf394406c
 viz_C2H4_CO2_composition(gas_compositions)
-
-# ╔═╡ dcaa5198-596b-44d9-8ccc-8e18feb017fb
-gas_compositions_anomaly[1, :]*1e6
 
 # ╔═╡ c8d753c5-c53e-4073-b3f2-31b72f9c6b7e
 begin
@@ -358,10 +415,17 @@ begin
 		        ylabel="m, " * mofs[2] * "[g/g]", 
 				aspect=DataAspect(),
 		        title="sensor array responses")
-	scatter!(m[1, :], m[2, :], strokewidth=2, color=(:white, 0.0))
-	scatter!(m_anomaly[1, :], m_anomaly[2, :])
+	scatter!(m[1, :], m[2, :], strokewidth=1, 
+		     color=(:white, 0.0), strokecolor=colors["normal"],
+			 label="normal")
+	scatter!(m_anomaly[1, :], m_anomaly[2, :], strokewidth=1, 
+		     color=(:white, 0.0), strokecolor=colors["anomaly"],
+			 label="anomaly")
+	axislegend()
+	save("responses.pdf", fig_r)
 	# scatter!([m_anomaly[1]], [m_anomaly[2]], marker=:x, color=:red)
 	fig_r
+
 end
 
 # ╔═╡ a9c93bf0-b75f-421c-a289-2ae3b53b369a
@@ -370,15 +434,15 @@ md"!!! example \"\"
 
 # ╔═╡ af735015-999a-428c-bcec-defdad3caca6
 begin
-gamma = 0.38
-nu = 0.053
-	
-	
-fruit_gas_svm = OneClassSVM(kernel="rbf",gamma = gamma, nu=nu)
-scaler = StandardScaler().fit(transpose(m))
-m_scaled = scaler.transform(transpose(m))
-fruit_gas_svm.fit(m_scaled)
-anomalous_points = scaler.transform(transpose(m_anomaly))
+	gamma = 0.38
+	nu = 0.053
+	nu = 0.01
+		
+	fruit_gas_svm = OneClassSVM(kernel="rbf",gamma = gamma, nu=nu)
+	scaler = StandardScaler().fit(transpose(m))
+	m_scaled = scaler.transform(transpose(m))
+	fruit_gas_svm.fit(m_scaled)
+	anomalous_points = scaler.transform(transpose(m_anomaly))
 end
 
 # ╔═╡ 5c9714c4-46e5-4ad0-811e-e66a58ebe433
@@ -390,13 +454,13 @@ md"!!! example \"\"
 
 # ╔═╡ 0a0cab3a-0231-4d75-8ce6-fde439204082
 begin
-	color_map = RGBAf.(reverse(ColorSchemes.afmhot), 0.5) # custom colorscheme
+	color_map = RGBAf.(reverse(ColorSchemes.diverging_gwr_55_95_c38_n256), 0.5) # custom colorscheme
 	
-	grid_res = 50
+	grid_res = 100
 	feature_space_grid_axes = zeros(grid_res, 2)
 	
 	for axis_num = 1:2
-		feature_space_grid_axes[:, axis_num] = range(0.98 * minimum(m[axis_num, :]), 1.02*maximum(m[axis_num, :]), length=grid_res)
+		feature_space_grid_axes[:, axis_num] = range(0.99 * minimum(m[axis_num, :]), 1.01*maximum(m[axis_num, :]), length=grid_res)
 	end
 
 grid_predictions = zeros(grid_res, grid_res)
@@ -412,32 +476,45 @@ grid_predictions = zeros(grid_res, grid_res)
 	grid_predictions
 end
 
+# ╔═╡ 69cd1a26-9c2b-4885-81be-b9020318cc13
+minimum(grid_predictions)
+
+# ╔═╡ 7e51806a-cfcd-442a-a679-1691fc78b6b8
+maximum(grid_predictions)
+
 # ╔═╡ a1a6e4cf-1a15-4492-88f9-f2e68646dcb5
 begin
-	contour_fig = Figure()
+	contour_fig = Figure(resolution=(700, 700))
 	
 	ax1 = Axis(contour_fig[1,1], 
-			   xlabel = "m, " * mofs[1] * "[g/g]",
-			   ylabel = "m, " * mofs[2] * "[g/g]",
-			   aspect = DataAspect(),
-			   title = "one class SVM contour for anomaly detection")
+			   xlabel = "m, " * mofs[1] * " [g/g]",
+			   ylabel = "m, " * mofs[2] * " [g/g]",
+			   aspect = DataAspect())
+			   # title = "one class SVM contour for anomaly detection")
 	
 	pred_map = heatmap!(feature_space_grid_axes[:,1], 
       				    feature_space_grid_axes[:,2], 
 						grid_predictions, 
 						colormap = color_map, 
-						colorrange=(minimum(grid_predictions), 			 
-    					maximum(grid_predictions)))
+							# Paul: important here for colormap to be centered at zero.
+						colorrange=(-0.002, 0.002)
+	)
 
-	scatter!(m[1, :], m[2, :], strokewidth=1, color=(:white, 0.0))
-	scatter!(m_anomaly[1, :], m_anomaly[2, :])
+	scatter!(m[1, :], m[2, :], strokewidth=1, 
+		     color=(:white, 0.0), strokecolor=colors["normal"],
+			 label="normal")
+	scatter!(m_anomaly[1, :], m_anomaly[2, :], strokewidth=1, 
+		     color=(:white, 0.0), strokecolor=colors["anomaly"],
+			 label="anomaly")
 
 	contour!(feature_space_grid_axes[:, 1], 
 			 feature_space_grid_axes[:, 2], 		 
              grid_predictions, levels=[0.0], 
-			 color=:yellow)
+			 color=:black)
 
-contour_fig
+	Colorbar(contour_fig[1, 2], pred_map, label="anomaly score")
+	save("anomaly_scores.pdf", contour_fig)
+	contour_fig
 end
 
 # ╔═╡ 37a7cf65-13d1-442d-bfbb-d43392c7acae
@@ -523,6 +600,7 @@ PLUTO_PROJECT_TOML_CONTENTS = """
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 ColorSchemes = "35d6a980-a343-548e-a6ea-1d62b119f2f4"
+Colors = "5ae59095-9a9b-59fe-a467-6f913c188581"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 Optim = "429524aa-4258-5aef-a3af-852621145aeb"
@@ -533,6 +611,7 @@ ScikitLearn = "3646fa90-6ef7-5e7e-9f22-8aca16db6324"
 CSV = "~0.9.11"
 CairoMakie = "~0.6.6"
 ColorSchemes = "~3.15.0"
+Colors = "~0.12.8"
 DataFrames = "~1.2.2"
 Distributions = "~0.25.34"
 Optim = "~1.5.0"
@@ -1821,7 +1900,9 @@ version = "3.5.0+0"
 # ╔═╡ Cell order:
 # ╟─1784c510-5465-11ec-0dd1-13e5a66e4ce6
 # ╠═d090131e-6602-4c03-860c-ad3cb6c7844a
+# ╠═06409854-f2b6-4356-ab0c-0c7c7a410d9a
 # ╠═e0f94b82-0d4e-4240-a06f-89cb15306a76
+# ╟─5019e8ac-040f-48fd-98e8-21ff7970aa23
 # ╟─d5c471c3-26be-46c0-a174-d580d0ed7f7d
 # ╠═d657ed23-3eb4-49d0-a59c-811e8189c376
 # ╟─d5544844-21ed-4a8c-8715-45038b502453
@@ -1844,8 +1925,6 @@ version = "3.5.0+0"
 # ╠═820e8d39-935b-4078-a45f-7f3cb6cc5614
 # ╟─cf3990ef-4eaa-4f02-ae7b-0836d18081db
 # ╠═e97d395d-c3ab-4d51-ac52-49eb28659f65
-# ╠═d01a36d4-f52b-4772-93fd-9aef43b30295
-# ╠═dcaa5198-596b-44d9-8ccc-8e18feb017fb
 # ╠═7e38b475-9f8d-4af0-a044-a02cf394406c
 # ╠═ee190ccc-15e4-416a-a58c-21bc62fde1a5
 # ╠═b5aa0a1e-ff40-4b6a-b0dc-4fcc9f73842f
@@ -1859,6 +1938,8 @@ version = "3.5.0+0"
 # ╠═5c9714c4-46e5-4ad0-811e-e66a58ebe433
 # ╟─f89008c7-fb8a-4b5b-8dd1-67c80d7e8880
 # ╠═0a0cab3a-0231-4d75-8ce6-fde439204082
+# ╠═69cd1a26-9c2b-4885-81be-b9020318cc13
+# ╠═7e51806a-cfcd-442a-a679-1691fc78b6b8
 # ╠═a1a6e4cf-1a15-4492-88f9-f2e68646dcb5
 # ╟─37a7cf65-13d1-442d-bfbb-d43392c7acae
 # ╠═1acf5d25-62bc-43a3-b6ad-3ae10eefe001
