@@ -8,18 +8,8 @@ using InteractiveUtils
 using CairoMakie,CSV, DataFrames, ColorSchemes, Optim, Distributions, PlutoUI, ScikitLearn, Colors
 
 # ╔═╡ 1784c510-5465-11ec-0dd1-13e5a66e4ce6
-md"# Anomaly Detection for gas sensor arrays Using One-Class SVM
+md"# Generation of Ethylene, CO₂ and H₂O Henry Coefficients in ZIF-71 and ZIF-8 MOF sensors.
 "
-
-# ╔═╡ 06409854-f2b6-4356-ab0c-0c7c7a410d9a
-colors = Dict("normal" => "seagreen", "anomaly" => "firebrick2")
-
-# ╔═╡ e0f94b82-0d4e-4240-a06f-89cb15306a76
-begin
-	# import one class SVM and confusion matrix from scikit-learn
-	@sk_import svm : OneClassSVM
-	@sk_import preprocessing : StandardScaler
-end
 
 # ╔═╡ 5019e8ac-040f-48fd-98e8-21ff7970aa23
 set_theme!(
@@ -180,20 +170,19 @@ end
 
 # ╔═╡ da65b272-d989-44cb-9253-4987ee65da9a
 md"!!! example \"\"
-	Import data and store Henry Coefficients in data structure (nested dictionary):
+	Import data and store Henry Coefficients in data structure:
 "
 
 # ╔═╡ 3cacc179-a3cc-4d9c-8414-682848927c60
 begin
-	henry_coeffs = Dict{String, Dict{String, Float64}}()
+	henry_c = DataFrame(sensor = [], gas = [], henry_c = [])
 	for mof in mofs
-		henry_coeffs[mof] = Dict{String, Float64}()
 		for gas in gases
 			data = isotherm_data(mof, gas)
-			henry_coeffs[mof][gas] = fit_Henry(data[1:2, :])
+			push!(henry_c, [mof, gas, fit_Henry(data[1:2, :])])
 		end
 	end
-	henry_coeffs
+	henry_c
 end
 
 # ╔═╡ 2eeb4131-29ff-47a2-914b-70ea40b0d861
@@ -216,7 +205,8 @@ function viz_adsorption_data(mof::String; viz_henry::Bool=true)
 		# ps = range(0.0, 1.0, length=100)
 		for gas in gases
 			# data = isotherm_data(mof, gas)
-			ms = henry_coeffs[mof][gas] * ps
+			ms = filter(row -> row[:gas] == gas, 
+				  filter(row -> row[:sensor] == mof, henry_c)).henry_c[1] * ps
 			# opt_langmuir_params = fit_Langmuir_isotherm(data[1:7, :])
 			# ns = [n_langmuir(pᵢ, opt_langmuir_params) for pᵢ in ps]
 			lines!(ps, ms, color=gas_to_color[gas])
@@ -234,365 +224,13 @@ viz_adsorption_data(mofs[1])
 # ╔═╡ 536b6ed6-e656-4cc6-a4f2-efd9eba197d0
 viz_adsorption_data(mofs[2])
 
-# ╔═╡ d1870035-d14f-431a-a7e7-27cd6a9f3dc0
-md"!!! example \"\"
-	Create ripening room gas pressure distributions for normal conditions
-"
+# ╔═╡ d6920bb1-6bb5-4b18-88aa-17f8c78d8974
 
-# ╔═╡ 4245a664-9f18-4ca5-b14b-02f8d7c4bbe2
+
+# ╔═╡ 19c10c96-70f9-47a1-a2d8-9d8fb57c8d12
 begin
-	# water is the background nuissance gas.
-	p_H2O_vapor = 3.1690 * 0.01 # bar
-
-	μ_H2O = 0.9 * p_H2O_vapor
-	σ_H2O = 0.01 * p_H2O_vapor
-	p_H2O_distn = Normal(μ_H2O, σ_H2O)
-
-	μ_C2H4 = 200e-6
-	σ_C2H4 = 50e-6
-	p_C2H4_distn = Normal(μ_C2H4, σ_C2H4)
-
-	# Uniform distribution from 410*10^-6 to 5000*10^-6 bar.
-	p_CO2_distn = Uniform(410.0e-6, 5000.0e-6)
+	CSV.write("henry_coeffs.csv", henry_c)
 end
-
-# ╔═╡ 150bb1d3-afbd-415a-8ce6-a040f6c69e3a
-gases
-
-# ╔═╡ 69aff7c7-196a-4fee-9070-3d6b49fdaddf
-md"!!! example \"\" 
-	create gas compositions matrix, later this will be multiplied by Henry coefficient MOF matrix in order to yield a single vector value for each MOF."
-
-# ╔═╡ 8bd4eb78-7ec4-4d8a-b5af-9f8647214878
-function sample_normal_gas_composition()
-	p = zeros(3)
-	p[findfirst(gases .== "H2O")] = rand(p_H2O_distn)
-	p[findfirst(gases .== "CO2")] = rand(p_CO2_distn)
-	p[findfirst(gases .== "C2H4")] = rand(p_C2H4_distn)
-	if any(p .< 0.0)
-		return sample_normal_gas_composition()
-	end
-	return p
-end
-
-# ╔═╡ 2b285e2f-4ab2-4670-9575-1410552eefed
-begin
-	n_gas_compositions = 75
-	gas_compositions = zeros(3, n_gas_compositions)
-	for g = 1:n_gas_compositions
-		gas_compositions[:, g] = sample_normal_gas_composition()
-	end
-	gas_compositions
-end
-
-# ╔═╡ 7b2103a7-2fa6-47fb-9fb4-c0edb3c41c09
-function viz_H2O_compositions(gas_compositions::Matrix{Float64})
-	fig = Figure()
-	ax = Axis(fig[1, 1], xlabel="p, H₂O [relative humidity]", ylabel="# compositions")
-	hist!(gas_compositions[3, :] / p_H2O_vapor)
-	save("H2O_compositions.pdf", fig)
-	fig
-end
-
-# ╔═╡ 820e8d39-935b-4078-a45f-7f3cb6cc5614
-viz_H2O_compositions(gas_compositions)
-
-# ╔═╡ cf3990ef-4eaa-4f02-ae7b-0836d18081db
-md"!!! example \"\" 
-	function to vizualize ethylene and CO2 compositions, I tried to iteratively add the scatters for the different types of anomalies so I could control their color but it isn't working"
-
-# ╔═╡ ee190ccc-15e4-416a-a58c-21bc62fde1a5
-md"!!! example \"\" 
-	create a matrix of anomalous compositions"
-
-# ╔═╡ b5aa0a1e-ff40-4b6a-b0dc-4fcc9f73842f
-begin
-	gas_compositions_anomaly = zeros(3, 12)
-	id_anomaly = 1
-	for i = 1:4
-		# ethylene not on
-		gas_compositions_anomaly[:, id_anomaly] = [0.0, 410.0e-6, rand(p_H2O_distn)]
-		id_anomaly += 1
-		# too much ethylene at start-up
-		gas_compositions_anomaly[:, id_anomaly] = [1200.0e-6, 410.0e-6, rand(p_H2O_distn)]
-		id_anomaly += 1
-		# too much CO2 build up
-		gas_compositions_anomaly[:, id_anomaly] = [rand(p_C2H4_distn), rand(Uniform(10000e-6, 15000e-6)), rand(p_H2O_distn)]
-		id_anomaly += 1
-		# loss of humidity
-		# gas_compositions_anomaly[:, id_anomaly] = [rand(p_C2H4_distn), rand(p_CO2_distn), rand(Uniform(0.0, 0.5 * p_H2O_vapor))]
-		# id_anomaly += 1
-	end
-	gas_compositions_anomaly
-end
-
-# ╔═╡ e97d395d-c3ab-4d51-ac52-49eb28659f65
-function viz_C2H4_CO2_composition(gas_compositions::Matrix{Float64})
-
-	
-	fig = Figure(resolution=(500, 500))
-    # create panels
-    ax_main  = Axis(fig[2, 1],
-                xlabel="p, $(gas_to_pretty_name[gases[1]]) [ppm]",
-                ylabel="p, $(gas_to_pretty_name[gases[2]]) [ppm]"
-	)
-    ax_top   = Axis(fig[1, 1], ylabel="density", ticklabels=[], aspect=AxisAspect(2))
-    ax_right = Axis(fig[2, 2], xlabel="density", aspect=AxisAspect(0.5))
-    hidedecorations!(ax_top, grid=false, label=false)
-    hidedecorations!(ax_right, grid=false, label=false)
-    linkyaxes!(ax_main, ax_right)
-    linkxaxes!(ax_main, ax_top)
-    for c in 1:2
-        colsize!(fig.layout, c, Relative(.5))
-        rowsize!(fig.layout, c, Relative(.5))
-    end
-    ylims!(ax_right, 0, nothing)
-
-	scatter!(ax_main, gas_compositions[1, :]*1e6, gas_compositions[2, :]*1e6, 
-		strokewidth=1, label="normal", strokecolor=colors["normal"],
-			 color=(:white, 0.0))
-	density!(ax_top, gas_compositions[1, :]*1e6, color=(colors["normal"], 0.5))
-	density!(ax_right, gas_compositions[2, :]*1e6, direction=:y, color=(colors["normal"], 0.5))
-
-	scatter!(ax_main, gas_compositions_anomaly[1, :]*1e6, gas_compositions_anomaly[2, :]*1e6,
-		strokewidth=1, label="anomaly", strokecolor=colors["anomaly"],
-			 color=(:white, 0.0))
-	leg = Legend(fig[1,2], ax_main)
-	# axislegend(ax_main)
-
-
-# FUTURE WORK #
-	# Redesign anomolous data so that it can easily be identified by its properties.
-	
-	#make anomaly data frame
-	#=
-	for j = 1:3:10
-		for anomaly_id = 1:3
-			scatter!(ax_main, gas_compositions_anomaly[1, j+anomaly_id-1].*1e6, 
-             		 gas_compositions_anomaly[2, j+anomaly_id-1].*1e6, 
-             		 color=ColorSchemes.Accent_3[anomaly_id])
-		end
-	end
-	=#
-	
-
-    # create legend
-    # leg = Legend(fig[1, 2], ax_main, "variety")
-	save("compositions.pdf", fig)
-    fig
-end
-
-# ╔═╡ 7e38b475-9f8d-4af0-a044-a02cf394406c
-viz_C2H4_CO2_composition(gas_compositions)
-
-# ╔═╡ c8d753c5-c53e-4073-b3f2-31b72f9c6b7e
-begin
-
-# construct Henry coefficient matrix
-	
-H = [henry_coeffs[mof][gas] for mof in mofs, gas in gases]
-
-# sensor array responses for distribution and anomalies
-
-m = H * gas_compositions
-
-m_anomaly = H * gas_compositions_anomaly
-	
-end
-
-# ╔═╡ 17b7e7f2-f6cc-4c4a-8403-70b4d4455b41
-
-
-# ╔═╡ ecf86f67-114e-482e-9429-1dc6fdb62c7c
-md"!!! example \"\" 
-	visualization of sensor array responses"
-
-# ╔═╡ ad9e96d5-7668-4e5a-950d-e5a6bfd29db7
-begin
-	fig_r = Figure(resolution=(700, 700))
-	ax_r = Axis(fig_r[1, 1], 
-		        xlabel="m, " * mofs[1] * "[g/g]",
-		        ylabel="m, " * mofs[2] * "[g/g]", 
-				aspect=DataAspect(),
-		        title="sensor array responses")
-	scatter!(m[1, :], m[2, :], strokewidth=1, 
-		     color=(:white, 0.0), strokecolor=colors["normal"],
-			 label="normal")
-	scatter!(m_anomaly[1, :], m_anomaly[2, :], strokewidth=1, 
-		     color=(:white, 0.0), strokecolor=colors["anomaly"],
-			 label="anomaly")
-	axislegend()
-	save("responses.pdf", fig_r)
-	# scatter!([m_anomaly[1]], [m_anomaly[2]], marker=:x, color=:red)
-	fig_r
-
-end
-
-# ╔═╡ a9c93bf0-b75f-421c-a289-2ae3b53b369a
-md"!!! example \"\" 
-	Fit a one class support vector machine to the training data."
-
-# ╔═╡ af735015-999a-428c-bcec-defdad3caca6
-begin
-	gamma = 0.38
-	nu = 0.053
-	nu = 0.01
-		
-	fruit_gas_svm = OneClassSVM(kernel="rbf",gamma = gamma, nu=nu)
-	scaler = StandardScaler().fit(transpose(m))
-	m_scaled = scaler.transform(transpose(m))
-	fruit_gas_svm.fit(m_scaled)
-	anomalous_points = scaler.transform(transpose(m_anomaly))
-end
-
-# ╔═╡ 5c9714c4-46e5-4ad0-811e-e66a58ebe433
-fruit_gas_svm.predict(anomalous_points)
-
-# ╔═╡ f89008c7-fb8a-4b5b-8dd1-67c80d7e8880
-md"!!! example \"\" 
-	Create a grid of anomolous scores and plot a colormap to visualize the training data and decision boundary for the one class support vector machine"
-
-# ╔═╡ 0a0cab3a-0231-4d75-8ce6-fde439204082
-begin
-	color_map = RGBAf.(reverse(ColorSchemes.diverging_gwr_55_95_c38_n256), 0.5) # custom colorscheme
-	
-	grid_res = 100
-	feature_space_grid_axes = zeros(grid_res, 2)
-	
-	for axis_num = 1:2
-		feature_space_grid_axes[:, axis_num] = range(0.99 * minimum(m[axis_num, :]), 1.01*maximum(m[axis_num, :]), length=grid_res)
-	end
-
-grid_predictions = zeros(grid_res, grid_res)
-
-	for i = 1:grid_res
-		for j = 1:grid_res
-			grid_point = [feature_space_grid_axes[i, 1] feature_space_grid_axes[j, 2]] 
-			grid_point_t = scaler.transform(grid_point)
-			grid_predictions[i, j] = fruit_gas_svm.decision_function(grid_point_t)[1]
-		end
-	end
-
-	grid_predictions
-end
-
-# ╔═╡ 69cd1a26-9c2b-4885-81be-b9020318cc13
-minimum(grid_predictions)
-
-# ╔═╡ 7e51806a-cfcd-442a-a679-1691fc78b6b8
-maximum(grid_predictions)
-
-# ╔═╡ a1a6e4cf-1a15-4492-88f9-f2e68646dcb5
-begin
-	contour_fig = Figure(resolution=(700, 700))
-	
-	ax1 = Axis(contour_fig[1,1], 
-			   xlabel = "m, " * mofs[1] * " [g/g]",
-			   ylabel = "m, " * mofs[2] * " [g/g]",
-			   aspect = DataAspect())
-			   # title = "one class SVM contour for anomaly detection")
-	
-	pred_map = heatmap!(feature_space_grid_axes[:,1], 
-      				    feature_space_grid_axes[:,2], 
-						grid_predictions, 
-						colormap = color_map, 
-							# Paul: important here for colormap to be centered at zero.
-						colorrange=(-0.002, 0.002)
-	)
-
-	scatter!(m[1, :], m[2, :], strokewidth=1, 
-		     color=(:white, 0.0), strokecolor=colors["normal"],
-			 label="normal")
-	scatter!(m_anomaly[1, :], m_anomaly[2, :], strokewidth=1, 
-		     color=(:white, 0.0), strokecolor=colors["anomaly"],
-			 label="anomaly")
-
-	contour!(feature_space_grid_axes[:, 1], 
-			 feature_space_grid_axes[:, 2], 		 
-             grid_predictions, levels=[0.0], 
-			 color=:black)
-
-	Colorbar(contour_fig[1, 2], pred_map, label="anomaly score")
-	save("anomaly_scores.pdf", contour_fig)
-	contour_fig
-end
-
-# ╔═╡ 37a7cf65-13d1-442d-bfbb-d43392c7acae
-md"!!! example \"\" 
-	Create a second distribution of normal values to test with our trained one class SVM and visualize results with a confusion matrix"
-
-# ╔═╡ 1acf5d25-62bc-43a3-b6ad-3ae10eefe001
-begin
-	test_gas_compositions = zeros(3, n_gas_compositions)
-	for g = 1:n_gas_compositions
-		test_gas_compositions[:, g] = sample_normal_gas_composition()
-	end
-	test_gas_compositions
-end
-
-# ╔═╡ 6591e930-8952-449a-8418-82a96b20fec9
-function viz_confusion_matrix(cm::Matrix{Float64}, naming::Vector{String})
-    fig = Figure()
-    ax = Axis(fig[1, 1],
-              xticks=([1, 2], naming),
-              yticks=([1, 2], naming),
-			  xticklabelrotation=45.0,
-              ylabel="true",
-              xlabel="prediction"
-    )
-    hm = heatmap!(cm, colormap=ColorSchemes.algae, colorrange=(0, sum(cm)))
-    for i = 1:2
-        for j = 1:2
-            text!("$(cm[i, j])",
-                  position=(i, j), align=(:center, :center), color=:black)
-        end
-    end
-    Colorbar(fig[1, 2], hm, label="num of detector points")
-    fig
-end
-
-# ╔═╡ 75b10a33-19e5-4e96-ac65-144c4ec0c660
-begin
-	matrix_ticks = ["anomolous", "normal"]
-	
-	conf_matrix = zeros(2,2)
-	test_gas_matrix = H * test_gas_compositions
-	test_gas_points = scaler.transform(transpose(test_gas_matrix))
-
-	normal_predictions = fruit_gas_svm.predict(test_gas_points)
-	anomalous_predictions = fruit_gas_svm.predict(anomalous_points)
-	
-	for i = 1:length(normal_predictions)
-		if(normal_predictions[i] == 1)
-			conf_matrix[2,2] += 1
-		else
-			conf_matrix[1,2] += 1
-		end
-	end
-
-	for i = 1:length(anomalous_predictions)
-		if(anomalous_predictions[i] == -1)
-			conf_matrix[1,1] += 1
-		else
-			conf_matrix[2,1] += 1
-		end
-	end 
-end
-
-# ╔═╡ 13f4c61a-2e80-46c3-9ee1-657ad7b92ea1
-
-
-# ╔═╡ 91329c4d-fb0a-4c98-be52-608fb72820cf
-percent_correctly_predicted_normals = conf_matrix[2,2]/length(normal_predictions)
-
-# ╔═╡ 4cc53559-5af9-42d8-84c7-9c9006770d34
-percent_correctly_predicted_normals
-
-# ╔═╡ 24936b61-9669-43d1-851e-532f50f07e55
-percent_correctly_predicted_anomalies = conf_matrix[1,1]/length(anomalous_predictions)
-
-# ╔═╡ 031756b3-6cf2-44d0-acf6-be6a51f15c26
-viz_confusion_matrix(conf_matrix, matrix_ticks)
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -1900,8 +1538,6 @@ version = "3.5.0+0"
 # ╔═╡ Cell order:
 # ╟─1784c510-5465-11ec-0dd1-13e5a66e4ce6
 # ╠═d090131e-6602-4c03-860c-ad3cb6c7844a
-# ╠═06409854-f2b6-4356-ab0c-0c7c7a410d9a
-# ╠═e0f94b82-0d4e-4240-a06f-89cb15306a76
 # ╟─5019e8ac-040f-48fd-98e8-21ff7970aa23
 # ╟─d5c471c3-26be-46c0-a174-d580d0ed7f7d
 # ╠═d657ed23-3eb4-49d0-a59c-811e8189c376
@@ -1915,39 +1551,7 @@ version = "3.5.0+0"
 # ╠═c08184c1-54c1-4139-940f-25d2e6badf55
 # ╠═f6890756-0753-4c49-bd89-bee2b71fe550
 # ╠═536b6ed6-e656-4cc6-a4f2-efd9eba197d0
-# ╠═d1870035-d14f-431a-a7e7-27cd6a9f3dc0
-# ╠═4245a664-9f18-4ca5-b14b-02f8d7c4bbe2
-# ╠═150bb1d3-afbd-415a-8ce6-a040f6c69e3a
-# ╟─69aff7c7-196a-4fee-9070-3d6b49fdaddf
-# ╠═8bd4eb78-7ec4-4d8a-b5af-9f8647214878
-# ╠═2b285e2f-4ab2-4670-9575-1410552eefed
-# ╠═7b2103a7-2fa6-47fb-9fb4-c0edb3c41c09
-# ╠═820e8d39-935b-4078-a45f-7f3cb6cc5614
-# ╟─cf3990ef-4eaa-4f02-ae7b-0836d18081db
-# ╠═e97d395d-c3ab-4d51-ac52-49eb28659f65
-# ╠═7e38b475-9f8d-4af0-a044-a02cf394406c
-# ╠═ee190ccc-15e4-416a-a58c-21bc62fde1a5
-# ╠═b5aa0a1e-ff40-4b6a-b0dc-4fcc9f73842f
-# ╠═c8d753c5-c53e-4073-b3f2-31b72f9c6b7e
-# ╠═17b7e7f2-f6cc-4c4a-8403-70b4d4455b41
-# ╟─ecf86f67-114e-482e-9429-1dc6fdb62c7c
-# ╠═ad9e96d5-7668-4e5a-950d-e5a6bfd29db7
-# ╟─a9c93bf0-b75f-421c-a289-2ae3b53b369a
-# ╠═af735015-999a-428c-bcec-defdad3caca6
-# ╠═4cc53559-5af9-42d8-84c7-9c9006770d34
-# ╠═5c9714c4-46e5-4ad0-811e-e66a58ebe433
-# ╟─f89008c7-fb8a-4b5b-8dd1-67c80d7e8880
-# ╠═0a0cab3a-0231-4d75-8ce6-fde439204082
-# ╠═69cd1a26-9c2b-4885-81be-b9020318cc13
-# ╠═7e51806a-cfcd-442a-a679-1691fc78b6b8
-# ╠═a1a6e4cf-1a15-4492-88f9-f2e68646dcb5
-# ╟─37a7cf65-13d1-442d-bfbb-d43392c7acae
-# ╠═1acf5d25-62bc-43a3-b6ad-3ae10eefe001
-# ╠═6591e930-8952-449a-8418-82a96b20fec9
-# ╠═75b10a33-19e5-4e96-ac65-144c4ec0c660
-# ╠═13f4c61a-2e80-46c3-9ee1-657ad7b92ea1
-# ╠═91329c4d-fb0a-4c98-be52-608fb72820cf
-# ╠═24936b61-9669-43d1-851e-532f50f07e55
-# ╠═031756b3-6cf2-44d0-acf6-be6a51f15c26
+# ╠═d6920bb1-6bb5-4b18-88aa-17f8c78d8974
+# ╠═19c10c96-70f9-47a1-a2d8-9d8fb57c8d12
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
