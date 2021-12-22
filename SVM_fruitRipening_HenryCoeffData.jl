@@ -225,7 +225,9 @@ viz_adsorption_data(mofs[1])
 viz_adsorption_data(mofs[2])
 
 # ╔═╡ d6920bb1-6bb5-4b18-88aa-17f8c78d8974
-
+md"!!! example \"\"
+	Export Henry Coefficient DataFrame.
+"
 
 # ╔═╡ 19c10c96-70f9-47a1-a2d8-9d8fb57c8d12
 begin
@@ -1551,7 +1553,7 @@ version = "3.5.0+0"
 # ╠═c08184c1-54c1-4139-940f-25d2e6badf55
 # ╠═f6890756-0753-4c49-bd89-bee2b71fe550
 # ╠═536b6ed6-e656-4cc6-a4f2-efd9eba197d0
-# ╠═d6920bb1-6bb5-4b18-88aa-17f8c78d8974
+# ╟─d6920bb1-6bb5-4b18-88aa-17f8c78d8974
 # ╠═19c10c96-70f9-47a1-a2d8-9d8fb57c8d12
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

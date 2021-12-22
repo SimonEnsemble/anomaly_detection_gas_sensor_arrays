@@ -295,9 +295,13 @@ begin
 	scatter!(m[1, :], m[2, :], strokewidth=1, 
 		     color=(:white, 0.0), strokecolor=colors["normal"],
 			 label="normal")
+	
 	for i = 1:num_anomalies
-		scatter!(m_anomaly[i][1, :], m_anomaly[i][2, :], strokewidth=1, 
-			     color=(:white, 0.0), strokecolor=ColorSchemes.RdBu_10[i],
+		scatter!(m_anomaly[i][1, :], 
+				 m_anomaly[i][2, :], 
+				 strokewidth=1, 
+			     color=(:white, 0.0), 
+				 strokecolor=ColorSchemes.RdBu_10[i],
 				 label="$(anomaly_labels[i])")
 	end
 	
@@ -308,171 +312,33 @@ begin
 
 end
 
-# ╔═╡ a9c93bf0-b75f-421c-a289-2ae3b53b369a
-md"!!! example \"\" 
-	Fit a one class support vector machine to the training data."
-
-# ╔═╡ af735015-999a-428c-bcec-defdad3caca6
-begin
-	gamma = 0.38
-	nu = 0.053
-	nu = 0.01
-		
-	fruit_gas_svm = OneClassSVM(kernel="rbf",gamma = gamma, nu=nu)
-	scaler = StandardScaler().fit(transpose(m))
-	m_scaled = scaler.transform(transpose(m))
-	fruit_gas_svm.fit(m_scaled)
-	anomalous_points = scaler.transform(transpose(m_anomaly))
-end
-
-# ╔═╡ 5c9714c4-46e5-4ad0-811e-e66a58ebe433
-fruit_gas_svm.predict(anomalous_points)
-
-# ╔═╡ f89008c7-fb8a-4b5b-8dd1-67c80d7e8880
-md"!!! example \"\" 
-	Create a grid of anomolous scores and plot a colormap to visualize the training data and decision boundary for the one class support vector machine"
-
-# ╔═╡ 0a0cab3a-0231-4d75-8ce6-fde439204082
-begin
-	color_map = RGBAf.(reverse(ColorSchemes.diverging_gwr_55_95_c38_n256), 0.5) # custom colorscheme
-	
-	grid_res = 100
-	feature_space_grid_axes = zeros(grid_res, 2)
-	
-	for axis_num = 1:2
-		feature_space_grid_axes[:, axis_num] = range(0.99 * minimum(m[axis_num, :]), 1.01*maximum(m[axis_num, :]), length=grid_res)
-	end
-
-grid_predictions = zeros(grid_res, grid_res)
-
-	for i = 1:grid_res
-		for j = 1:grid_res
-			grid_point = [feature_space_grid_axes[i, 1] feature_space_grid_axes[j, 2]] 
-			grid_point_t = scaler.transform(grid_point)
-			grid_predictions[i, j] = fruit_gas_svm.decision_function(grid_point_t)[1]
-		end
-	end
-
-	grid_predictions
-end
-
-# ╔═╡ 69cd1a26-9c2b-4885-81be-b9020318cc13
-minimum(grid_predictions)
-
-# ╔═╡ 7e51806a-cfcd-442a-a679-1691fc78b6b8
-maximum(grid_predictions)
-
-# ╔═╡ a1a6e4cf-1a15-4492-88f9-f2e68646dcb5
-begin
-	contour_fig = Figure(resolution=(700, 700))
-	
-	ax1 = Axis(contour_fig[1,1], 
-			   xlabel = "m, " * mofs[1] * " [g/g]",
-			   ylabel = "m, " * mofs[2] * " [g/g]",
-			   aspect = DataAspect())
-			   # title = "one class SVM contour for anomaly detection")
-	
-	pred_map = heatmap!(feature_space_grid_axes[:,1], 
-      				    feature_space_grid_axes[:,2], 
-						grid_predictions, 
-						colormap = color_map, 
-							# Paul: important here for colormap to be centered at zero.
-						colorrange=(-0.002, 0.002)
-	)
-
-	scatter!(m[1, :], m[2, :], strokewidth=1, 
-		     color=(:white, 0.0), strokecolor=colors["normal"],
-			 label="normal")
-	scatter!(m_anomaly[1, :], m_anomaly[2, :], strokewidth=1, 
-		     color=(:white, 0.0), strokecolor=colors["anomaly"],
-			 label="anomaly")
-
-	contour!(feature_space_grid_axes[:, 1], 
-			 feature_space_grid_axes[:, 2], 		 
-             grid_predictions, levels=[0.0], 
-			 color=:black)
-
-	Colorbar(contour_fig[1, 2], pred_map, label="anomaly score")
-	save("anomaly_scores.pdf", contour_fig)
-	contour_fig
-end
-
-# ╔═╡ 37a7cf65-13d1-442d-bfbb-d43392c7acae
-md"!!! example \"\" 
-	Create a second distribution of normal values to test with our trained one class SVM and visualize results with a confusion matrix"
-
-# ╔═╡ 1acf5d25-62bc-43a3-b6ad-3ae10eefe001
-begin
-	test_gas_compositions = zeros(3, n_gas_compositions)
-	for g = 1:n_gas_compositions
-		test_gas_compositions[:, g] = sample_normal_gas_composition()
-	end
-	test_gas_compositions
-end
-
-# ╔═╡ 6591e930-8952-449a-8418-82a96b20fec9
-function viz_confusion_matrix(cm::Matrix{Float64}, naming::Vector{String})
-    fig = Figure()
-    ax = Axis(fig[1, 1],
-              xticks=([1, 2], naming),
-              yticks=([1, 2], naming),
-			  xticklabelrotation=45.0,
-              ylabel="true",
-              xlabel="prediction"
-    )
-    hm = heatmap!(cm, colormap=ColorSchemes.algae, colorrange=(0, sum(cm)))
-    for i = 1:2
-        for j = 1:2
-            text!("$(cm[i, j])",
-                  position=(i, j), align=(:center, :center), color=:black)
-        end
-    end
-    Colorbar(fig[1, 2], hm, label="num of detector points")
-    fig
-end
-
-# ╔═╡ 75b10a33-19e5-4e96-ac65-144c4ec0c660
-begin
-	matrix_ticks = ["anomolous", "normal"]
-	
-	conf_matrix = zeros(2,2)
-	test_gas_matrix = H * test_gas_compositions
-	test_gas_points = scaler.transform(transpose(test_gas_matrix))
-
-	normal_predictions = fruit_gas_svm.predict(test_gas_points)
-	anomalous_predictions = fruit_gas_svm.predict(anomalous_points)
-	
-	for i = 1:length(normal_predictions)
-		if(normal_predictions[i] == 1)
-			conf_matrix[2,2] += 1
-		else
-			conf_matrix[1,2] += 1
-		end
-	end
-
-	for i = 1:length(anomalous_predictions)
-		if(anomalous_predictions[i] == -1)
-			conf_matrix[1,1] += 1
-		else
-			conf_matrix[2,1] += 1
-		end
-	end 
-end
-
 # ╔═╡ 13f4c61a-2e80-46c3-9ee1-657ad7b92ea1
+md"!!! example \"\"
+	Store normal and anomalous sensor array responses as a data frame and export CSV file.
+"
 
+# ╔═╡ 77bc7e89-8967-46ce-aeed-cbbafe71285d
+begin
+	sensor_responses = DataFrame(m_ZIF_71 = [], m_ZIF_8 = [], anomalous_label = [])
 
-# ╔═╡ 91329c4d-fb0a-4c98-be52-608fb72820cf
-percent_correctly_predicted_normals = conf_matrix[2,2]/length(normal_predictions)
+	for i = 1:n_gas_compositions
+		push!(sensor_responses, [m[1, i], m[2, i], "normal"])
+	end
 
-# ╔═╡ 4cc53559-5af9-42d8-84c7-9c9006770d34
-percent_correctly_predicted_normals
+	for i = 1:num_anomalies
+		for j = 1:num_anomalous_points
+			push!(sensor_responses, 
+				  [m_anomaly[i][1, j], m_anomaly[i][2, j], anomaly_labels[i]])
+		end
+	end
 
-# ╔═╡ 24936b61-9669-43d1-851e-532f50f07e55
-percent_correctly_predicted_anomalies = conf_matrix[1,1]/length(anomalous_predictions)
+	sensor_responses
+end
 
-# ╔═╡ 031756b3-6cf2-44d0-acf6-be6a51f15c26
-viz_confusion_matrix(conf_matrix, matrix_ticks)
+# ╔═╡ 2318b9ae-f3ae-449c-be2c-4eee0d898695
+begin
+	CSV.write("generated_sensor_data.csv", sensor_responses)
+end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -1801,22 +1667,8 @@ version = "3.5.0+0"
 # ╠═17b7e7f2-f6cc-4c4a-8403-70b4d4455b41
 # ╟─ecf86f67-114e-482e-9429-1dc6fdb62c7c
 # ╠═ad9e96d5-7668-4e5a-950d-e5a6bfd29db7
-# ╟─a9c93bf0-b75f-421c-a289-2ae3b53b369a
-# ╠═af735015-999a-428c-bcec-defdad3caca6
-# ╠═4cc53559-5af9-42d8-84c7-9c9006770d34
-# ╠═5c9714c4-46e5-4ad0-811e-e66a58ebe433
-# ╟─f89008c7-fb8a-4b5b-8dd1-67c80d7e8880
-# ╠═0a0cab3a-0231-4d75-8ce6-fde439204082
-# ╠═69cd1a26-9c2b-4885-81be-b9020318cc13
-# ╠═7e51806a-cfcd-442a-a679-1691fc78b6b8
-# ╠═a1a6e4cf-1a15-4492-88f9-f2e68646dcb5
-# ╟─37a7cf65-13d1-442d-bfbb-d43392c7acae
-# ╠═1acf5d25-62bc-43a3-b6ad-3ae10eefe001
-# ╠═6591e930-8952-449a-8418-82a96b20fec9
-# ╠═75b10a33-19e5-4e96-ac65-144c4ec0c660
-# ╠═13f4c61a-2e80-46c3-9ee1-657ad7b92ea1
-# ╠═91329c4d-fb0a-4c98-be52-608fb72820cf
-# ╠═24936b61-9669-43d1-851e-532f50f07e55
-# ╠═031756b3-6cf2-44d0-acf6-be6a51f15c26
+# ╟─13f4c61a-2e80-46c3-9ee1-657ad7b92ea1
+# ╠═77bc7e89-8967-46ce-aeed-cbbafe71285d
+# ╠═2318b9ae-f3ae-449c-be2c-4eee0d898695
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
