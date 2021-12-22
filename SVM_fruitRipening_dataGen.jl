@@ -12,7 +12,7 @@ md"# Data Generation for Gas Sensor Arrays in a Fruit Ripening Room
 "
 
 # ╔═╡ 06409854-f2b6-4356-ab0c-0c7c7a410d9a
-colors = Dict("normal" => "seagreen", "anomaly" => "firebrick2")
+colors = Dict("normal" => "seagreen", "anomaly" => "Reds_9")
 
 # ╔═╡ e0f94b82-0d4e-4240-a06f-89cb15306a76
 begin
@@ -164,32 +164,32 @@ md"!!! example \"\"
 md"!!! example \"\" 
 	create a matrix of anomalous compositions"
 
-# ╔═╡ 21350b58-adbb-4e0a-8d7f-da770e019d87
-md"# ***CONTINUE WORK HERE!!!***
-"
-
 # ╔═╡ b5aa0a1e-ff40-4b6a-b0dc-4fcc9f73842f
 begin
 	#change to add new anomalies
 	num_anomalies = 3
 
+	#anomaly labels
+	anomaly_labels = ["no ethylene", "ethylene spike", "CO₂ buildup"]
+
 	#change to increase/decrease the number of anomalous points per anomaly
 	num_anomalous_points = 20
 
 	#empty anomalous matrix
-	gas_compositions_anomaly = zeros(num_anomalies, 3, num_anomalous_points)
+	gas_compositions_anomaly = zeros(3, num_anomalous_points, num_anomalies)
 
 	for i = 1:num_anomalous_points
 		id_anomaly = 1
 		
-		# ethylene not on
-		gas_compositions_anomaly[:, id_anomaly] = [0.0, 410.0e-6, rand(p_H2O_distn)]
+		# ethylene not on, anomaly ID 1
+		gas_compositions_anomaly[:, i, id_anomaly] = 
+			[0.0, 410.0e-6, rand(p_H2O_distn)]
 		id_anomaly += 1
-		# too much ethylene at start-up
-		gas_compositions_anomaly[:, id_anomaly] = [1200.0e-6, 410.0e-6, rand(p_H2O_distn)]
+		# too much ethylene at start-up, anomaly ID 2
+		gas_compositions_anomaly[:, i, id_anomaly] = [1200.0e-6, 410.0e-6, rand(p_H2O_distn)]
 		id_anomaly += 1
-		# too much CO2 build up
-		gas_compositions_anomaly[:, id_anomaly] = [rand(p_C2H4_distn), rand(Uniform(10000e-6, 15000e-6)), rand(p_H2O_distn)]
+		# too much CO2 build up, anomaly ID 3
+		gas_compositions_anomaly[:, i, id_anomaly] = [rand(p_C2H4_distn), rand(Uniform(10000e-6, 15000e-6)), rand(p_H2O_distn)]
 		id_anomaly += 1
 		# loss of humidity
 		# gas_compositions_anomaly[:, id_anomaly] = [rand(p_C2H4_distn), rand(p_CO2_distn), rand(Uniform(0.0, 0.5 * p_H2O_vapor))]
@@ -220,41 +220,44 @@ function viz_C2H4_CO2_composition(gas_compositions::Matrix{Float64})
     end
     ylims!(ax_right, 0, nothing)
 
-	scatter!(ax_main, gas_compositions[1, :]*1e6, gas_compositions[2, :]*1e6, 
-		strokewidth=1, label="normal", strokecolor=colors["normal"],
+	#scatter plot of normal compositions
+	scatter!(ax_main, 
+			 gas_compositions[1, :]*1e6, 
+			 gas_compositions[2, :]*1e6, 
+			 strokewidth=1, 
+			 label="normal", 
+			 strokecolor=colors["normal"],
 			 color=(:white, 0.0))
-	density!(ax_top, gas_compositions[1, :]*1e6, color=(colors["normal"], 0.5))
-	density!(ax_right, gas_compositions[2, :]*1e6, direction=:y, color=(colors["normal"], 0.5))
 
-	scatter!(ax_main, gas_compositions_anomaly[1, :]*1e6, gas_compositions_anomaly[2, :]*1e6,
-		strokewidth=1, label="anomaly", strokecolor=colors["anomaly"],
-			 color=(:white, 0.0))
-	leg = Legend(fig[1,2], ax_main)
-	# axislegend(ax_main)
+	#density of normal compositions
+	density!(ax_top, 
+			 gas_compositions[1, :]*1e6, 
+			 color=(colors["normal"], 0.5))
+	density!(ax_right, 
+			 gas_compositions[2, :]*1e6, 
+			 direction=:y, 
+			 color=(colors["normal"], 0.5))
 
 
-# FUTURE WORK #
-	# Redesign anomolous data so that it can easily be identified by its properties.
-	
-	#make anomaly data frame
-	#=
-	for j = 1:3:10
-		for anomaly_id = 1:3
-			scatter!(ax_main, gas_compositions_anomaly[1, j+anomaly_id-1].*1e6, 
-             		 gas_compositions_anomaly[2, j+anomaly_id-1].*1e6, 
-             		 color=ColorSchemes.Accent_3[anomaly_id])
-		end
+	#scatter for anomalous compositions
+	for i = 1:num_anomalies
+		scatter!(ax_main, 
+				 gas_compositions_anomaly[1, :, i]*1e6, 
+				 gas_compositions_anomaly[2, :, i]*1e6, 
+				 strokewidth=1, color=(:white, 0.0),
+				 strokecolor=ColorSchemes.RdBu_10[i], 
+				 label="$(anomaly_labels[i])")
 	end
-	=#
 	
 
-    # create legend
-    # leg = Legend(fig[1, 2], ax_main, "variety")
+    # create legend, save and display
+	leg = Legend(fig[1,2], ax_main)
 	save("compositions.pdf", fig)
-    fig
+	
+	fig
 end
 
-# ╔═╡ 7e38b475-9f8d-4af0-a044-a02cf394406c
+# ╔═╡ 2811f5ad-d7b4-4ff2-8d67-8b4da9950832
 viz_C2H4_CO2_composition(gas_compositions)
 
 # ╔═╡ c8d753c5-c53e-4073-b3f2-31b72f9c6b7e
@@ -270,12 +273,12 @@ begin
 	
 	m = H * gas_compositions
 	
-	m_anomaly = H * gas_compositions_anomaly
+	m_anomaly = [H * gas_compositions_anomaly[:, :, i] for i = 1:num_anomalies]
 	
 end
 
 # ╔═╡ 17b7e7f2-f6cc-4c4a-8403-70b4d4455b41
-
+H
 
 # ╔═╡ ecf86f67-114e-482e-9429-1dc6fdb62c7c
 md"!!! example \"\" 
@@ -292,9 +295,12 @@ begin
 	scatter!(m[1, :], m[2, :], strokewidth=1, 
 		     color=(:white, 0.0), strokecolor=colors["normal"],
 			 label="normal")
-	scatter!(m_anomaly[1, :], m_anomaly[2, :], strokewidth=1, 
-		     color=(:white, 0.0), strokecolor=colors["anomaly"],
-			 label="anomaly")
+	for i = 1:num_anomalies
+		scatter!(m_anomaly[i][1, :], m_anomaly[i][2, :], strokewidth=1, 
+			     color=(:white, 0.0), strokecolor=ColorSchemes.RdBu_10[i],
+				 label="$(anomaly_labels[i])")
+	end
+	
 	axislegend()
 	save("responses.pdf", fig_r)
 	# scatter!([m_anomaly[1]], [m_anomaly[2]], marker=:x, color=:red)
@@ -1788,9 +1794,8 @@ version = "3.5.0+0"
 # ╠═820e8d39-935b-4078-a45f-7f3cb6cc5614
 # ╟─cf3990ef-4eaa-4f02-ae7b-0836d18081db
 # ╠═e97d395d-c3ab-4d51-ac52-49eb28659f65
-# ╠═7e38b475-9f8d-4af0-a044-a02cf394406c
+# ╠═2811f5ad-d7b4-4ff2-8d67-8b4da9950832
 # ╠═ee190ccc-15e4-416a-a58c-21bc62fde1a5
-# ╟─21350b58-adbb-4e0a-8d7f-da770e019d87
 # ╠═b5aa0a1e-ff40-4b6a-b0dc-4fcc9f73842f
 # ╠═c8d753c5-c53e-4073-b3f2-31b72f9c6b7e
 # ╠═17b7e7f2-f6cc-4c4a-8403-70b4d4455b41
