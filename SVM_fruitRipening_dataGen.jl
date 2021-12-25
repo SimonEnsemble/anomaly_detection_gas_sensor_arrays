@@ -309,16 +309,16 @@ md"!!! example \"\"
 
 # ╔═╡ 77bc7e89-8967-46ce-aeed-cbbafe71285d
 begin
-	sensor_responses = DataFrame(m_ZIF_71 = [], m_ZIF_8 = [], anomalous_label = [])
+	sensor_responses = DataFrame(m_ZIF_71 = [], m_ZIF_8 = [], anomalous_label = [], anomaly_indicator = [])
 
 	for i = 1:n_gas_compositions
-		push!(sensor_responses, [m[1, i], m[2, i], "normal"])
+		push!(sensor_responses, [m[1, i], m[2, i], "normal", 0])
 	end
 
 	for i = 1:num_anomalies
 		for j = 1:num_anomalous_points
 			push!(sensor_responses, 
-				  [m_anomaly[i][1, j], m_anomaly[i][2, j], anomaly_labels[i]])
+				  [m_anomaly[i][1, j], m_anomaly[i][2, j], anomaly_labels[i], 1])
 		end
 	end
 
