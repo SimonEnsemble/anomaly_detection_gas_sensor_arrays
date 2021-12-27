@@ -101,6 +101,33 @@ md"!!! example \"\"
 md"# PICK UP WORK HERE!!
 "
 
+# ╔═╡ bae8b35f-7cb5-4bb3-92e4-a4fe8235e118
+begin
+	#generate training data matrix and anomalous data matrix from DF from CSV file
+	norm_data = groupby(data, :anomaly_indicator)[1]
+	anom_data = groupby(groupby(data, :anomaly_indicator)[2], :anomalous_label)
+
+	m 		  = []
+	m_anomaly = []
+	
+	for i = 1:length(norm_data[:, 1])
+		push!(m, [norm_data[i, 1], norm_data[i, 2]])
+	end
+
+	for i = 1:length(anom_data)
+		push!(m_anomaly, [])
+		for j = 1:length(anom_data[i][:, 1])
+			push!(m_anomaly[i], [anom_data[i][j, 1], anom_data[i][j, 2]])
+		end
+	end
+
+	
+end
+
+# ╔═╡ 7b64ee58-acd3-48ad-8160-f8f119ebe563
+length(m_anomaly[1][1])
+
+
 # ╔═╡ af735015-999a-428c-bcec-defdad3caca6
 begin
 	gamma = 0.38
@@ -111,7 +138,11 @@ begin
 	scaler = StandardScaler().fit(transpose(m))
 	m_scaled = scaler.transform(transpose(m))
 	fruit_gas_svm.fit(m_scaled)
-	anomalous_points = scaler.transform(transpose(m_anomaly))
+	
+	anomalous_points = []
+	
+		
+		scaler.transform(transpose(m_anomaly))
 end
 
 # ╔═╡ 5c9714c4-46e5-4ad0-811e-e66a58ebe433
@@ -1576,6 +1607,8 @@ version = "3.5.0+0"
 # ╠═d657ed23-3eb4-49d0-a59c-811e8189c376
 # ╟─a9c93bf0-b75f-421c-a289-2ae3b53b369a
 # ╟─64451d51-9652-4ee5-a7d2-97cda09de745
+# ╠═7b64ee58-acd3-48ad-8160-f8f119ebe563
+# ╠═bae8b35f-7cb5-4bb3-92e4-a4fe8235e118
 # ╠═af735015-999a-428c-bcec-defdad3caca6
 # ╠═4cc53559-5af9-42d8-84c7-9c9006770d34
 # ╠═5c9714c4-46e5-4ad0-811e-e66a58ebe433
