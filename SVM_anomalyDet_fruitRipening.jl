@@ -11,6 +11,29 @@ using CairoMakie,CSV, DataFrames, ColorSchemes, Optim, Distributions, PlutoUI, S
 md"# Anomaly Detection for gas sensor arrays Using One-Class SVM
 "
 
+# ╔═╡ b3646dcf-909a-45f1-b273-96a6d67d74a8
+md"!!! example \"\"
+	Include() alternative
+"
+
+# ╔═╡ 4c2d45ba-715e-4369-85a6-73e3ef782273
+function ingredients(path::String)
+	# this is from the Julia source code (evalfile in base/loading.jl)
+	# but with the modification that it returns the module instead of the last object
+	name = Symbol(basename(path))
+	m = Module(name)
+	Core.eval(m,
+        Expr(:toplevel,
+             :(eval(x) = $(Expr(:core, :eval))($name, x)),
+             :(include(x) = $(Expr(:top, :include))($name, x)),
+             :(include(mapexpr::Function, x) = $(Expr(:top, :include))(mapexpr, $name, x)),
+             :(include($path))))
+	m
+end
+
+# ╔═╡ d30e9e17-c392-4619-9b1a-18d0ea1dba00
+data_gen = ingredients("SVM_fruitRipening_dataGen.jl")
+
 # ╔═╡ 06409854-f2b6-4356-ab0c-0c7c7a410d9a
 colors = Dict("normal" => "seagreen", "anomaly" => ColorSchemes.RdBu_10)
 
@@ -97,36 +120,18 @@ end
 md"!!! example \"\" 
 	Fit a one class support vector machine to the training data."
 
-# ╔═╡ 64451d51-9652-4ee5-a7d2-97cda09de745
-md"# PICK UP WORK HERE!!
-"
-
 # ╔═╡ bae8b35f-7cb5-4bb3-92e4-a4fe8235e118
 begin
 	#generate training data matrix and anomalous data matrix from DF from CSV file
 	norm_data = groupby(data, :anomaly_indicator)[1]
-	anom_data = groupby(groupby(data, :anomaly_indicator)[2], :anomalous_label)
+	anom_data = groupby(data, :anomaly_indicator)[2]
+	anom_data_split = groupby(anom_data, :anomalous_label)
 
-	m 		  = []
-	m_anomaly = []
+	m 		  = data_gen.m
+	m_anomaly = data_gen.m_anomaly
 	
-	for i = 1:length(norm_data[:, 1])
-		push!(m, [norm_data[i, 1], norm_data[i, 2]])
-	end
 
-	for i = 1:length(anom_data)
-		push!(m_anomaly, [])
-		for j = 1:length(anom_data[i][:, 1])
-			push!(m_anomaly[i], [anom_data[i][j, 1], anom_data[i][j, 2]])
-		end
-	end
-
-	
 end
-
-# ╔═╡ 7b64ee58-acd3-48ad-8160-f8f119ebe563
-length(m_anomaly[1][1])
-
 
 # ╔═╡ af735015-999a-428c-bcec-defdad3caca6
 begin
@@ -138,15 +143,20 @@ begin
 	scaler = StandardScaler().fit(transpose(m))
 	m_scaled = scaler.transform(transpose(m))
 	fruit_gas_svm.fit(m_scaled)
-	
+
 	anomalous_points = []
 	
-		
-		scaler.transform(transpose(m_anomaly))
+	for i = 1:length(anom_data[:, 1])
+		push!(anomalous_points, [anom_data.m_ZIF_71[i], anom_data.m_ZIF_8[i]])
+	end
+	m_anomaly_scaled = scaler.transform(transpose(anomalous_points))
 end
 
+# ╔═╡ 6baa5c14-34f3-4c85-9bb9-32851e814694
+length(anom_data[:, 1])
+
 # ╔═╡ 5c9714c4-46e5-4ad0-811e-e66a58ebe433
-fruit_gas_svm.predict(anomalous_points)
+fruit_gas_svm.predict(m_anomaly_scaled)
 
 # ╔═╡ f89008c7-fb8a-4b5b-8dd1-67c80d7e8880
 md"!!! example \"\" 
@@ -176,6 +186,9 @@ grid_predictions = zeros(grid_res, grid_res)
 	grid_predictions
 end
 
+# ╔═╡ 59dc89e4-20ff-4731-af6a-d15b5a2b7baa
+length(m[:])
+
 # ╔═╡ 69cd1a26-9c2b-4885-81be-b9020318cc13
 minimum(grid_predictions)
 
@@ -203,9 +216,15 @@ begin
 	scatter!(m[1, :], m[2, :], strokewidth=1, 
 		     color=(:white, 0.0), strokecolor=colors["normal"],
 			 label="normal")
-	scatter!(m_anomaly[1, :], m_anomaly[2, :], strokewidth=1, 
-		     color=(:white, 0.0), strokecolor=colors["anomaly"],
-			 label="anomaly")
+
+	for i = 1:length(m_anomaly)
+		scatter!(m_anomaly[i][1, :], 
+				 m_anomaly[i][2, :], 
+				 strokewidth=1, 
+			     color=(:white, 0.0), 
+				 strokecolor=colors["anomaly"][i],
+				 label="$(anomalous_labels[2][i])")
+	end
 
 	contour!(feature_space_grid_axes[:, 1], 
 			 feature_space_grid_axes[:, 2], 		 
@@ -223,9 +242,9 @@ md"!!! example \"\"
 
 # ╔═╡ 1acf5d25-62bc-43a3-b6ad-3ae10eefe001
 begin
-	test_gas_compositions = zeros(3, n_gas_compositions)
-	for g = 1:n_gas_compositions
-		test_gas_compositions[:, g] = sample_normal_gas_composition()
+	test_gas_compositions = zeros(3, data_gen.n_gas_compositions)
+	for g = 1:data_gen.n_gas_compositions
+		test_gas_compositions[:, g] = data_gen.sample_normal_gas_composition()
 	end
 	test_gas_compositions
 end
@@ -256,7 +275,7 @@ begin
 	matrix_ticks = ["anomolous", "normal"]
 	
 	conf_matrix = zeros(2,2)
-	test_gas_matrix = H * test_gas_compositions
+	test_gas_matrix = data_gen.H * test_gas_compositions
 	test_gas_points = scaler.transform(transpose(test_gas_matrix))
 
 	normal_predictions = fruit_gas_svm.predict(test_gas_points)
@@ -1600,20 +1619,23 @@ version = "3.5.0+0"
 # ╔═╡ Cell order:
 # ╟─1784c510-5465-11ec-0dd1-13e5a66e4ce6
 # ╠═d090131e-6602-4c03-860c-ad3cb6c7844a
+# ╟─b3646dcf-909a-45f1-b273-96a6d67d74a8
+# ╠═4c2d45ba-715e-4369-85a6-73e3ef782273
+# ╠═d30e9e17-c392-4619-9b1a-18d0ea1dba00
 # ╠═06409854-f2b6-4356-ab0c-0c7c7a410d9a
 # ╠═e0f94b82-0d4e-4240-a06f-89cb15306a76
 # ╟─5019e8ac-040f-48fd-98e8-21ff7970aa23
-# ╟─d5c471c3-26be-46c0-a174-d580d0ed7f7d
+# ╠═d5c471c3-26be-46c0-a174-d580d0ed7f7d
 # ╠═d657ed23-3eb4-49d0-a59c-811e8189c376
 # ╟─a9c93bf0-b75f-421c-a289-2ae3b53b369a
-# ╟─64451d51-9652-4ee5-a7d2-97cda09de745
-# ╠═7b64ee58-acd3-48ad-8160-f8f119ebe563
 # ╠═bae8b35f-7cb5-4bb3-92e4-a4fe8235e118
 # ╠═af735015-999a-428c-bcec-defdad3caca6
+# ╠═6baa5c14-34f3-4c85-9bb9-32851e814694
 # ╠═4cc53559-5af9-42d8-84c7-9c9006770d34
 # ╠═5c9714c4-46e5-4ad0-811e-e66a58ebe433
 # ╟─f89008c7-fb8a-4b5b-8dd1-67c80d7e8880
 # ╠═0a0cab3a-0231-4d75-8ce6-fde439204082
+# ╠═59dc89e4-20ff-4731-af6a-d15b5a2b7baa
 # ╠═69cd1a26-9c2b-4885-81be-b9020318cc13
 # ╠═7e51806a-cfcd-442a-a679-1691fc78b6b8
 # ╠═a1a6e4cf-1a15-4492-88f9-f2e68646dcb5
