@@ -123,7 +123,7 @@ end
 
 # ╔═╡ 2b285e2f-4ab2-4670-9575-1410552eefed
 begin
-	n_gas_compositions = 500
+	n_gas_compositions = 300
 	gas_compositions = zeros(3, n_gas_compositions)
 	for g = 1:n_gas_compositions
 		gas_compositions[:, g] = sample_normal_gas_composition()
