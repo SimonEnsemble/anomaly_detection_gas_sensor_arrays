@@ -432,9 +432,9 @@ version = "0.6.6"
 
 [[deps.Cairo_jll]]
 deps = ["Artifacts", "Bzip2_jll", "Fontconfig_jll", "FreeType2_jll", "Glib_jll", "JLLWrappers", "LZO_jll", "Libdl", "Pixman_jll", "Pkg", "Xorg_libXext_jll", "Xorg_libXrender_jll", "Zlib_jll", "libpng_jll"]
-git-tree-sha1 = "f2202b55d816427cd385a9a4f3ffb226bee80f99"
+git-tree-sha1 = "4b859a208b2397a7a623a03449e4636bdb17bcf2"
 uuid = "83423d85-b0ee-5818-9007-b63ccbeb887a"
-version = "1.16.1+0"
+version = "1.16.1+1"
 
 [[deps.ChainRulesCore]]
 deps = ["Compat", "LinearAlgebra", "SparseArrays"]
@@ -717,9 +717,9 @@ version = "0.21.0+0"
 
 [[deps.Glib_jll]]
 deps = ["Artifacts", "Gettext_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Libiconv_jll", "Libmount_jll", "PCRE_jll", "Pkg", "Zlib_jll"]
-git-tree-sha1 = "74ef6288d071f58033d54fd6708d4bc23a8b8972"
+git-tree-sha1 = "a32d672ac2c967f3deb8a81d828afc739c838a06"
 uuid = "7746bdde-850d-59dc-9ae8-88ece973131d"
-version = "2.68.3+1"
+version = "2.68.3+2"
 
 [[deps.Graphics]]
 deps = ["Colors", "LinearAlgebra", "NaNMath"]
@@ -1639,7 +1639,7 @@ version = "3.5.0+0"
 # ╠═69cd1a26-9c2b-4885-81be-b9020318cc13
 # ╠═7e51806a-cfcd-442a-a679-1691fc78b6b8
 # ╠═a1a6e4cf-1a15-4492-88f9-f2e68646dcb5
-# ╟─37a7cf65-13d1-442d-bfbb-d43392c7acae
+# ╠═37a7cf65-13d1-442d-bfbb-d43392c7acae
 # ╠═1acf5d25-62bc-43a3-b6ad-3ae10eefe001
 # ╠═6591e930-8952-449a-8418-82a96b20fec9
 # ╠═75b10a33-19e5-4e96-ac65-144c4ec0c660
