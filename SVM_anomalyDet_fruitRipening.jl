@@ -5,7 +5,7 @@ using Markdown
 using InteractiveUtils
 
 # ╔═╡ d090131e-6602-4c03-860c-ad3cb6c7844a
-using CairoMakie,CSV, DataFrames, ColorSchemes, Optim, Distributions, PlutoUI, ScikitLearn, Colors
+using CairoMakie,CSV, DataFrames, ColorSchemes, Optim, Distributions, PlutoUI, ScikitLearn, Colors, Random
 
 # ╔═╡ 1784c510-5465-11ec-0dd1-13e5a66e4ce6
 md"# Anomaly Detection for gas sensor arrays Using One-Class SVM
@@ -33,17 +33,6 @@ end
 
 # ╔═╡ d30e9e17-c392-4619-9b1a-18d0ea1dba00
 data_gen = ingredients("SVM_fruitRipening_dataGen.jl")
-
-# ╔═╡ 06409854-f2b6-4356-ab0c-0c7c7a410d9a
-colors = Dict("normal" => "seagreen", "anomaly" => ColorSchemes.RdBu_10)
-
-# ╔═╡ e0f94b82-0d4e-4240-a06f-89cb15306a76
-begin
-	# import one class SVM, standard scaler preprocessing and confusion matrix from scikit-learn
-	@sk_import svm : OneClassSVM
-	@sk_import preprocessing : StandardScaler
-	@sk_import metrics : confusion_matrix
-end
 
 # ╔═╡ 5019e8ac-040f-48fd-98e8-21ff7970aa23
 set_theme!(
@@ -99,26 +88,40 @@ set_theme!(
 
 # ╔═╡ d5c471c3-26be-46c0-a174-d580d0ed7f7d
 md"!!! example \"\"
-	Declare utility data structures to be used in data processing such as lists of names of gases, mofs, filename for the CSV file and import henry coefficients.
+	Declare utility data structures to be used in data processing such as lists of names of gases, mofs, filename for the CSV file and import henry coefficients and sk learn libraries.
 "
 
 # ╔═╡ d657ed23-3eb4-49d0-a59c-811e8189c376
 begin
-gas_to_pretty_name = Dict("C2H4" => "C₂H₄", "CO2" => "CO₂", "H2O" => "H₂O")
+	gas_to_pretty_name = Dict("C2H4" => "C₂H₄", "CO2" => "CO₂", "H2O" => "H₂O")
+	
+	gases = ["C2H4", "CO2", "H2O"]
+	
+	mofs = ["ZIF-71", "ZIF-8"]
+	
+	anomalous_labels = ["normal", 
+					    ["no ethylene", "ethylene spike", "CO₂ buildup"]]
+	
+	colors = Dict("normal" => "seagreen", "anomaly" => ColorSchemes.RdBu_10)
 
-gases = ["C2H4", "CO2", "H2O"]
+	@sk_import svm : OneClassSVM
+	@sk_import preprocessing : StandardScaler
+	@sk_import metrics : confusion_matrix
 
-mofs = ["ZIF-71", "ZIF-8"]
-
-anomalous_labels = ["normal", ["no ethylene", "ethylene spike", "CO₂ buildup"]]
-
-data = CSV.read("generated_sensor_data.csv", DataFrame)
-
+	data = CSV.read("generated_sensor_data.csv", DataFrame)
 end
+
 
 # ╔═╡ a9c93bf0-b75f-421c-a289-2ae3b53b369a
 md"!!! example \"\" 
 	Fit a one class support vector machine to the training data."
+
+# ╔═╡ e74dc9b8-9d90-49a1-bdd5-ae2701def278
+#function to permute the rows of a dataframe
+function shuffle_df!(df::AbstractDataFrame)
+    df[:,:] = df[shuffle(1:size(df, 1)),:]
+    return
+end
 
 # ╔═╡ bae8b35f-7cb5-4bb3-92e4-a4fe8235e118
 begin
@@ -127,11 +130,48 @@ begin
 	anom_data = groupby(data, :anomaly_indicator)[2]
 	anom_data_split = groupby(anom_data, :anomalous_label)
 
+	#temporary fix, remove later
 	m 		  = data_gen.m
 	m_anomaly = data_gen.m_anomaly
+
+	#shuffle the normal sensor data
+	shuffle_df!(norm_data)
+
+	#establish train, validation, and test split
+
+	num_validation = 75
+	num_test = 75
+	num_train = size(norm_data, 1) - num_validation - num_test
+
+	
+
+	m_train 	 = hcat([[norm_data.m_ZIF_71[i],
+			         	  norm_data.m_ZIF_8[i]] 
+					 	  for i=1:num_train]...)
+
+	m_test 		 = hcat([[norm_data.m_ZIF_71[num_train + i],
+			        	  norm_data.m_ZIF_8[num_train + i]] 
+						  for i=1:num_test]...)
+
+	m_validation = hcat([[norm_data.m_ZIF_71[num_train + num_test + i],
+			         	  norm_data.m_ZIF_8[num_train + num_test + i]] 
+						  for i=1:num_test]...)
 	
 
 end
+
+# ╔═╡ e1b990e9-c334-46e1-b49e-d5c24b9086cb
+m_train
+
+
+# ╔═╡ f1db8001-280e-40d0-a640-172cd19098f8
+m_test
+
+# ╔═╡ 09e48f4a-bcb8-4285-b5d8-c149b60fa06b
+m_validation
+
+# ╔═╡ 1675137b-62f1-433a-bf19-a107648756bf
+norm_data
 
 # ╔═╡ af735015-999a-428c-bcec-defdad3caca6
 begin
@@ -151,12 +191,6 @@ begin
 	end
 	m_anomaly_scaled = scaler.transform(transpose(anomalous_points))
 end
-
-# ╔═╡ 6baa5c14-34f3-4c85-9bb9-32851e814694
-length(anom_data[:, 1])
-
-# ╔═╡ 5c9714c4-46e5-4ad0-811e-e66a58ebe433
-fruit_gas_svm.predict(m_anomaly_scaled)
 
 # ╔═╡ f89008c7-fb8a-4b5b-8dd1-67c80d7e8880
 md"!!! example \"\" 
@@ -304,9 +338,6 @@ end
 # ╔═╡ 91329c4d-fb0a-4c98-be52-608fb72820cf
 percent_correctly_predicted_normals = conf_matrix[2,2]/length(normal_predictions)
 
-# ╔═╡ 4cc53559-5af9-42d8-84c7-9c9006770d34
-percent_correctly_predicted_normals
-
 # ╔═╡ 24936b61-9669-43d1-851e-532f50f07e55
 percent_correctly_predicted_anomalies = conf_matrix[1,1]/length(anomalous_predictions)
 
@@ -324,6 +355,7 @@ DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 Optim = "429524aa-4258-5aef-a3af-852621145aeb"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 ScikitLearn = "3646fa90-6ef7-5e7e-9f22-8aca16db6324"
 
 [compat]
@@ -1619,20 +1651,20 @@ version = "3.5.0+0"
 # ╔═╡ Cell order:
 # ╟─1784c510-5465-11ec-0dd1-13e5a66e4ce6
 # ╠═d090131e-6602-4c03-860c-ad3cb6c7844a
-# ╟─b3646dcf-909a-45f1-b273-96a6d67d74a8
+# ╠═b3646dcf-909a-45f1-b273-96a6d67d74a8
 # ╠═4c2d45ba-715e-4369-85a6-73e3ef782273
 # ╠═d30e9e17-c392-4619-9b1a-18d0ea1dba00
-# ╠═06409854-f2b6-4356-ab0c-0c7c7a410d9a
-# ╠═e0f94b82-0d4e-4240-a06f-89cb15306a76
 # ╟─5019e8ac-040f-48fd-98e8-21ff7970aa23
-# ╠═d5c471c3-26be-46c0-a174-d580d0ed7f7d
+# ╟─d5c471c3-26be-46c0-a174-d580d0ed7f7d
 # ╠═d657ed23-3eb4-49d0-a59c-811e8189c376
 # ╟─a9c93bf0-b75f-421c-a289-2ae3b53b369a
+# ╠═e74dc9b8-9d90-49a1-bdd5-ae2701def278
 # ╠═bae8b35f-7cb5-4bb3-92e4-a4fe8235e118
+# ╠═e1b990e9-c334-46e1-b49e-d5c24b9086cb
+# ╠═f1db8001-280e-40d0-a640-172cd19098f8
+# ╠═09e48f4a-bcb8-4285-b5d8-c149b60fa06b
+# ╠═1675137b-62f1-433a-bf19-a107648756bf
 # ╠═af735015-999a-428c-bcec-defdad3caca6
-# ╠═6baa5c14-34f3-4c85-9bb9-32851e814694
-# ╠═4cc53559-5af9-42d8-84c7-9c9006770d34
-# ╠═5c9714c4-46e5-4ad0-811e-e66a58ebe433
 # ╟─f89008c7-fb8a-4b5b-8dd1-67c80d7e8880
 # ╠═0a0cab3a-0231-4d75-8ce6-fde439204082
 # ╠═59dc89e4-20ff-4731-af6a-d15b5a2b7baa

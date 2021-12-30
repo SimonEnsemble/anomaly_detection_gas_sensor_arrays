@@ -330,9 +330,6 @@ begin
 	CSV.write("generated_sensor_data.csv", sensor_responses)
 end
 
-# ╔═╡ 10abe495-e5f3-4221-a324-72beb865cc99
-m
-
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
@@ -1558,6 +1555,5 @@ version = "3.5.0+0"
 # ╟─13f4c61a-2e80-46c3-9ee1-657ad7b92ea1
 # ╠═77bc7e89-8967-46ce-aeed-cbbafe71285d
 # ╠═2318b9ae-f3ae-449c-be2c-4eee0d898695
-# ╠═10abe495-e5f3-4221-a324-72beb865cc99
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
