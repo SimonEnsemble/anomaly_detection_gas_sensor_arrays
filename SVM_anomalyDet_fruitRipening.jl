@@ -145,17 +145,17 @@ begin
 
 	
 
-	m_train 	 = hcat([[norm_data.m_ZIF_71[i],
-			         	  norm_data.m_ZIF_8[i]] 
-					 	  for i=1:num_train]...)
+	m_train = transpose(hcat([[norm_data.m_ZIF_71[i],
+			         	  	   norm_data.m_ZIF_8[i]] 
+					 	  	   for i=1:num_train]...))
 
-	m_test 		 = hcat([[norm_data.m_ZIF_71[num_train + i],
-			        	  norm_data.m_ZIF_8[num_train + i]] 
-						  for i=1:num_test]...)
+	m_test 	= transpose(hcat([[norm_data.m_ZIF_71[num_train + i],
+			        	  	   norm_data.m_ZIF_8[num_train + i]] 
+						  	   for i=1:num_test]...))
 
-	m_validation = hcat([[norm_data.m_ZIF_71[num_train + num_test + i],
-			         	  norm_data.m_ZIF_8[num_train + num_test + i]] 
-						  for i=1:num_test]...)
+	m_valid = transpose(hcat([[norm_data.m_ZIF_71[num_train + num_test + i],
+			         	  	   norm_data.m_ZIF_8[num_train + num_test + i]] 
+						  	   for i=1:num_test]...))
 	
 
 end
@@ -168,7 +168,7 @@ m_train
 m_test
 
 # ╔═╡ 09e48f4a-bcb8-4285-b5d8-c149b60fa06b
-m_validation
+m_valid
 
 # ╔═╡ 1675137b-62f1-433a-bf19-a107648756bf
 norm_data
