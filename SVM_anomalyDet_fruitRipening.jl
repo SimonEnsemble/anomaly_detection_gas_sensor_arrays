@@ -104,6 +104,9 @@ begin
 	
 	colors = Dict("normal" => "seagreen", "anomaly" => ColorSchemes.RdBu_10)
 
+	color_map = RGBAf.(reverse(ColorSchemes.diverging_gwr_55_95_c38_n256), 0.5) 
+	# custom colorscheme
+
 	@sk_import svm : OneClassSVM
 	@sk_import preprocessing : StandardScaler
 	@sk_import metrics : confusion_matrix
@@ -130,20 +133,16 @@ begin
 	anom_data = groupby(data, :anomaly_indicator)[2]
 	anom_data_split = groupby(anom_data, :anomalous_label)
 
-	#temporary fix, remove later
-	m 		  = data_gen.m
+	#import anomalous data matrix from data gen notebook
 	m_anomaly = data_gen.m_anomaly
 
 	#shuffle the normal sensor data
 	shuffle_df!(norm_data)
 
 	#establish train, validation, and test split
-
 	num_validation = 75
 	num_test = 75
 	num_train = size(norm_data, 1) - num_validation - num_test
-
-	
 
 	m_train = transpose(hcat([[norm_data.m_ZIF_71[i],
 			         	  	   norm_data.m_ZIF_8[i]] 
@@ -156,59 +155,47 @@ begin
 	m_valid = transpose(hcat([[norm_data.m_ZIF_71[num_train + num_test + i],
 			         	  	   norm_data.m_ZIF_8[num_train + num_test + i]] 
 						  	   for i=1:num_test]...))
-	
 
-end
-
-# ╔═╡ e1b990e9-c334-46e1-b49e-d5c24b9086cb
-m_train
-
-
-# ╔═╡ f1db8001-280e-40d0-a640-172cd19098f8
-m_test
-
-# ╔═╡ 09e48f4a-bcb8-4285-b5d8-c149b60fa06b
-m_valid
-
-# ╔═╡ 1675137b-62f1-433a-bf19-a107648756bf
-norm_data
-
-# ╔═╡ af735015-999a-428c-bcec-defdad3caca6
-begin
-	gamma = 0.38
-	nu = 0.053
-	nu = 0.01
-		
-	fruit_gas_svm = OneClassSVM(kernel="rbf",gamma = gamma, nu=nu)
-	scaler = StandardScaler().fit(transpose(m))
-	m_scaled = scaler.transform(transpose(m))
-	fruit_gas_svm.fit(m_scaled)
+	#scale the normal and anomalous data
+	scaler = StandardScaler().fit(m_train)
+	m_train_scaled = scaler.transform(m_train)
 
 	anomalous_points = []
-	
 	for i = 1:length(anom_data[:, 1])
 		push!(anomalous_points, [anom_data.m_ZIF_71[i], anom_data.m_ZIF_8[i]])
 	end
 	m_anomaly_scaled = scaler.transform(transpose(anomalous_points))
+	
+
 end
+
+# ╔═╡ af735015-999a-428c-bcec-defdad3caca6
+function fit_SVM(ν = 0.01, γ = 0.38)
+	fitted_SVM = OneClassSVM(kernel="rbf",gamma=γ, nu=ν)
+	return fitted_SVM.fit(m_train_scaled)
+end
+
+# ╔═╡ 48e95c67-ce1b-4c14-9e62-d642ea70c4a1
+fruit_gas_svm = fit_SVM()
 
 # ╔═╡ f89008c7-fb8a-4b5b-8dd1-67c80d7e8880
 md"!!! example \"\" 
 	Create a grid of anomolous scores and plot a colormap to visualize the training data and decision boundary for the one class support vector machine"
 
 # ╔═╡ 0a0cab3a-0231-4d75-8ce6-fde439204082
-begin
-	color_map = RGBAf.(reverse(ColorSchemes.diverging_gwr_55_95_c38_n256), 0.5) # custom colorscheme
+function generate_grid(resolution::Int64 = 100)
 	
-	grid_res = 100
+	grid_res = resolution
 	feature_space_grid_axes = zeros(grid_res, 2)
 	
 	for axis_num = 1:2
-		feature_space_grid_axes[:, axis_num] = range(0.99 * minimum(m[axis_num, :]), 1.01*maximum(m[axis_num, :]), length=grid_res)
+		feature_space_grid_axes[:, axis_num] = 
+		range(0.99 * minimum(m_train[:, axis_num]), 
+			  1.021*maximum(m_train[:, axis_num]), length=grid_res)
 	end
-
-grid_predictions = zeros(grid_res, grid_res)
-
+	
+	grid_predictions = zeros(grid_res, grid_res)
+	
 	for i = 1:grid_res
 		for j = 1:grid_res
 			grid_point = [feature_space_grid_axes[i, 1] feature_space_grid_axes[j, 2]] 
@@ -216,22 +203,16 @@ grid_predictions = zeros(grid_res, grid_res)
 			grid_predictions[i, j] = fruit_gas_svm.decision_function(grid_point_t)[1]
 		end
 	end
-
-	grid_predictions
+	
+	return [grid_predictions, feature_space_grid_axes]
 end
 
-# ╔═╡ 59dc89e4-20ff-4731-af6a-d15b5a2b7baa
-length(m[:])
-
-# ╔═╡ 69cd1a26-9c2b-4885-81be-b9020318cc13
-minimum(grid_predictions)
-
-# ╔═╡ 7e51806a-cfcd-442a-a679-1691fc78b6b8
-maximum(grid_predictions)
 
 # ╔═╡ a1a6e4cf-1a15-4492-88f9-f2e68646dcb5
-begin
+function viz_svm_data_fit(ν = 0.053, γ = 0.38, res = 100)
 	contour_fig = Figure(resolution=(700, 700))
+
+	grid_data = generate_grid(res)
 	
 	ax1 = Axis(contour_fig[1,1], 
 			   xlabel = "m, " * mofs[1] * " [g/g]",
@@ -239,15 +220,14 @@ begin
 			   aspect = DataAspect())
 			   # title = "one class SVM contour for anomaly detection")
 	
-	pred_map = heatmap!(feature_space_grid_axes[:,1], 
-      				    feature_space_grid_axes[:,2], 
-						grid_predictions, 
+	pred_map = heatmap!(grid_data[2][:,1], 
+      				    grid_data[2][:,2], 
+						grid_data[1], 
 						colormap = color_map, 
-							# Paul: important here for colormap to be centered at zero.
-						colorrange=(-0.002, 0.002)
-	)
+						# Paul: important here for colormap to be centered at zero.
+						colorrange=(-0.002, 0.002))
 
-	scatter!(m[1, :], m[2, :], strokewidth=1, 
+	scatter!(m_train[:, 1], m_train[:, 2], strokewidth=1, 
 		     color=(:white, 0.0), strokecolor=colors["normal"],
 			 label="normal")
 
@@ -260,15 +240,19 @@ begin
 				 label="$(anomalous_labels[2][i])")
 	end
 
-	contour!(feature_space_grid_axes[:, 1], 
-			 feature_space_grid_axes[:, 2], 		 
-             grid_predictions, levels=[0.0], 
+	contour!(grid_data[2][:, 1], 
+			 grid_data[2][:, 2], 		 
+             grid_data[1], levels=[0.0], 
 			 color=:black)
 
 	Colorbar(contour_fig[1, 2], pred_map, label="anomaly score")
+	axislegend(halign = :left, valign = :top)
 	save("anomaly_scores.pdf", contour_fig)
 	contour_fig
 end
+
+# ╔═╡ 037e7b3d-f33a-4dd6-92a1-861c3684d870
+viz_svm_data_fit()
 
 # ╔═╡ 37a7cf65-13d1-442d-bfbb-d43392c7acae
 md"!!! example \"\" 
@@ -1660,18 +1644,13 @@ version = "3.5.0+0"
 # ╟─a9c93bf0-b75f-421c-a289-2ae3b53b369a
 # ╠═e74dc9b8-9d90-49a1-bdd5-ae2701def278
 # ╠═bae8b35f-7cb5-4bb3-92e4-a4fe8235e118
-# ╠═e1b990e9-c334-46e1-b49e-d5c24b9086cb
-# ╠═f1db8001-280e-40d0-a640-172cd19098f8
-# ╠═09e48f4a-bcb8-4285-b5d8-c149b60fa06b
-# ╠═1675137b-62f1-433a-bf19-a107648756bf
 # ╠═af735015-999a-428c-bcec-defdad3caca6
+# ╠═48e95c67-ce1b-4c14-9e62-d642ea70c4a1
 # ╟─f89008c7-fb8a-4b5b-8dd1-67c80d7e8880
 # ╠═0a0cab3a-0231-4d75-8ce6-fde439204082
-# ╠═59dc89e4-20ff-4731-af6a-d15b5a2b7baa
-# ╠═69cd1a26-9c2b-4885-81be-b9020318cc13
-# ╠═7e51806a-cfcd-442a-a679-1691fc78b6b8
+# ╠═037e7b3d-f33a-4dd6-92a1-861c3684d870
 # ╠═a1a6e4cf-1a15-4492-88f9-f2e68646dcb5
-# ╠═37a7cf65-13d1-442d-bfbb-d43392c7acae
+# ╟─37a7cf65-13d1-442d-bfbb-d43392c7acae
 # ╠═1acf5d25-62bc-43a3-b6ad-3ae10eefe001
 # ╠═6591e930-8952-449a-8418-82a96b20fec9
 # ╠═75b10a33-19e5-4e96-ac65-144c4ec0c660
