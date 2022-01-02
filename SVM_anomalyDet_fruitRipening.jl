@@ -173,7 +173,9 @@ md"!!! example \"\"
 	Create a grid of anomolous scores and plot a colormap to visualize the training data and decision boundary for the one class support vector machine"
 
 # ╔═╡ af735015-999a-428c-bcec-defdad3caca6
-function train_svm(ν = 0.01, γ = 0.38)
+#function to generate a trained svm using rbf kernel given a particular nu/gamma pair
+
+function train_svm_rbf(ν = 0.01, γ = 0.38)
 	trained_svm = OneClassSVM(kernel="rbf",gamma=γ, nu=ν)
 	return trained_svm.fit(m_train_scaled)
 end
@@ -213,7 +215,7 @@ function viz_svm_data_fit(ν = 0.053, γ = 0.38, res = 100)
 	contour_fig = Figure(resolution=(700, 700))
 
 	#generate the trained SVM
-	fruit_gas_svm = train_svm(ν, γ)
+	fruit_gas_svm = train_svm_rbf(ν, γ)
 	
 	#generate the grid
 	grid_data = generate_grid(fruit_gas_svm, res)
@@ -259,7 +261,7 @@ end
 viz_svm_data_fit()
 
 # ╔═╡ 7b4658d1-8e01-49a9-b935-f5c0ed6bcf15
-fruit_gas_svm_trained = train_svm()
+fruit_gas_svm_trained = train_svm_rbf()
 
 # ╔═╡ 37a7cf65-13d1-442d-bfbb-d43392c7acae
 md"!!! example \"\" 
@@ -1639,7 +1641,7 @@ version = "3.5.0+0"
 # ╔═╡ Cell order:
 # ╟─1784c510-5465-11ec-0dd1-13e5a66e4ce6
 # ╠═d090131e-6602-4c03-860c-ad3cb6c7844a
-# ╠═b3646dcf-909a-45f1-b273-96a6d67d74a8
+# ╟─b3646dcf-909a-45f1-b273-96a6d67d74a8
 # ╠═4c2d45ba-715e-4369-85a6-73e3ef782273
 # ╠═d30e9e17-c392-4619-9b1a-18d0ea1dba00
 # ╟─5019e8ac-040f-48fd-98e8-21ff7970aa23
