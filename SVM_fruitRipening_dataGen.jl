@@ -123,6 +123,10 @@ end
 
 # ╔═╡ 2b285e2f-4ab2-4670-9575-1410552eefed
 begin
+	#=
+	number of gas compositions (300): It takes about 3 days for a banana to 		ripen in a fruit ripening room. Assuming 20 ripening sessions over the course of 2 months and the sensor is collecting data 5 times per day. 20 x 5 x 3 = 300 data points.
+	=#
+	
 	n_gas_compositions = 300
 	gas_compositions = zeros(3, n_gas_compositions)
 	for g = 1:n_gas_compositions
@@ -153,6 +157,10 @@ md"!!! example \"\"
 
 # ╔═╡ b5aa0a1e-ff40-4b6a-b0dc-4fcc9f73842f
 begin
+	#=
+
+	=#
+	
 	#change to add new anomalies
 	num_anomalies = 3
 
@@ -309,7 +317,10 @@ md"!!! example \"\"
 
 # ╔═╡ 77bc7e89-8967-46ce-aeed-cbbafe71285d
 begin
-	sensor_responses = DataFrame(m_ZIF_71 = [], m_ZIF_8 = [], anomalous_label = [], anomaly_indicator = [])
+	sensor_responses = DataFrame(m_ZIF_71 = [], 
+								 m_ZIF_8 = [], 
+								 anomalous_label = [], 
+								 anomaly_indicator = [])
 
 	for i = 1:n_gas_compositions
 		push!(sensor_responses, [m[1, i], m[2, i], "normal", 0])
@@ -317,8 +328,10 @@ begin
 
 	for i = 1:num_anomalies
 		for j = 1:num_anomalous_points
-			push!(sensor_responses, 
-				  [m_anomaly[i][1, j], m_anomaly[i][2, j], anomaly_labels[i], 1])
+			push!(sensor_responses, [m_anomaly[i][1, j], 
+									 m_anomaly[i][2, j], 
+									 anomaly_labels[i], 
+									 1])
 		end
 	end
 

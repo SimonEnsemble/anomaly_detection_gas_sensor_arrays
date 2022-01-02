@@ -134,7 +134,7 @@ begin
 	anom_data_split = groupby(anom_data, :anomalous_label)
 
 	#import anomalous data matrix from data gen notebook
-	m_anomaly = data_gen.m_anomaly
+	m_anomaly_imported = data_gen.m_anomaly
 
 	#shuffle the normal sensor data
 	shuffle_df!(norm_data)
@@ -160,38 +160,36 @@ begin
 	scaler = StandardScaler().fit(m_train)
 	m_train_scaled = scaler.transform(m_train)
 
-	anomalous_points = []
-	for i = 1:length(anom_data[:, 1])
-		push!(anomalous_points, [anom_data.m_ZIF_71[i], anom_data.m_ZIF_8[i]])
-	end
-	m_anomaly_scaled = scaler.transform(transpose(anomalous_points))
+	m_anomaly = transpose(hcat([[anom_data.m_ZIF_71[i],
+						   anom_data.m_ZIF_8[i]] 
+						   for i=1:length(anom_data[:, 1])]...))
+
+	m_anomaly_scaled = scaler.transform((m_anomaly))
 	
-
 end
 
-# ╔═╡ af735015-999a-428c-bcec-defdad3caca6
-function fit_SVM(ν = 0.01, γ = 0.38)
-	fitted_SVM = OneClassSVM(kernel="rbf",gamma=γ, nu=ν)
-	return fitted_SVM.fit(m_train_scaled)
-end
-
-# ╔═╡ 48e95c67-ce1b-4c14-9e62-d642ea70c4a1
-fruit_gas_svm = fit_SVM()
-
-# ╔═╡ f89008c7-fb8a-4b5b-8dd1-67c80d7e8880
+# ╔═╡ c34be089-ff98-404c-85e6-6b605d2cfe1c
 md"!!! example \"\" 
 	Create a grid of anomolous scores and plot a colormap to visualize the training data and decision boundary for the one class support vector machine"
 
+# ╔═╡ af735015-999a-428c-bcec-defdad3caca6
+function train_svm(ν = 0.01, γ = 0.38)
+	trained_svm = OneClassSVM(kernel="rbf",gamma=γ, nu=ν)
+	return trained_svm.fit(m_train_scaled)
+end
+
 # ╔═╡ 0a0cab3a-0231-4d75-8ce6-fde439204082
-function generate_grid(resolution::Int64 = 100)
-	
-	grid_res = resolution
+#function to generate a grid of anomaly scores based on a trained svm and given resolution.
+
+function generate_grid(svm, grid_res::Int64 = 100)
+
 	feature_space_grid_axes = zeros(grid_res, 2)
 	
 	for axis_num = 1:2
 		feature_space_grid_axes[:, axis_num] = 
-		range(0.99 * minimum(m_train[:, axis_num]), 
-			  1.021*maximum(m_train[:, axis_num]), length=grid_res)
+		range(0.99*minimum(m_train[:, axis_num]), 
+			  1.021*maximum(m_train[:, axis_num]), 
+			  length=grid_res)
 	end
 	
 	grid_predictions = zeros(grid_res, grid_res)
@@ -200,7 +198,7 @@ function generate_grid(resolution::Int64 = 100)
 		for j = 1:grid_res
 			grid_point = [feature_space_grid_axes[i, 1] feature_space_grid_axes[j, 2]] 
 			grid_point_t = scaler.transform(grid_point)
-			grid_predictions[i, j] = fruit_gas_svm.decision_function(grid_point_t)[1]
+			grid_predictions[i, j] = svm.decision_function(grid_point_t)[1]
 		end
 	end
 	
@@ -209,10 +207,16 @@ end
 
 
 # ╔═╡ a1a6e4cf-1a15-4492-88f9-f2e68646dcb5
+#function to generate and visualize a SVM given a particular nu, gamma and resolution.
+
 function viz_svm_data_fit(ν = 0.053, γ = 0.38, res = 100)
 	contour_fig = Figure(resolution=(700, 700))
 
-	grid_data = generate_grid(res)
+	#generate the trained SVM
+	fruit_gas_svm = train_svm(ν, γ)
+	
+	#generate the grid
+	grid_data = generate_grid(fruit_gas_svm, res)
 	
 	ax1 = Axis(contour_fig[1,1], 
 			   xlabel = "m, " * mofs[1] * " [g/g]",
@@ -231,9 +235,9 @@ function viz_svm_data_fit(ν = 0.053, γ = 0.38, res = 100)
 		     color=(:white, 0.0), strokecolor=colors["normal"],
 			 label="normal")
 
-	for i = 1:length(m_anomaly)
-		scatter!(m_anomaly[i][1, :], 
-				 m_anomaly[i][2, :], 
+	for i = 1:length(m_anomaly_imported)
+		scatter!(m_anomaly_imported[i][1, :], 
+				 m_anomaly_imported[i][2, :], 
 				 strokewidth=1, 
 			     color=(:white, 0.0), 
 				 strokecolor=colors["anomaly"][i],
@@ -254,6 +258,9 @@ end
 # ╔═╡ 037e7b3d-f33a-4dd6-92a1-861c3684d870
 viz_svm_data_fit()
 
+# ╔═╡ 7b4658d1-8e01-49a9-b935-f5c0ed6bcf15
+fruit_gas_svm_trained = train_svm()
+
 # ╔═╡ 37a7cf65-13d1-442d-bfbb-d43392c7acae
 md"!!! example \"\" 
 	Create a second distribution of normal values to test with our trained one class SVM and visualize results with a confusion matrix"
@@ -268,7 +275,7 @@ begin
 end
 
 # ╔═╡ 6591e930-8952-449a-8418-82a96b20fec9
-function viz_confusion_matrix(cm::Matrix{Float64}, naming::Vector{String})
+function viz_confusion_matrix(cm::Matrix{Int64}, naming::Vector{String})
     fig = Figure()
     ax = Axis(fig[1, 1],
               xticks=([1, 2], naming),
@@ -292,12 +299,12 @@ end
 begin
 	matrix_ticks = ["anomolous", "normal"]
 	
-	conf_matrix = zeros(2,2)
+	conf_matrix = zeros(Int64, 2,2)
 	test_gas_matrix = data_gen.H * test_gas_compositions
 	test_gas_points = scaler.transform(transpose(test_gas_matrix))
 
-	normal_predictions = fruit_gas_svm.predict(test_gas_points)
-	anomalous_predictions = fruit_gas_svm.predict(anomalous_points)
+	normal_predictions = fruit_gas_svm_trained.predict(test_gas_points)
+	anomalous_predictions = fruit_gas_svm_trained.predict(m_anomaly_scaled)
 	
 	for i = 1:length(normal_predictions)
 		if(normal_predictions[i] == 1)
@@ -315,9 +322,6 @@ begin
 		end
 	end 
 end
-
-# ╔═╡ 13f4c61a-2e80-46c3-9ee1-657ad7b92ea1
-
 
 # ╔═╡ 91329c4d-fb0a-4c98-be52-608fb72820cf
 percent_correctly_predicted_normals = conf_matrix[2,2]/length(normal_predictions)
@@ -1644,17 +1648,16 @@ version = "3.5.0+0"
 # ╟─a9c93bf0-b75f-421c-a289-2ae3b53b369a
 # ╠═e74dc9b8-9d90-49a1-bdd5-ae2701def278
 # ╠═bae8b35f-7cb5-4bb3-92e4-a4fe8235e118
+# ╟─c34be089-ff98-404c-85e6-6b605d2cfe1c
 # ╠═af735015-999a-428c-bcec-defdad3caca6
-# ╠═48e95c67-ce1b-4c14-9e62-d642ea70c4a1
-# ╟─f89008c7-fb8a-4b5b-8dd1-67c80d7e8880
 # ╠═0a0cab3a-0231-4d75-8ce6-fde439204082
 # ╠═037e7b3d-f33a-4dd6-92a1-861c3684d870
 # ╠═a1a6e4cf-1a15-4492-88f9-f2e68646dcb5
+# ╠═7b4658d1-8e01-49a9-b935-f5c0ed6bcf15
 # ╟─37a7cf65-13d1-442d-bfbb-d43392c7acae
 # ╠═1acf5d25-62bc-43a3-b6ad-3ae10eefe001
 # ╠═6591e930-8952-449a-8418-82a96b20fec9
 # ╠═75b10a33-19e5-4e96-ac65-144c4ec0c660
-# ╠═13f4c61a-2e80-46c3-9ee1-657ad7b92ea1
 # ╠═91329c4d-fb0a-4c98-be52-608fb72820cf
 # ╠═24936b61-9669-43d1-851e-532f50f07e55
 # ╠═031756b3-6cf2-44d0-acf6-be6a51f15c26
