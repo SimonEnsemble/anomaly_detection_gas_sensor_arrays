@@ -1,0 +1,6 @@
+where we got ZIF-8 `.cif`: https://pubs.rsc.org/en/content/articlelanding/2009/CE/b912997a supplementary files.
+
+GITVIP = csd code for ZIF-71, get structure from
+https://www.ccdc.cam.ac.uk/structures/
+says from here:
+https://www.science.org/doi/10.1126/science.1152516 = original paper maybe.
