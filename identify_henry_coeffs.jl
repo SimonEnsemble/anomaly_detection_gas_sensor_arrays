@@ -8,7 +8,7 @@ using InteractiveUtils
 using CairoMakie,CSV, DataFrames, ColorSchemes, Distributions, Optim, PlutoUI, Colors
 
 # ╔═╡ 1784c510-5465-11ec-0dd1-13e5a66e4ce6
-md"# Generation of Ethylene, CO₂ and H₂O Henry Coefficients in ZIF-71 and ZIF-8 MOF sensors.
+md"# identifying C₂H₄, CO₂, and H₂O Henry Coefficients in ZIF-71 and ZIF-8
 "
 
 # ╔═╡ 5019e8ac-040f-48fd-98e8-21ff7970aa23
@@ -70,25 +70,28 @@ md"!!! example \"\"
 
 # ╔═╡ d657ed23-3eb4-49d0-a59c-811e8189c376
 begin
-gas_to_pretty_name = Dict("C2H4" => "C₂H₄", "CO2" => "CO₂", "H2O" => "H₂O")
-
-gases = ["C2H4", "CO2", "H2O"]
-
-gas_to_color = Dict(zip(gases, ColorSchemes.Accent_3))
-
-gas_to_molecular_wt = Dict("C2H4" => 28.05, 
-	                       "CO2"  => 44.01, 
-	                       "H2O" => 18.01528)
-
-mofs = ["ZIF-71", "ZIF-8"]
-
-isotherm_filename(mof::String, gas::String) = joinpath("data", mof, gas * ".csv")
-
+	gas_to_pretty_name = Dict("C2H4" => "C₂H₄", "CO2" => "CO₂", "H2O" => "H₂O")
+	
+	gases = ["C2H4", "CO2", "H2O"]
+	
+	gas_to_color = Dict(zip(gases, ColorSchemes.Accent_3))
+	
+	gas_to_molecular_wt = Dict("C2H4" => 28.05, 
+		                       "CO2"  => 44.01, 
+		                       "H2O" => 18.01528)
+	
+	mofs = ["ZIF-71", "ZIF-8"]
+	
+	isotherm_filename(mof::String, gas::String) = joinpath("data", mof, gas * ".csv")
 end
 
 # ╔═╡ d5544844-21ed-4a8c-8715-45038b502453
 md"!!! example \"\"
-	Function to identify henry's law coefficient for gasses at low pressures by creating linear regression to fit the data and extracting the slope.
+	function to identify henry's coefficient for gasses at low pressures by fitting a linear model with zero intercept to the data.
+
+Henry's law is:
+
+$m=Hp$ with $p$ partial pressure, $H$ the Henry coefficient and $m$ the mass of gas adsorbed.
 "
 
 # ╔═╡ 26d5dfc6-ce64-4389-adec-c0c8ec8582d5
@@ -117,7 +120,7 @@ end
 
 # ╔═╡ ec3b683d-a867-4a2d-9b40-57781927f32a
 md"!!! example \"\"
-	Function to convert isothermal equilibrium data for mofs and gasses to shared units:
+	function to read in adsorption data from `.csv` and convert adsorption measurement data into shared units. returns a data frame.
 "
 
 # ╔═╡ ebe1cd5a-58a9-4ee7-904e-05261493ae92
@@ -168,30 +171,35 @@ function isotherm_data(mof::String, gas::String; remove_old_pressure_cols::Bool=
 	return data
 end
 
+# ╔═╡ 00306860-568b-4204-ab35-8e150e32a105
+# example
+isotherm_data("ZIF-8", "CO2")
+
 # ╔═╡ da65b272-d989-44cb-9253-4987ee65da9a
 md"!!! example \"\"
-	Import data and store Henry Coefficients in data structure:
+	identify Henry coefficients and store them in a data frame.
 "
 
 # ╔═╡ 3cacc179-a3cc-4d9c-8414-682848927c60
 begin
-	henry_c = DataFrame(sensor = [], gas = [], henry_c = [])
+	henry_data = DataFrame(mof=[], gas=[], henry_c=[])
 	for mof in mofs
 		for gas in gases
 			data = isotherm_data(mof, gas)
-			push!(henry_c, [mof, gas, fit_Henry(data[1:2, :])])
+			push!(henry_data, [mof, gas, fit_Henry(data[1:2, :])])
 		end
 	end
-	henry_c
+	rename!(henry_data, :henry_c => "henry coef [g/(g-bar)]") # to include units
+	henry_data
 end
 
 # ╔═╡ 2eeb4131-29ff-47a2-914b-70ea40b0d861
 md"!!! example \"\"
-	Visualization of Henry coefficients to the data.
+	visualize the Henry coefficients fit to the data.
 "
 
 # ╔═╡ c08184c1-54c1-4139-940f-25d2e6badf55
-function viz_adsorption_data(mof::String; viz_henry::Bool=true)
+function viz_adsorption_data(mof::String; viz_henry::Bool=true, savefig::Bool=true)
 	fig = Figure()
 	
 	ax = Axis(fig[1, 1], 
@@ -208,19 +216,22 @@ function viz_adsorption_data(mof::String; viz_henry::Bool=true)
 	
 	if viz_henry
 		ps = [0.0, 0.5]
-		# ps = range(0.0, 1.0, length=100)
 		for gas in gases
-			# data = isotherm_data(mof, gas)
-			ms = filter(row -> row[:gas] == gas, 
-				 filter(row -> row[:sensor] == mof, henry_c)).henry_c[1] * ps
-			# opt_langmuir_params = fit_Langmuir_isotherm(data[1:7, :])
-			# ns = [n_langmuir(pᵢ, opt_langmuir_params) for pᵢ in ps]
+			H = filter(row -> (row[:gas] == gas) && (row[:mof] == mof), henry_data)[1, "henry coef [g/(g-bar)]"]
+			ms = H * ps
 			lines!(ps, ms, color=gas_to_color[gas])
 		end
 	end
 	axislegend(position=:rb)
 	xlims!(0.0, 0.5)
 	ylims!(0.0, 0.025)
+	if savefig
+		if viz_henry
+			save(mof * "_H_fits.pdf", fig)
+		else
+			save(mof * "_ads_data.pdf", fig)
+		end
+	end
 	fig
 end
 
@@ -232,13 +243,11 @@ viz_adsorption_data(mofs[2])
 
 # ╔═╡ d6920bb1-6bb5-4b18-88aa-17f8c78d8974
 md"!!! example \"\"
-	Export Henry Coefficient DataFrame.
+	export Henry Coefficient DataFrame.
 "
 
 # ╔═╡ 19c10c96-70f9-47a1-a2d8-9d8fb57c8d12
-begin
-	CSV.write("henry_coeffs.csv", henry_c)
-end
+CSV.write("henry_coeffs.csv", henry_data)
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -267,7 +276,7 @@ PlutoUI = "~0.7.21"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.7.0"
+julia_version = "1.7.1"
 manifest_format = "2.0"
 
 [[deps.AbstractFFTs]]
@@ -1522,6 +1531,7 @@ version = "3.5.0+0"
 # ╠═26d5dfc6-ce64-4389-adec-c0c8ec8582d5
 # ╟─ec3b683d-a867-4a2d-9b40-57781927f32a
 # ╠═ebe1cd5a-58a9-4ee7-904e-05261493ae92
+# ╠═00306860-568b-4204-ab35-8e150e32a105
 # ╟─da65b272-d989-44cb-9253-4987ee65da9a
 # ╠═3cacc179-a3cc-4d9c-8414-682848927c60
 # ╟─2eeb4131-29ff-47a2-914b-70ea40b0d861
