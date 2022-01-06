@@ -68,24 +68,50 @@ set_theme!(
 
 # ╔═╡ d5c471c3-26be-46c0-a174-d580d0ed7f7d
 md"!!! example \"\"
-	Declare utility data structures to be used in data processing such as lists of names of gases, mofs, filename for the CSV file and import henry coefficients.
+	declare utility data structures to be used in data processing such as lists of names of gases, mofs, filename for the CSV file and import henry coefficients.
 "
 
 # ╔═╡ d657ed23-3eb4-49d0-a59c-811e8189c376
 begin
-gas_to_pretty_name = Dict("C2H4" => "C₂H₄", "CO2" => "CO₂", "H2O" => "H₂O")
+	gas_to_pretty_name = Dict("C2H4" => "C₂H₄", "CO2" => "CO₂", "H2O" => "H₂O")
+	
+	gases = ["C2H4", "CO2", "H2O"]
+	
+	mofs = ["ZIF-71", "ZIF-8"]
+	
+	henry_c = CSV.read("henry_coeffs.csv", DataFrame)
+end
 
-gases = ["C2H4", "CO2", "H2O"]
+# ╔═╡ 438b8614-9fb9-4014-932b-32a09f7f1fa2
+md"!!! example \"\"
+	store data from simulated gas exposure experiments here.
+"
 
-mofs = ["ZIF-71", "ZIF-8"]
-
-henry_c = CSV.read("henry_coeffs.csv", DataFrame)
-
+# ╔═╡ 272a7f32-ca99-4132-acdb-2a270173d9f6
+begin
+	sensor_data = DataFrame(p_1=Float64[], p_2=Float64[], p_3=Float64[], 
+		                    label=String[], # normal/anomaly etc.
+		                    m_1=Float64[], m_2=Float64[])
+	for i = 1:3
+		rename!(sensor_data, "p_$i" => "p $(gases[i]) [bar]")
+	end
+	for i = 1:2
+		rename!(sensor_data, "m_$i" => "m $(mofs[i]) [g/g]")
+	end
+	sensor_data
 end
 
 # ╔═╡ d1870035-d14f-431a-a7e7-27cd6a9f3dc0
 md"!!! example \"\"
-	Create ripening room gas pressure distributions for normal conditions
+	specify distribution of gas compositions in fruit ripening room under normal conditions.
+
+```math
+\begin{align}
+	p_{H2O} &\sim \mathcal{N}(\mu_{H2O}, \sigma_{H2O}^2) \\
+	p_{C2H4} &\sim \mathcal{N}(\mu_{C2H4}, \sigma_{C2H4}^2) \\
+	p_{CO2} & \sim U(p_{CO2,min}, p_{CO2, max})
+\end{align}
+```
 "
 
 # ╔═╡ 4245a664-9f18-4ca5-b14b-02f8d7c4bbe2
@@ -93,46 +119,54 @@ begin
 	# water is the background nuissance gas.
 	p_H2O_vapor = 3.1690 * 0.01 # bar
 
-	μ_H2O = 0.9 * p_H2O_vapor
+	μ_H2O = 0.85 * p_H2O_vapor  # 85% RH on average
 	σ_H2O = 0.01 * p_H2O_vapor
 	p_H2O_distn = Normal(μ_H2O, σ_H2O)
 
-	μ_C2H4 = 200e-6
+	μ_C2H4 = 150e-6 # 150 ppm on average
 	σ_C2H4 = 50e-6
 	p_C2H4_distn = Normal(μ_C2H4, σ_C2H4)
 
-	# Uniform distribution from 410*10^-6 to 5000*10^-6 bar.
+	# Uniform distribution from 410 ppm to 5000 ppm
 	p_CO2_distn = Uniform(410.0e-6, 5000.0e-6)
 end
 
 # ╔═╡ 69aff7c7-196a-4fee-9070-3d6b49fdaddf
 md"!!! example \"\" 
-	create gas compositions matrix, later this will be multiplied by Henry coefficient MOF matrix in order to yield a single vector value for each MOF."
+	sample normal gas compositions to which the sensor is exposed in the fruit ripening room.
+
+number of gas compositions (300): It takes about 3 days for a banana to ripen in a fruit ripening room. Assuming 20 ripening sessions over the course of 2 months and the sensor is collecting data 5 times per day. 20 x 5 x 3 = 300 data points.
+
+"
 
 # ╔═╡ 8bd4eb78-7ec4-4d8a-b5af-9f8647214878
 function sample_normal_gas_composition()
-	p = zeros(3)
-	p[findfirst(gases .== "H2O")] = rand(p_H2O_distn)
-	p[findfirst(gases .== "CO2")] = rand(p_CO2_distn)
-	p[findfirst(gases .== "C2H4")] = rand(p_C2H4_distn)
-	if any(p .< 0.0)
+	composition = Dict()
+	composition["p H2O [bar]"]  = rand(p_H2O_distn)
+	composition["p CO2 [bar]"]  = rand(p_CO2_distn)
+	composition["p C2H4 [bar]"] = rand(p_C2H4_distn)
+	# avoid negative concentrations ofc
+	if any([composition["p $gas [bar]"] for gas in gases] .< 0.0) 
 		return sample_normal_gas_composition()
 	end
-	return p
+	return composition
 end
+
+# ╔═╡ 1e78ab7a-2afe-4095-8565-1f18058f479c
+sample_normal_gas_composition()
 
 # ╔═╡ 2b285e2f-4ab2-4670-9575-1410552eefed
 begin
-	#=
-	number of gas compositions (300): It takes about 3 days for a banana to 		ripen in a fruit ripening room. Assuming 20 ripening sessions over the course of 2 months and the sensor is collecting data 5 times per day. 20 x 5 x 3 = 300 data points.
-	=#
-	
 	n_gas_compositions = 300
-	gas_compositions = zeros(3, n_gas_compositions)
 	for g = 1:n_gas_compositions
-		gas_compositions[:, g] = sample_normal_gas_composition()
+		composition = sample_normal_gas_composition()
+		composition["label"] = "normal"
+		for m = 1:2
+			composition["m $(mofs[m]) [g/g]"] = NaN
+		end
+		push!(sensor_data, composition, promote=true)
 	end
-	gas_compositions
+	sensor_data
 end
 
 # ╔═╡ 7b2103a7-2fa6-47fb-9fb4-c0edb3c41c09
@@ -368,7 +402,7 @@ PlutoUI = "~0.7.21"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.7.0"
+julia_version = "1.7.1"
 manifest_format = "2.0"
 
 [[deps.AbstractFFTs]]
@@ -1044,9 +1078,9 @@ version = "1.10.8"
 
 [[deps.Ogg_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "7937eda4681660b4d6aeeecc2f7e1c81c8ee4e2f"
+git-tree-sha1 = "887579a3eb005446d514ab7aeac5d1d027658b8f"
 uuid = "e7412a2a-1a6e-54c0-be00-318e2571c051"
-version = "1.3.5+0"
+version = "1.3.5+1"
 
 [[deps.OpenBLAS_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Libdl"]
@@ -1549,10 +1583,13 @@ version = "3.5.0+0"
 # ╟─5019e8ac-040f-48fd-98e8-21ff7970aa23
 # ╟─d5c471c3-26be-46c0-a174-d580d0ed7f7d
 # ╠═d657ed23-3eb4-49d0-a59c-811e8189c376
+# ╟─438b8614-9fb9-4014-932b-32a09f7f1fa2
+# ╠═272a7f32-ca99-4132-acdb-2a270173d9f6
 # ╟─d1870035-d14f-431a-a7e7-27cd6a9f3dc0
 # ╠═4245a664-9f18-4ca5-b14b-02f8d7c4bbe2
 # ╟─69aff7c7-196a-4fee-9070-3d6b49fdaddf
 # ╠═8bd4eb78-7ec4-4d8a-b5af-9f8647214878
+# ╠═1e78ab7a-2afe-4095-8565-1f18058f479c
 # ╠═2b285e2f-4ab2-4670-9575-1410552eefed
 # ╠═7b2103a7-2fa6-47fb-9fb4-c0edb3c41c09
 # ╠═820e8d39-935b-4078-a45f-7f3cb6cc5614
