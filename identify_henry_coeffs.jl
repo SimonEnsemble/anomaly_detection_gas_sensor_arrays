@@ -5,7 +5,7 @@ using Markdown
 using InteractiveUtils
 
 # ╔═╡ d090131e-6602-4c03-860c-ad3cb6c7844a
-using CairoMakie,CSV, DataFrames, ColorSchemes, Distributions, Optim, PlutoUI, Colors
+using CairoMakie,CSV, DataFrames, ColorSchemes, Distributions, Optim, PlutoUI, Colors, JLD2
 
 # ╔═╡ 1784c510-5465-11ec-0dd1-13e5a66e4ce6
 md"# identifying C₂H₄, CO₂, and H₂O Henry Coefficients in ZIF-71 and ZIF-8
@@ -177,19 +177,20 @@ isotherm_data("ZIF-8", "CO2")
 
 # ╔═╡ da65b272-d989-44cb-9253-4987ee65da9a
 md"!!! example \"\"
-	identify Henry coefficients and store them in a data frame.
+	identify Henry coefficients and store them in a nested dictionary.
 "
 
 # ╔═╡ 3cacc179-a3cc-4d9c-8414-682848927c60
 begin
-	henry_data = DataFrame(mof=[], gas=[], henry_c=[])
+	henry_data = Dict()
 	for mof in mofs
+		henry_data[mof] = Dict()
 		for gas in gases
 			data = isotherm_data(mof, gas)
-			push!(henry_data, [mof, gas, fit_Henry(data[1:2, :])])
+			henry_data[mof][gas] = Dict()
+			henry_data[mof][gas]["henry coef [g/(g-bar)]"] = fit_Henry(data[1:2, :])
 		end
 	end
-	rename!(henry_data, :henry_c => "henry coef [g/(g-bar)]") # to include units
 	henry_data
 end
 
@@ -217,7 +218,7 @@ function viz_adsorption_data(mof::String; viz_henry::Bool=true, savefig::Bool=tr
 	if viz_henry
 		ps = [0.0, 0.5]
 		for gas in gases
-			H = filter(row -> (row[:gas] == gas) && (row[:mof] == mof), henry_data)[1, "henry coef [g/(g-bar)]"]
+			H = henry_data[mof][gas]["henry coef [g/(g-bar)]"]
 			ms = H * ps
 			lines!(ps, ms, color=gas_to_color[gas])
 		end
@@ -243,11 +244,11 @@ viz_adsorption_data(mofs[2])
 
 # ╔═╡ d6920bb1-6bb5-4b18-88aa-17f8c78d8974
 md"!!! example \"\"
-	export Henry Coefficient DataFrame.
+	export Henry Coefficient data.
 "
 
 # ╔═╡ 19c10c96-70f9-47a1-a2d8-9d8fb57c8d12
-CSV.write("henry_coeffs.csv", henry_data)
+jldsave("henry_coeffs.jld2"; henry_data)
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -258,6 +259,7 @@ ColorSchemes = "35d6a980-a343-548e-a6ea-1d62b119f2f4"
 Colors = "5ae59095-9a9b-59fe-a467-6f913c188581"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 Optim = "429524aa-4258-5aef-a3af-852621145aeb"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 
@@ -268,6 +270,7 @@ ColorSchemes = "~3.15.0"
 Colors = "~0.12.8"
 DataFrames = "~1.2.2"
 Distributions = "~0.25.34"
+JLD2 = "~0.4.17"
 Optim = "~1.5.0"
 PlutoUI = "~0.7.21"
 """
@@ -788,6 +791,12 @@ git-tree-sha1 = "a3f24677c21f5bbe9d2a714f95dcd58337fb2856"
 uuid = "82899510-4779-5014-852e-03e436cf321d"
 version = "1.0.0"
 
+[[deps.JLD2]]
+deps = ["DataStructures", "FileIO", "MacroTools", "Mmap", "Pkg", "Printf", "Reexport", "TranscodingStreams", "UUIDs"]
+git-tree-sha1 = "09ef0c32a26f80b465d808a1ba1e85775a282c97"
+uuid = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
+version = "0.4.17"
+
 [[deps.JLLWrappers]]
 deps = ["Preferences"]
 git-tree-sha1 = "642a199af8b68253517b80bd3bfd17eb4e84df6e"
@@ -1000,9 +1009,9 @@ version = "1.10.8"
 
 [[deps.Ogg_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "7937eda4681660b4d6aeeecc2f7e1c81c8ee4e2f"
+git-tree-sha1 = "887579a3eb005446d514ab7aeac5d1d027658b8f"
 uuid = "e7412a2a-1a6e-54c0-be00-318e2571c051"
-version = "1.3.5+0"
+version = "1.3.5+1"
 
 [[deps.OpenBLAS_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Libdl"]
