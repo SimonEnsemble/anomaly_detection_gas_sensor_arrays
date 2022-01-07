@@ -79,7 +79,7 @@ begin
 	
 	mofs = ["ZIF-71", "ZIF-8"]
 	
-	henry_c = CSV.read("henry_coeffs.csv", DataFrame)
+	henry_data = CSV.read("henry_coeffs.csv", DataFrame)
 end
 
 # ╔═╡ 438b8614-9fb9-4014-932b-32a09f7f1fa2
@@ -90,13 +90,9 @@ md"!!! example \"\"
 # ╔═╡ 272a7f32-ca99-4132-acdb-2a270173d9f6
 begin
 	sensor_data = DataFrame(p_1=Float64[], p_2=Float64[], p_3=Float64[], 
-		                    label=String[], # normal/anomaly etc.
-		                    m_1=Float64[], m_2=Float64[])
+		                    label=String[]) # normal/anomaly etc.
 	for i = 1:3
 		rename!(sensor_data, "p_$i" => "p $(gases[i]) [bar]")
-	end
-	for i = 1:2
-		rename!(sensor_data, "m_$i" => "m $(mofs[i]) [g/g]")
 	end
 	sensor_data
 end
@@ -161,73 +157,37 @@ begin
 	for g = 1:n_gas_compositions
 		composition = sample_normal_gas_composition()
 		composition["label"] = "normal"
-		for m = 1:2
-			composition["m $(mofs[m]) [g/g]"] = NaN
-		end
-		push!(sensor_data, composition, promote=true)
+		push!(sensor_data, composition)
 	end
 	sensor_data
 end
 
+# ╔═╡ c9c0da01-6a33-4fe6-8822-d28cc95ff884
+md"!!! example \"\" 
+	viz dist'ns of gas compositions in the fruit ripening room.
+
+n.b. all are independent of each other.
+
+H₂O = interferent while both CO₂ and C₂H₄ are analytes.
+		"
+
 # ╔═╡ 7b2103a7-2fa6-47fb-9fb4-c0edb3c41c09
-function viz_H2O_compositions(gas_compositions::Matrix{Float64})
+function viz_H2O_compositions(sensor_data::DataFrame)
 	fig = Figure()
-	ax = Axis(fig[1, 1], xlabel="p, H₂O [relative humidity]", ylabel="# compositions")
-	hist!(gas_compositions[3, :] / p_H2O_vapor)
+	ax = Axis(fig[1, 1], 
+		      xlabel="p, H₂O [relative humidity]", 
+		      ylabel="# compositions")
+	hist!(sensor_data[:, "p H2O [bar]"] / p_H2O_vapor)
 	save("H2O_compositions.pdf", fig)
 	fig
 end
 
 # ╔═╡ 820e8d39-935b-4078-a45f-7f3cb6cc5614
-viz_H2O_compositions(gas_compositions)
+viz_H2O_compositions(sensor_data)
 
 # ╔═╡ cf3990ef-4eaa-4f02-ae7b-0836d18081db
 md"!!! example \"\" 
-	function to vizualize ethylene and CO2 compositions, I tried to iteratively add the scatters for the different types of anomalies so I could control their color but it isn't working"
-
-# ╔═╡ ee190ccc-15e4-416a-a58c-21bc62fde1a5
-md"!!! example \"\" 
-	create a matrix of anomalous compositions"
-
-# ╔═╡ b5aa0a1e-ff40-4b6a-b0dc-4fcc9f73842f
-begin
-	#=
-
-	=#
-	
-	#change to add new anomalies
-	num_anomalies = 3
-
-	#anomaly labels
-	anomaly_labels = ["no ethylene", "ethylene spike", "CO₂ buildup"]
-
-	#change to increase/decrease the number of anomalous points per anomaly
-	num_anomalous_points = 20
-
-	#empty anomalous matrix
-	gas_compositions_anomaly = zeros(3, num_anomalous_points, num_anomalies)
-
-	for i = 1:num_anomalous_points
-		id_anomaly = 1
-		
-		# ethylene not on, anomaly ID 1
-		gas_compositions_anomaly[:, i, id_anomaly] = 
-			[0.0, 410.0e-6, rand(p_H2O_distn)]
-		id_anomaly += 1
-		# too much ethylene at start-up, anomaly ID 2
-		gas_compositions_anomaly[:, i, id_anomaly] = 
-			[1200.0e-6, 410.0e-6, rand(p_H2O_distn)]
-		id_anomaly += 1
-		# too much CO2 build up, anomaly ID 3
-		gas_compositions_anomaly[:, i, id_anomaly] = 
-			[rand(p_C2H4_distn), rand(Uniform(10000e-6, 15000e-6)), rand(p_H2O_distn)]
-		id_anomaly += 1
-		# loss of humidity
-		# gas_compositions_anomaly[:, id_anomaly] = [rand(p_C2H4_distn), rand(p_CO2_distn), rand(Uniform(0.0, 0.5 * p_H2O_vapor))]
-		# id_anomaly += 1
-	end
-	gas_compositions_anomaly
-end
+	function to vizualize C₂H₄ and CO₂ compositions."
 
 # ╔═╡ e97d395d-c3ab-4d51-ac52-49eb28659f65
 function viz_C2H4_CO2_composition(gas_compositions::Matrix{Float64})
@@ -289,13 +249,80 @@ function viz_C2H4_CO2_composition(gas_compositions::Matrix{Float64})
 end
 
 # ╔═╡ 2811f5ad-d7b4-4ff2-8d67-8b4da9950832
-viz_C2H4_CO2_composition(gas_compositions)
+viz_C2H4_CO2_composition(sensor_data)
+
+# ╔═╡ ee190ccc-15e4-416a-a58c-21bc62fde1a5
+md"!!! example \"\" 
+	simulate/sample anomalous compositions"
+
+# ╔═╡ b5aa0a1e-ff40-4b6a-b0dc-4fcc9f73842f
+begin
+	num_anomalous_points = 20
+	# "C₂H₄ off", "C₂H₄ buildup", "CO₂ buildup"]
+	for i = 1:num_anomalous_points
+		# anomaly = "C₂H₄ off"
+		composition = Dict(
+			"p C2H4 [bar]" => 0.0,
+		    "p CO2 [bar]"  => 410.0e-6,
+			"p H2O [bar]"  => rand(p_H2O_distn),
+			"label"        => "C₂H₄ off"
+		)
+		push!(sensor_data, composition)
+
+		# anomaly = "C₂H₄ buildup"
+		p_C2H4_buidup_distn = Uniform(200e-6, 1000e-6)
+		composition = Dict(
+			"p C2H4 [bar]" => rand(p_C2H4_buidup_distn),
+		    "p CO2 [bar]"  => rand(p_CO2_distn),
+			"p H2O [bar]"  => rand(p_H2O_distn),
+			"label"        => "C₂H₄ buildup"
+		)
+		push!(sensor_data, composition)
+		
+		# anomaly = "CO₂ buildup"
+		p_CO2_buidup_distn = Uniform(7500e-6, 20000e-6)
+		composition = Dict(
+			"p C2H4 [bar]" => rand(p_C2H4_distn),
+		    "p CO2 [bar]"  => rand(p_CO2_buidup_distn),
+			"p H2O [bar]"  => rand(p_H2O_distn),
+			"label"        => "CO₂ buildup"
+		)
+		push!(sensor_data, composition)
+	end
+	sensor_data
+end
+
+# ╔═╡ 5620c09f-65b0-4161-bece-593fc5c7681a
+md"!!! example \"\" 
+	predict response of sensor array to the gas composition via Henry's law"
+
+# ╔═╡ 680ddd33-f965-4a61-abeb-95f7cbff2b7d
+begin
+	for m = 1:2
+		insertcols!(sensor_data, 
+			"m $(mofs[m]) [g/g]" => [NaN for _ = 1:nrow(sensor_data)]
+		)
+	end
+	sensor_data
+end
+
+# ╔═╡ cfc91067-318f-4ac1-a323-09d6ef22746f
+
 
 # ╔═╡ c8d753c5-c53e-4073-b3f2-31b72f9c6b7e
 begin
-
 	# construct Henry coefficient matrix
-		
+	for gas in gases
+		for (m, mof) in enumerate(mofs)
+			H = filter(row -> (row[:gas] == gas) && (row[:mof] == mof), henry_data)
+			
+		for row in eachrow(sensor_data)
+			mass = 0.0
+			
+				
+			end
+		end
+	end
 	H = [filter(row -> row[:gas] == gas, 
 	     filter(row -> row[:sensor] == mof, henry_c)).henry_c[1]
 		 for mof in mofs, gas in gases]
@@ -1591,6 +1618,7 @@ version = "3.5.0+0"
 # ╠═8bd4eb78-7ec4-4d8a-b5af-9f8647214878
 # ╠═1e78ab7a-2afe-4095-8565-1f18058f479c
 # ╠═2b285e2f-4ab2-4670-9575-1410552eefed
+# ╟─c9c0da01-6a33-4fe6-8822-d28cc95ff884
 # ╠═7b2103a7-2fa6-47fb-9fb4-c0edb3c41c09
 # ╠═820e8d39-935b-4078-a45f-7f3cb6cc5614
 # ╟─cf3990ef-4eaa-4f02-ae7b-0836d18081db
@@ -1598,6 +1626,9 @@ version = "3.5.0+0"
 # ╠═2811f5ad-d7b4-4ff2-8d67-8b4da9950832
 # ╟─ee190ccc-15e4-416a-a58c-21bc62fde1a5
 # ╠═b5aa0a1e-ff40-4b6a-b0dc-4fcc9f73842f
+# ╟─5620c09f-65b0-4161-bece-593fc5c7681a
+# ╠═680ddd33-f965-4a61-abeb-95f7cbff2b7d
+# ╠═cfc91067-318f-4ac1-a323-09d6ef22746f
 # ╠═c8d753c5-c53e-4073-b3f2-31b72f9c6b7e
 # ╠═17b7e7f2-f6cc-4c4a-8403-70b4d4455b41
 # ╟─ecf86f67-114e-482e-9429-1dc6fdb62c7c
