@@ -7,61 +7,12 @@ using InteractiveUtils
 # ╔═╡ d090131e-6602-4c03-860c-ad3cb6c7844a
 using CairoMakie,CSV, DataFrames, ColorSchemes, Distributions, Optim, PlutoUI, Colors, JLD2
 
+# ╔═╡ 5019e8ac-040f-48fd-98e8-21ff7970aa23
+include("plot_theme.jl")
+
 # ╔═╡ 1784c510-5465-11ec-0dd1-13e5a66e4ce6
 md"# identifying C₂H₄, CO₂, and H₂O Henry Coefficients in ZIF-71 and ZIF-8
 "
-
-# ╔═╡ 5019e8ac-040f-48fd-98e8-21ff7970aa23
-set_theme!(
-    Theme(
-        palette = (color=[c for c in ColorSchemes.Dark2_5], marker=[:circle, :utriangle, :cross, :rect, :diamond, :dtriangle, :pentagon, :xcross]),
-        textcolor = :gray40,
-        linewidth=4,
-        fontsize=20,
-        resolution = (520, 400),
-        Axis = (
-            backgroundcolor = RGB(0.96, 1.0, 0.98),
-            xgridcolor = (:black, 0.15),
-            ygridcolor = (:black, 0.15),
-            leftspinevisible = false,
-            rightspinevisible = false,
-            ygridstyle=:dash,
-            xgridstyle=:dash,
-            bottomspinevisible = false,
-            topspinevisible = false,
-            xminorticksvisible = false,
-            yminorticksvisible = false,
-            xticksvisible = false,
-            yticksvisible = false,
-            xlabelpadding = 3,
-            ylabelpadding = 3
-        ),
-        Legend = (
-            framevisible = true,
-            titlehalign=:left,
-            titlesize=16,
-            labelsize=16,
-            framecolor=(:black, 0.5)
-            # padding = (1, 0, 0, 0),
-        ),
-        Axis3 = (
-            xgridcolor = (:black, 0.07),
-            ygridcolor = (:black, 0.07),
-            zgridcolor = (:black, 0.07),
-            xspinesvisible = false,
-            yspinesvisible = false,
-            zspinesvisible = false,
-            xticksvisible = false,
-            yticksvisible = false,
-            zticksvisible = false,
-        ),
-        Colorbar = (
-            ticksvisible = false,
-            spinewidth = 0,
-            ticklabelpad = 5,
-        )
-    )
-)
 
 # ╔═╡ d5c471c3-26be-46c0-a174-d580d0ed7f7d
 md"!!! example \"\"
@@ -1533,7 +1484,7 @@ version = "3.5.0+0"
 # ╔═╡ Cell order:
 # ╟─1784c510-5465-11ec-0dd1-13e5a66e4ce6
 # ╠═d090131e-6602-4c03-860c-ad3cb6c7844a
-# ╟─5019e8ac-040f-48fd-98e8-21ff7970aa23
+# ╠═5019e8ac-040f-48fd-98e8-21ff7970aa23
 # ╟─d5c471c3-26be-46c0-a174-d580d0ed7f7d
 # ╠═d657ed23-3eb4-49d0-a59c-811e8189c376
 # ╟─d5544844-21ed-4a8c-8715-45038b502453

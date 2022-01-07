@@ -5,65 +5,19 @@ using Markdown
 using InteractiveUtils
 
 # ╔═╡ d090131e-6602-4c03-860c-ad3cb6c7844a
-using CairoMakie,CSV, DataFrames, ColorSchemes, Distributions, PlutoUI, Colors
+using CairoMakie,CSV, DataFrames, ColorSchemes, Distributions, PlutoUI, Colors, JLD2
+
+# ╔═╡ 2f4ddeea-a40a-428e-a979-9eaf850227dd
+include("plot_theme.jl")
 
 # ╔═╡ 1784c510-5465-11ec-0dd1-13e5a66e4ce6
 md"# Data Generation for Gas Sensor Arrays in a Fruit Ripening Room
 "
 
 # ╔═╡ 06409854-f2b6-4356-ab0c-0c7c7a410d9a
-colors = Dict("normal" => "seagreen", "anomaly" => ColorSchemes.RdBu_10)
-
-# ╔═╡ 5019e8ac-040f-48fd-98e8-21ff7970aa23
-set_theme!(
-    Theme(
-        palette = (color=[c for c in ColorSchemes.Dark2_5], marker=[:circle, :utriangle, :cross, :rect, :diamond, :dtriangle, :pentagon, :xcross]),
-        textcolor = :gray40,
-        linewidth=4,
-        fontsize=20,
-        resolution = (520, 400),
-        Axis = (
-            backgroundcolor = RGB(0.96, 1.0, 0.98),
-            xgridcolor = (:black, 0.15),
-            ygridcolor = (:black, 0.15),
-            leftspinevisible = false,
-            rightspinevisible = false,
-            ygridstyle=:dash,
-            xgridstyle=:dash,
-            bottomspinevisible = false,
-            topspinevisible = false,
-            xminorticksvisible = false,
-            yminorticksvisible = false,
-            xticksvisible = false,
-            yticksvisible = false,
-            xlabelpadding = 3,
-            ylabelpadding = 3
-        ),
-        Legend = (
-            framevisible = true,
-            titlehalign=:left,
-            titlesize=16,
-            labelsize=16,
-            framecolor=(:black, 0.5)
-            # padding = (1, 0, 0, 0),
-        ),
-        Axis3 = (
-            xgridcolor = (:black, 0.07),
-            ygridcolor = (:black, 0.07),
-            zgridcolor = (:black, 0.07),
-            xspinesvisible = false,
-            yspinesvisible = false,
-            zspinesvisible = false,
-            xticksvisible = false,
-            yticksvisible = false,
-            zticksvisible = false,
-        ),
-        Colorbar = (
-            ticksvisible = false,
-            spinewidth = 0,
-            ticklabelpad = 5,
-        )
-    )
+colors = Dict(zip(
+	["normal", "CO₂ buildup", "C₂H₄ buildup", "C₂H₄ off"],
+	ColorSchemes.Accent_4)
 )
 
 # ╔═╡ d5c471c3-26be-46c0-a174-d580d0ed7f7d
@@ -78,8 +32,9 @@ begin
 	gases = ["C2H4", "CO2", "H2O"]
 	
 	mofs = ["ZIF-71", "ZIF-8"]
-	
-	henry_data = CSV.read("henry_coeffs.csv", DataFrame)
+
+	# load from identify_henry_coeffs.jl
+	henry_data = load("henry_coeffs.jld2")["henry_data"]
 end
 
 # ╔═╡ 438b8614-9fb9-4014-932b-32a09f7f1fa2
@@ -162,6 +117,47 @@ begin
 	sensor_data
 end
 
+# ╔═╡ ee190ccc-15e4-416a-a58c-21bc62fde1a5
+md"!!! example \"\" 
+	simulate/sample anomalous compositions"
+
+# ╔═╡ b5aa0a1e-ff40-4b6a-b0dc-4fcc9f73842f
+begin
+	num_anomalous_points = 20
+	# "C₂H₄ off", "C₂H₄ buildup", "CO₂ buildup"]
+	for i = 1:num_anomalous_points
+		# anomaly = "C₂H₄ off"
+		composition = Dict(
+			"p C2H4 [bar]" => 0.0,
+		    "p CO2 [bar]"  => 410.0e-6,
+			"p H2O [bar]"  => rand(p_H2O_distn),
+			"label"        => "C₂H₄ off"
+		)
+		push!(sensor_data, composition)
+
+		# anomaly = "C₂H₄ buildup"
+		p_C2H4_buidup_distn = Uniform(200e-6, 1000e-6)
+		composition = Dict(
+			"p C2H4 [bar]" => rand(p_C2H4_buidup_distn),
+		    "p CO2 [bar]"  => rand(p_CO2_distn),
+			"p H2O [bar]"  => rand(p_H2O_distn),
+			"label"        => "C₂H₄ buildup"
+		)
+		push!(sensor_data, composition)
+		
+		# anomaly = "CO₂ buildup"
+		p_CO2_buidup_distn = Uniform(7500e-6, 20000e-6)
+		composition = Dict(
+			"p C2H4 [bar]" => rand(p_C2H4_distn),
+		    "p CO2 [bar]"  => rand(p_CO2_buidup_distn),
+			"p H2O [bar]"  => rand(p_H2O_distn),
+			"label"        => "CO₂ buildup"
+		)
+		push!(sensor_data, composition)
+	end
+	sensor_data
+end
+
 # ╔═╡ c9c0da01-6a33-4fe6-8822-d28cc95ff884
 md"!!! example \"\" 
 	viz dist'ns of gas compositions in the fruit ripening room.
@@ -190,9 +186,7 @@ md"!!! example \"\"
 	function to vizualize C₂H₄ and CO₂ compositions."
 
 # ╔═╡ e97d395d-c3ab-4d51-ac52-49eb28659f65
-function viz_C2H4_CO2_composition(gas_compositions::Matrix{Float64})
-
-	
+function viz_C2H4_CO2_composition(sensor_data::DataFrame)
 	fig = Figure(resolution=(500, 500))
     # create panels
     ax_main  = Axis(fig[2, 1],
@@ -251,47 +245,6 @@ end
 # ╔═╡ 2811f5ad-d7b4-4ff2-8d67-8b4da9950832
 viz_C2H4_CO2_composition(sensor_data)
 
-# ╔═╡ ee190ccc-15e4-416a-a58c-21bc62fde1a5
-md"!!! example \"\" 
-	simulate/sample anomalous compositions"
-
-# ╔═╡ b5aa0a1e-ff40-4b6a-b0dc-4fcc9f73842f
-begin
-	num_anomalous_points = 20
-	# "C₂H₄ off", "C₂H₄ buildup", "CO₂ buildup"]
-	for i = 1:num_anomalous_points
-		# anomaly = "C₂H₄ off"
-		composition = Dict(
-			"p C2H4 [bar]" => 0.0,
-		    "p CO2 [bar]"  => 410.0e-6,
-			"p H2O [bar]"  => rand(p_H2O_distn),
-			"label"        => "C₂H₄ off"
-		)
-		push!(sensor_data, composition)
-
-		# anomaly = "C₂H₄ buildup"
-		p_C2H4_buidup_distn = Uniform(200e-6, 1000e-6)
-		composition = Dict(
-			"p C2H4 [bar]" => rand(p_C2H4_buidup_distn),
-		    "p CO2 [bar]"  => rand(p_CO2_distn),
-			"p H2O [bar]"  => rand(p_H2O_distn),
-			"label"        => "C₂H₄ buildup"
-		)
-		push!(sensor_data, composition)
-		
-		# anomaly = "CO₂ buildup"
-		p_CO2_buidup_distn = Uniform(7500e-6, 20000e-6)
-		composition = Dict(
-			"p C2H4 [bar]" => rand(p_C2H4_distn),
-		    "p CO2 [bar]"  => rand(p_CO2_buidup_distn),
-			"p H2O [bar]"  => rand(p_H2O_distn),
-			"label"        => "CO₂ buildup"
-		)
-		push!(sensor_data, composition)
-	end
-	sensor_data
-end
-
 # ╔═╡ 5620c09f-65b0-4161-bece-593fc5c7681a
 md"!!! example \"\" 
 	predict response of sensor array to the gas composition via Henry's law"
@@ -306,37 +259,21 @@ begin
 	sensor_data
 end
 
-# ╔═╡ cfc91067-318f-4ac1-a323-09d6ef22746f
-
-
 # ╔═╡ c8d753c5-c53e-4073-b3f2-31b72f9c6b7e
 begin
-	# construct Henry coefficient matrix
-	for gas in gases
-		for (m, mof) in enumerate(mofs)
-			H = filter(row -> (row[:gas] == gas) && (row[:mof] == mof), henry_data)
-			
-		for row in eachrow(sensor_data)
-			mass = 0.0
-			
-				
+	for row in eachrow(sensor_data)
+		for mof in mofs
+			# use Henry's law and add contribution from each gas.
+			row["m $(mof) [g/g]"] = 0.0
+			for gas in gases
+				H_mof_gas = henry_data[mof][gas]["henry coef [g/(g-bar)]"]
+				p_gas     = row["p $gas [bar]"]
+				row["m $(mof) [g/g]"] += H_mof_gas * p_gas
 			end
 		end
 	end
-	H = [filter(row -> row[:gas] == gas, 
-	     filter(row -> row[:sensor] == mof, henry_c)).henry_c[1]
-		 for mof in mofs, gas in gases]
-	
-	# sensor array responses for distribution and anomalies
-	
-	m = H * gas_compositions
-	
-	m_anomaly = [H * gas_compositions_anomaly[:, :, i] for i = 1:num_anomalies]
-	
+	sensor_data
 end
-
-# ╔═╡ 17b7e7f2-f6cc-4c4a-8403-70b4d4455b41
-H
 
 # ╔═╡ ecf86f67-114e-482e-9429-1dc6fdb62c7c
 md"!!! example \"\" 
@@ -351,18 +288,15 @@ begin
 		        ylabel="m, " * mofs[2] * "[g/g]", 
 				aspect=DataAspect(),
 		        title="sensor array responses")
-	
-	scatter!(m[1, :], m[2, :], strokewidth=1, 
-		     color=(:white, 0.0), strokecolor=colors["normal"],
-			 label="normal")
-	
-	for i = 1:num_anomalies
-		scatter!(m_anomaly[i][1, :], 
-				 m_anomaly[i][2, :], 
-				 strokewidth=1, 
-			     color=(:white, 0.0), 
-				 strokecolor=colors["anomaly"][i],
-				 label="$(anomaly_labels[i])")
+
+	for sensor_data_g in groupby(sensor_data, :label)
+		label = sensor_data_g[1, "label"]
+		scatter!(sensor_data_g[:, "m $(mofs[1]) [g/g]"], 
+			     sensor_data_g[:, "m $(mofs[2]) [g/g]"], 
+			     strokewidth=1,
+			     marker=label == "normal" ? :circle : :x,
+			     color=(:white, 0.0), strokecolor=colors[label],
+				 label=label)
 	end
 	
 	axislegend()
@@ -373,36 +307,11 @@ end
 
 # ╔═╡ 13f4c61a-2e80-46c3-9ee1-657ad7b92ea1
 md"!!! example \"\"
-	Store normal and anomalous sensor array responses as a data frame and export CSV file.
+	export the simulated gas exposure experiment data set. 
 "
 
-# ╔═╡ 77bc7e89-8967-46ce-aeed-cbbafe71285d
-begin
-	sensor_responses = DataFrame(m_ZIF_71 = [], 
-								 m_ZIF_8 = [], 
-								 anomalous_label = [], 
-								 anomaly_indicator = [])
-
-	for i = 1:n_gas_compositions
-		push!(sensor_responses, [m[1, i], m[2, i], "normal", 0])
-	end
-
-	for i = 1:num_anomalies
-		for j = 1:num_anomalous_points
-			push!(sensor_responses, [m_anomaly[i][1, j], 
-									 m_anomaly[i][2, j], 
-									 anomaly_labels[i], 
-									 1])
-		end
-	end
-
-	sensor_responses
-end
-
 # ╔═╡ 2318b9ae-f3ae-449c-be2c-4eee0d898695
-begin
-	CSV.write("generated_sensor_data.csv", sensor_responses)
-end
+CSV.write("sensor_data.csv", sensor_data)
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -413,6 +322,7 @@ ColorSchemes = "35d6a980-a343-548e-a6ea-1d62b119f2f4"
 Colors = "5ae59095-9a9b-59fe-a467-6f913c188581"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 
 [compat]
@@ -422,6 +332,7 @@ ColorSchemes = "~3.15.0"
 Colors = "~0.12.8"
 DataFrames = "~1.2.2"
 Distributions = "~0.25.34"
+JLD2 = "~0.4.17"
 PlutoUI = "~0.7.21"
 """
 
@@ -911,6 +822,12 @@ git-tree-sha1 = "a3f24677c21f5bbe9d2a714f95dcd58337fb2856"
 uuid = "82899510-4779-5014-852e-03e436cf321d"
 version = "1.0.0"
 
+[[deps.JLD2]]
+deps = ["DataStructures", "FileIO", "MacroTools", "Mmap", "Pkg", "Printf", "Reexport", "TranscodingStreams", "UUIDs"]
+git-tree-sha1 = "09ef0c32a26f80b465d808a1ba1e85775a282c97"
+uuid = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
+version = "0.4.17"
+
 [[deps.JLLWrappers]]
 deps = ["Preferences"]
 git-tree-sha1 = "642a199af8b68253517b80bd3bfd17eb4e84df6e"
@@ -1023,6 +940,12 @@ deps = ["Artifacts", "IntelOpenMP_jll", "JLLWrappers", "LazyArtifacts", "Libdl",
 git-tree-sha1 = "5455aef09b40e5020e1520f551fa3135040d4ed0"
 uuid = "856f044c-d86e-5d09-b602-aeab76dc8ba7"
 version = "2021.1.1+2"
+
+[[deps.MacroTools]]
+deps = ["Markdown", "Random"]
+git-tree-sha1 = "3d3e902b31198a27340d0bf00d6ac452866021cf"
+uuid = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
+version = "0.5.9"
 
 [[deps.Makie]]
 deps = ["Animations", "Base64", "ColorBrewer", "ColorSchemes", "ColorTypes", "Colors", "Contour", "Distributions", "DocStringExtensions", "FFMPEG", "FileIO", "FixedPointNumbers", "Formatting", "FreeType", "FreeTypeAbstraction", "GeometryBasics", "GridLayoutBase", "ImageIO", "IntervalSets", "Isoband", "KernelDensity", "LaTeXStrings", "LinearAlgebra", "MakieCore", "Markdown", "Match", "MathTeXEngine", "Observables", "Packing", "PlotUtils", "PolygonOps", "Printf", "Random", "RelocatableFolders", "Serialization", "Showoff", "SignedDistanceFields", "SparseArrays", "StaticArrays", "Statistics", "StatsBase", "StatsFuns", "StructArrays", "UnicodeFun"]
@@ -1606,8 +1529,8 @@ version = "3.5.0+0"
 # ╔═╡ Cell order:
 # ╟─1784c510-5465-11ec-0dd1-13e5a66e4ce6
 # ╠═d090131e-6602-4c03-860c-ad3cb6c7844a
+# ╠═2f4ddeea-a40a-428e-a979-9eaf850227dd
 # ╠═06409854-f2b6-4356-ab0c-0c7c7a410d9a
-# ╟─5019e8ac-040f-48fd-98e8-21ff7970aa23
 # ╟─d5c471c3-26be-46c0-a174-d580d0ed7f7d
 # ╠═d657ed23-3eb4-49d0-a59c-811e8189c376
 # ╟─438b8614-9fb9-4014-932b-32a09f7f1fa2
@@ -1618,23 +1541,20 @@ version = "3.5.0+0"
 # ╠═8bd4eb78-7ec4-4d8a-b5af-9f8647214878
 # ╠═1e78ab7a-2afe-4095-8565-1f18058f479c
 # ╠═2b285e2f-4ab2-4670-9575-1410552eefed
+# ╟─ee190ccc-15e4-416a-a58c-21bc62fde1a5
+# ╠═b5aa0a1e-ff40-4b6a-b0dc-4fcc9f73842f
 # ╟─c9c0da01-6a33-4fe6-8822-d28cc95ff884
 # ╠═7b2103a7-2fa6-47fb-9fb4-c0edb3c41c09
 # ╠═820e8d39-935b-4078-a45f-7f3cb6cc5614
 # ╟─cf3990ef-4eaa-4f02-ae7b-0836d18081db
 # ╠═e97d395d-c3ab-4d51-ac52-49eb28659f65
 # ╠═2811f5ad-d7b4-4ff2-8d67-8b4da9950832
-# ╟─ee190ccc-15e4-416a-a58c-21bc62fde1a5
-# ╠═b5aa0a1e-ff40-4b6a-b0dc-4fcc9f73842f
 # ╟─5620c09f-65b0-4161-bece-593fc5c7681a
 # ╠═680ddd33-f965-4a61-abeb-95f7cbff2b7d
-# ╠═cfc91067-318f-4ac1-a323-09d6ef22746f
 # ╠═c8d753c5-c53e-4073-b3f2-31b72f9c6b7e
-# ╠═17b7e7f2-f6cc-4c4a-8403-70b4d4455b41
 # ╟─ecf86f67-114e-482e-9429-1dc6fdb62c7c
 # ╠═ad9e96d5-7668-4e5a-950d-e5a6bfd29db7
 # ╟─13f4c61a-2e80-46c3-9ee1-657ad7b92ea1
-# ╠═77bc7e89-8967-46ce-aeed-cbbafe71285d
 # ╠═2318b9ae-f3ae-449c-be2c-4eee0d898695
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
