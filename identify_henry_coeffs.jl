@@ -193,6 +193,49 @@ viz_adsorption_data(mofs[1])
 # ╔═╡ 536b6ed6-e656-4cc6-a4f2-efd9eba197d0
 viz_adsorption_data(mofs[2])
 
+# ╔═╡ f7c34c83-a982-4280-a453-ace369a72f69
+md"!!! example \"\"
+	visualize and compare henry coefficient values.
+"
+
+# ╔═╡ eaed2f07-f631-4502-ade3-93fa57b1d978
+function viz_henry_barplot()
+
+	h_values = [henry_data[mofs[i]][gases[j]]["henry coef [g/(g-bar)]"] 
+				for i=1:length(mofs) for j=1:length(gases)]
+	
+	fig = Figure()
+
+	ax = Axis(fig[1,1], xticks = (1:3, gases), title = "Henry Coefficients")
+
+	mof_color = ColorSchemes.tableau_colorblind
+
+	tbl = (gas_num = [1, 2, 3, 1, 2, 3],
+       height = h_values,
+       mof_num = [1, 2, 1, 2, 1, 2]
+       )
+
+	barplot!(tbl.gas_num, tbl.height,
+        dodge = tbl.mof_num,
+        color = mof_color[tbl.mof_num],
+        )
+
+	labels = mofs
+	elements = [PolyElement(polycolor = mof_color[i]) for i in 1:length(labels)]
+	title = "mofs"
+
+	Legend(fig[1,2], elements, labels, title)
+
+	fig
+	
+end
+
+# ╔═╡ 526087c8-39db-4b2d-bdcf-1c74239fa4ca
+
+
+# ╔═╡ 97f1099f-0417-4688-93f8-16a14cbe40c3
+viz_henry_barplot()
+
 # ╔═╡ d6920bb1-6bb5-4b18-88aa-17f8c78d8974
 md"!!! example \"\"
 	export Henry Coefficient data.
@@ -230,7 +273,7 @@ PlutoUI = "~0.7.21"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.7.1"
+julia_version = "1.7.0"
 manifest_format = "2.0"
 
 [[deps.AbstractFFTs]]
@@ -960,9 +1003,9 @@ version = "1.10.8"
 
 [[deps.Ogg_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "887579a3eb005446d514ab7aeac5d1d027658b8f"
+git-tree-sha1 = "7937eda4681660b4d6aeeecc2f7e1c81c8ee4e2f"
 uuid = "e7412a2a-1a6e-54c0-be00-318e2571c051"
-version = "1.3.5+1"
+version = "1.3.5+0"
 
 [[deps.OpenBLAS_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Libdl"]
@@ -1498,6 +1541,10 @@ version = "3.5.0+0"
 # ╠═c08184c1-54c1-4139-940f-25d2e6badf55
 # ╠═f6890756-0753-4c49-bd89-bee2b71fe550
 # ╠═536b6ed6-e656-4cc6-a4f2-efd9eba197d0
+# ╟─f7c34c83-a982-4280-a453-ace369a72f69
+# ╠═eaed2f07-f631-4502-ade3-93fa57b1d978
+# ╠═526087c8-39db-4b2d-bdcf-1c74239fa4ca
+# ╠═97f1099f-0417-4688-93f8-16a14cbe40c3
 # ╟─d6920bb1-6bb5-4b18-88aa-17f8c78d8974
 # ╠═19c10c96-70f9-47a1-a2d8-9d8fb57c8d12
 # ╟─00000000-0000-0000-0000-000000000001
