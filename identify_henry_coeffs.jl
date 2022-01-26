@@ -205,7 +205,6 @@ function viz_henry_barplot()
 				for i=1:length(mofs) for j=1:length(gases)]
 	
 	fig = Figure()
-
 	ax = Axis(fig[1,1], xticks = (1:3, gases), title = "Henry Coefficients")
 
 	mof_color = ColorSchemes.tableau_colorblind
@@ -215,9 +214,13 @@ function viz_henry_barplot()
        mof_num = [1, 2, 1, 2, 1, 2]
        )
 
-	barplot!(tbl.gas_num, tbl.height,
+	barplot!(tbl.gas_num, 
+		tbl.height,
         dodge = tbl.mof_num,
-        color = mof_color[tbl.mof_num],
+        color = mof_color[tbl.mof_num], 
+		label_size = 11, 
+		flip_labels_at = 0.6,
+		bar_labels = :y
         )
 
 	labels = mofs
@@ -1003,9 +1006,9 @@ version = "1.10.8"
 
 [[deps.Ogg_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "7937eda4681660b4d6aeeecc2f7e1c81c8ee4e2f"
+git-tree-sha1 = "887579a3eb005446d514ab7aeac5d1d027658b8f"
 uuid = "e7412a2a-1a6e-54c0-be00-318e2571c051"
-version = "1.3.5+0"
+version = "1.3.5+1"
 
 [[deps.OpenBLAS_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Libdl"]

@@ -230,7 +230,6 @@ function viz_svm_data_fit(ν = 0.053, γ = 0.38, res = 100)
       				    grid_data[2][:,2], 
 						grid_data[1], 
 						colormap = color_map, 
-						# Paul: important here for colormap to be centered at zero.
 						colorrange=(-0.002, 0.002))
 
 	scatter!(m_train[:, 1], m_train[:, 2], strokewidth=1, 
@@ -1094,9 +1093,9 @@ version = "1.10.8"
 
 [[deps.Ogg_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "7937eda4681660b4d6aeeecc2f7e1c81c8ee4e2f"
+git-tree-sha1 = "887579a3eb005446d514ab7aeac5d1d027658b8f"
 uuid = "e7412a2a-1a6e-54c0-be00-318e2571c051"
-version = "1.3.5+0"
+version = "1.3.5+1"
 
 [[deps.OpenBLAS_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Libdl"]
