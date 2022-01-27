@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.17.2
+# v0.17.7
 
 using Markdown
 using InteractiveUtils
@@ -17,7 +17,7 @@ md"# Data Generation for Gas Sensor Arrays in a Fruit Ripening Room
 # ╔═╡ 06409854-f2b6-4356-ab0c-0c7c7a410d9a
 colors = Dict(zip(
 	["normal", "CO₂ buildup", "C₂H₄ buildup", "C₂H₄ off"],
-	ColorSchemes.Accent_4)
+	ColorSchemes.Dark2_4)
 )
 
 # ╔═╡ d5c471c3-26be-46c0-a174-d580d0ed7f7d
@@ -72,14 +72,14 @@ begin
 
 	μ_H2O = 0.85 * p_H2O_vapor  # 85% RH on average
 	σ_H2O = 0.01 * p_H2O_vapor
-	p_H2O_distn = Normal(μ_H2O, σ_H2O)
+	p_H2O_distn = Normal(μ_H2O, σ_H2O) # bar
 
 	μ_C2H4 = 150e-6 # 150 ppm on average
 	σ_C2H4 = 50e-6
-	p_C2H4_distn = Normal(μ_C2H4, σ_C2H4)
+	p_C2H4_distn = Normal(μ_C2H4, σ_C2H4) # bar
 
 	# Uniform distribution from 410 ppm to 5000 ppm
-	p_CO2_distn = Uniform(410.0e-6, 5000.0e-6)
+	p_CO2_distn = Uniform(410.0e-6, 5000.0e-6) # bar
 end
 
 # ╔═╡ 69aff7c7-196a-4fee-9070-3d6b49fdaddf
@@ -108,7 +108,7 @@ sample_normal_gas_composition()
 
 # ╔═╡ 2b285e2f-4ab2-4670-9575-1410552eefed
 begin
-	n_gas_compositions = 300
+	n_gas_compositions = 50
 	for g = 1:n_gas_compositions
 		composition = sample_normal_gas_composition()
 		composition["label"] = "normal"
@@ -123,12 +123,12 @@ md"!!! example \"\"
 
 # ╔═╡ b5aa0a1e-ff40-4b6a-b0dc-4fcc9f73842f
 begin
-	num_anomalous_points = 20
+	num_anomalous_points = 5 # each
 	# "C₂H₄ off", "C₂H₄ buildup", "CO₂ buildup"]
 	for i = 1:num_anomalous_points
 		# anomaly = "C₂H₄ off"
 		composition = Dict(
-			"p C2H4 [bar]" => 0.0,
+			"p C2H4 [bar]" => (5 + 5 * randn()) * 1e-6,
 		    "p CO2 [bar]"  => 410.0e-6,
 			"p H2O [bar]"  => rand(p_H2O_distn),
 			"label"        => "C₂H₄ off"
@@ -155,6 +155,9 @@ begin
 		)
 		push!(sensor_data, composition)
 	end
+	# filter out any negative compositions
+	filter!(row -> (row["p C2H4 [bar]"] >= 0.0) && (row["p CO2 [bar]"] >= 0.0) && (row["p H2O [bar]"] >= 0.0), 
+		sensor_data)
 	sensor_data
 end
 
@@ -174,6 +177,7 @@ function viz_H2O_compositions(sensor_data::DataFrame)
 		      xlabel="p, H₂O [relative humidity]", 
 		      ylabel="# compositions")
 	hist!(sensor_data[:, "p H2O [bar]"] / p_H2O_vapor)
+	ylims!(0.0, nothing)
 	save("H2O_compositions.pdf", fig)
 	fig
 end
@@ -205,35 +209,36 @@ function viz_C2H4_CO2_composition(sensor_data::DataFrame)
     end
     ylims!(ax_right, 0, nothing)
 
-	#scatter plot of normal compositions
-	scatter!(ax_main, 
-			 gas_compositions[1, :]*1e6, 
-			 gas_compositions[2, :]*1e6, 
-			 strokewidth=1, 
-			 label="normal", 
-			 strokecolor=colors["normal"],
-			 color=(:white, 0.0))
-
-	#density of normal compositions
-	density!(ax_top, 
-			 gas_compositions[1, :]*1e6, 
-			 color=(colors["normal"], 0.5))
-	density!(ax_right, 
-			 gas_compositions[2, :]*1e6, 
-			 direction=:y, 
-			 color=(colors["normal"], 0.5))
-
-
-	#scatter for anomalous compositions
-	for i = 1:num_anomalies
+	for sensor_data_g in groupby(sensor_data, :label)
+		label = sensor_data_g[1, "label"]
+		
+		#scatter plot of normal compositions
 		scatter!(ax_main, 
-				 gas_compositions_anomaly[1, :, i]*1e6, 
-				 gas_compositions_anomaly[2, :, i]*1e6, 
-				 strokewidth=1, color=(:white, 0.0),
-				 strokecolor=colors["anomaly"][i], 
-				 label="$(anomaly_labels[i])")
+				 sensor_data_g[:, "p $(gases[1]) [bar]"] * 1e6, 
+				 sensor_data_g[:, "p $(gases[2]) [bar]"] * 1e6, 
+				 strokewidth=1, 
+				 label=label, 
+				 strokecolor=colors[label],
+				 color=(:white, 0.0)
+		)
+		
+		#density of normal compositions
+		hist!(ax_top, 
+				 sensor_data_g[:, "p $(gases[1]) [bar]"] * 1e6, 
+				 label=label,
+			density=true,
+				 color=(colors[label], 0.5)
+		)
+		hist!(ax_right, 
+			  sensor_data_g[:, "p $(gases[2]) [bar]"] * 1e6, 
+			  direction=:x, 
+			  label=label,
+			density=true,
+			  color=(colors[label], 0.5)
+		)
 	end
-	
+	# ylims!(ax_top, 0, 0.01)
+	# xlims!(ax_right, 0, 0.0005)
 
     # create legend, save and display
 	leg = Legend(fig[1,2], ax_main)
@@ -299,7 +304,7 @@ begin
 				 label=label)
 	end
 	
-	axislegend()
+	axislegend(position=:rb)
 	save("responses.pdf", fig_r)
 	fig_r
 
@@ -340,8 +345,9 @@ PlutoUI = "~0.7.21"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.7.0"
+julia_version = "1.8.0-DEV.1390"
 manifest_format = "2.0"
+project_hash = "8eca5590bd71bbb3541dc58a2ead874bceca8129"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -374,6 +380,7 @@ version = "0.4.1"
 
 [[deps.ArgTools]]
 uuid = "0dad84c5-d112-42e6-8d28-ef12dabb789f"
+version = "1.1.1"
 
 [[deps.ArrayInterface]]
 deps = ["Compat", "IfElse", "LinearAlgebra", "Requires", "SparseArrays", "Static"]
@@ -491,6 +498,7 @@ version = "3.40.0"
 [[deps.CompilerSupportLibraries_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "e66e0078-7015-5450-92f7-15fbd957f2ae"
+version = "0.5.0+0"
 
 [[deps.Contour]]
 deps = ["StaticArrays"]
@@ -556,8 +564,9 @@ uuid = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
 version = "0.8.6"
 
 [[deps.Downloads]]
-deps = ["ArgTools", "LibCURL", "NetworkOptions"]
+deps = ["ArgTools", "FileWatching", "LibCURL", "NetworkOptions"]
 uuid = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
+version = "1.6.0"
 
 [[deps.EarCut_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -612,6 +621,9 @@ deps = ["Compat", "Dates", "Mmap", "Printf", "Test", "UUIDs"]
 git-tree-sha1 = "04d13bfa8ef11720c24e4d840c0033d145537df7"
 uuid = "48062228-2e41-5def-b9a4-89aafe57970f"
 version = "0.9.17"
+
+[[deps.FileWatching]]
+uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
 
 [[deps.FillArrays]]
 deps = ["LinearAlgebra", "Random", "SparseArrays", "Statistics"]
@@ -870,10 +882,12 @@ uuid = "4af54fe1-eca0-43a8-85a7-787d91b784e3"
 [[deps.LibCURL]]
 deps = ["LibCURL_jll", "MozillaCACerts_jll"]
 uuid = "b27032c2-a3e7-50c8-80cd-2d36dbcbfd21"
+version = "0.6.3"
 
 [[deps.LibCURL_jll]]
 deps = ["Artifacts", "LibSSH2_jll", "Libdl", "MbedTLS_jll", "Zlib_jll", "nghttp2_jll"]
 uuid = "deac9b47-8bc7-5906-a0fe-35ac56dc84c0"
+version = "7.73.0+4"
 
 [[deps.LibGit2]]
 deps = ["Base64", "NetworkOptions", "Printf", "SHA"]
@@ -882,6 +896,7 @@ uuid = "76f85450-5226-5b5a-8eaa-529ad045b433"
 [[deps.LibSSH2_jll]]
 deps = ["Artifacts", "Libdl", "MbedTLS_jll"]
 uuid = "29816b5a-b9ab-546f-933c-edad1886dfa8"
+version = "1.9.1+2"
 
 [[deps.Libdl]]
 uuid = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
@@ -982,6 +997,7 @@ version = "0.2.1"
 [[deps.MbedTLS_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "c8ffd9c3-330d-5841-b78e-0817d7145fa1"
+version = "2.24.0+2"
 
 [[deps.Missings]]
 deps = ["DataAPI"]
@@ -1000,6 +1016,7 @@ version = "0.3.3"
 
 [[deps.MozillaCACerts_jll]]
 uuid = "14a3606d-f60d-562e-9121-12d972cd8159"
+version = "2020.7.22"
 
 [[deps.NaNMath]]
 git-tree-sha1 = "bfe47e760d60b82b66b61d2d44128b62e3a369fb"
@@ -1014,6 +1031,7 @@ version = "1.0.2"
 
 [[deps.NetworkOptions]]
 uuid = "ca575930-c2e3-43a9-ace4-1e988b2c1908"
+version = "1.2.0"
 
 [[deps.Observables]]
 git-tree-sha1 = "fe29afdef3d0c4a8286128d4e45cc50621b1e43d"
@@ -1035,6 +1053,7 @@ version = "1.3.5+1"
 [[deps.OpenBLAS_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Libdl"]
 uuid = "4536629a-c528-5b80-bd46-f80d51c5b363"
+version = "0.3.17+2"
 
 [[deps.OpenEXR]]
 deps = ["Colors", "FileIO", "OpenEXR_jll"]
@@ -1051,6 +1070,7 @@ version = "3.1.1+0"
 [[deps.OpenLibm_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "05823500-19ac-5b8b-9628-191a04bc5112"
+version = "0.8.1+0"
 
 [[deps.OpenSSL_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1126,6 +1146,7 @@ version = "0.40.1+0"
 [[deps.Pkg]]
 deps = ["Artifacts", "Dates", "Downloads", "LibGit2", "Libdl", "Logging", "Markdown", "Printf", "REPL", "Random", "SHA", "Serialization", "TOML", "Tar", "UUIDs", "p7zip_jll"]
 uuid = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
+version = "1.8.0"
 
 [[deps.PkgVersion]]
 deps = ["Pkg"]
@@ -1229,6 +1250,7 @@ version = "0.3.0+0"
 
 [[deps.SHA]]
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
+version = "0.7.0"
 
 [[deps.SIMD]]
 git-tree-sha1 = "9ba33637b24341aba594a2783a502760aa0bff04"
@@ -1343,6 +1365,7 @@ uuid = "4607b0f0-06f3-5cda-b6b1-a6196a1729e9"
 [[deps.TOML]]
 deps = ["Dates"]
 uuid = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
+version = "1.0.0"
 
 [[deps.TableTraits]]
 deps = ["IteratorInterfaceExtensions"]
@@ -1359,6 +1382,7 @@ version = "1.6.0"
 [[deps.Tar]]
 deps = ["ArgTools", "SHA"]
 uuid = "a4e569a6-e804-4fa4-b0f3-eef7a1d5b13e"
+version = "1.10.0"
 
 [[deps.TensorCore]]
 deps = ["LinearAlgebra"]
@@ -1470,6 +1494,7 @@ version = "1.4.0+3"
 [[deps.Zlib_jll]]
 deps = ["Libdl"]
 uuid = "83775a58-1f1d-513f-b197-d71354ab007a"
+version = "1.2.12+1"
 
 [[deps.isoband_jll]]
 deps = ["Libdl", "Pkg"]
@@ -1486,6 +1511,7 @@ version = "0.15.1+0"
 [[deps.libblastrampoline_jll]]
 deps = ["Artifacts", "Libdl", "OpenBLAS_jll"]
 uuid = "8e850b90-86db-534c-a0d3-1478176c7d93"
+version = "4.0.0+0"
 
 [[deps.libfdk_aac_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1501,17 +1527,19 @@ version = "1.6.38+0"
 
 [[deps.libvorbis_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Ogg_jll", "Pkg"]
-git-tree-sha1 = "c45f4e40e7aafe9d086379e5578947ec8b95a8fb"
+git-tree-sha1 = "b910cb81ef3fe6e78bf6acee440bda86fd6ae00c"
 uuid = "f27f6e37-5d2b-51aa-960f-b287f2bc3b7a"
-version = "1.3.7+0"
+version = "1.3.7+1"
 
 [[deps.nghttp2_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "8e850ede-7688-5339-a07c-302acd2aaf8d"
+version = "1.41.0+1"
 
 [[deps.p7zip_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
+version = "16.2.1+1"
 
 [[deps.x264_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
