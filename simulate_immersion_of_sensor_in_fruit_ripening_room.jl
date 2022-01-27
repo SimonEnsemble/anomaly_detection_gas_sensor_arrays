@@ -127,9 +127,10 @@ begin
 	# "C₂H₄ off", "C₂H₄ buildup", "CO₂ buildup"]
 	for i = 1:num_anomalous_points
 		# anomaly = "C₂H₄ off"
+		p_C2H4_off_dist = Normal(2.0e-6, 5.0e-6)
 		composition = Dict(
-			"p C2H4 [bar]" => (5 + 5 * randn()) * 1e-6,
-		    "p CO2 [bar]"  => 410.0e-6,
+			"p C2H4 [bar]" => rand(p_C2H4_off_dist),
+		    "p CO2 [bar]"  => rand(p_CO2_distn),
 			"p H2O [bar]"  => rand(p_H2O_distn),
 			"label"        => "C₂H₄ off"
 		)
@@ -289,9 +290,9 @@ begin
 	fig_r = Figure(resolution=(700, 700))
 	
 	ax_r = Axis(fig_r[1, 1], 
-		        xlabel="m, " * mofs[1] * "[g/g]",
-		        ylabel="m, " * mofs[2] * "[g/g]", 
-				aspect=DataAspect(),
+		        xlabel="m, " * mofs[1] * " [g/g]",
+		        ylabel="m, " * mofs[2] * " [g/g]", 
+				aspect=DataAspect(), # TODO make sure this is right
 		        title="sensor array responses")
 
 	for sensor_data_g in groupby(sensor_data, :label)
