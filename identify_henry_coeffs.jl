@@ -227,6 +227,7 @@ function viz_henry_barplot()
 	elements = [PolyElement(polycolor = mof_color[i]) for i in 1:length(mofs)]
 
 	Legend(fig[1,2], elements, mofs)
+	ylims!(0, 0.7)
 
 	save("henry_coeff_bar_plot.pdf", fig)
 	fig
