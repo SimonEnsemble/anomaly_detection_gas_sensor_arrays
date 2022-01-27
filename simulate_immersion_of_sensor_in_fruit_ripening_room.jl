@@ -299,6 +299,7 @@ begin
 		scatter!(sensor_data_g[:, "m $(mofs[1]) [g/g]"], 
 			     sensor_data_g[:, "m $(mofs[2]) [g/g]"], 
 			     strokewidth=1,
+				 markersize=15,
 			     marker=label == "normal" ? :circle : :x,
 			     color=(:white, 0.0), strokecolor=colors[label],
 				 label=label)
@@ -307,7 +308,6 @@ begin
 	axislegend(position=:rb)
 	save("responses.pdf", fig_r)
 	fig_r
-
 end
 
 # ╔═╡ 13f4c61a-2e80-46c3-9ee1-657ad7b92ea1
