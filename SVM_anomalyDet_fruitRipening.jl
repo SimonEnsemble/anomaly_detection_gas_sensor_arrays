@@ -31,9 +31,6 @@ function ingredients(path::String)
 	m
 end
 
-# ╔═╡ d30e9e17-c392-4619-9b1a-18d0ea1dba00
-data_gen = ingredients("SVM_fruitRipening_dataGen.jl")
-
 # ╔═╡ 5019e8ac-040f-48fd-98e8-21ff7970aa23
 set_theme!(
     Theme(
@@ -111,7 +108,7 @@ begin
 	@sk_import preprocessing : StandardScaler
 	@sk_import metrics : confusion_matrix
 
-	data = CSV.read("generated_sensor_data.csv", DataFrame)
+	data = CSV.read("sensor_data.csv", DataFrame)
 end
 
 
@@ -126,47 +123,66 @@ function shuffle_df!(df::AbstractDataFrame)
     return
 end
 
+# ╔═╡ 4fb88337-35c7-468a-b4ae-8c60b1f69ffe
+
+
+# ╔═╡ 6ae5ee95-9a77-40ba-88b0-ccf89a78ce5e
+begin
+
+end
+
 # ╔═╡ bae8b35f-7cb5-4bb3-92e4-a4fe8235e118
 begin
 	#generate training data matrix and anomalous data matrix from DF from CSV file
-	norm_data = groupby(data, :anomaly_indicator)[1]
-	anom_data = groupby(data, :anomaly_indicator)[2]
-	anom_data_split = groupby(anom_data, :anomalous_label)
-
-	#import anomalous data matrix from data gen notebook
-	m_anomaly_imported = data_gen.m_anomaly
+	norm_data = filter(row -> row["label"] == "normal", data)
+	anom_data = filter(row -> row["label"] != "normal", data)
+	split_anom_data = groupby(anom_data, :label)
 
 	#shuffle the normal sensor data
 	shuffle_df!(norm_data)
+	shuffle_df!(anom_data)
 
 	#establish train, validation, and test split
-	num_validation = 75
-	num_test = 75
-	num_train = size(norm_data, 1) - num_validation - num_test
+	train_nrm, valid_nrm, test_nrm = 0.70, 0.16, 0.14
+	@assert train_nrm + valid_nrm + test_nrm == 1.0
+	
+	num_train = round(Int, train_nrm*length(norm_data[:, 1]))
+	num_valid = round(Int, valid_nrm*length(norm_data[:, 1]))
+	num_test = round(Int, valid_nrm*length(norm_data[:, 1]))
+	num_train += length(norm_data[:, 1]) - (num_train + num_valid + num_test)
 
-	m_train = transpose(hcat([[norm_data.m_ZIF_71[i],
-			         	  	   norm_data.m_ZIF_8[i]] 
-					 	  	   for i=1:num_train]...))
+	
+	m_train = transpose(
+		 	  hcat([[norm_data[:, "m ZIF-71 [g/g]"][i],
+			         norm_data[:, "m ZIF-8 [g/g]"][i]] 
+					 for i=1:num_train]...))
 
-	m_test 	= transpose(hcat([[norm_data.m_ZIF_71[num_train + i],
-			        	  	   norm_data.m_ZIF_8[num_train + i]] 
-						  	   for i=1:num_test]...))
+	m_test = transpose(
+			 hcat([[norm_data[:, "m ZIF-71 [g/g]"][num_train + i],
+			        norm_data[:, "m ZIF-8 [g/g]"][num_train + i]] 
+					for i=1:num_test]...))
 
-	m_valid = transpose(hcat([[norm_data.m_ZIF_71[num_train + num_test + i],
-			         	  	   norm_data.m_ZIF_8[num_train + num_test + i]] 
-						  	   for i=1:num_test]...))
+	m_valid = transpose(
+			  hcat([[norm_data[:, "m ZIF-71 [g/g]"][num_train + num_test + i], 
+				  	 norm_data[:, "m ZIF-71 [g/g]"][num_train + num_test + i]] 
+				  	 for i=1:num_test]...))
 
 	#scale the normal and anomalous data
 	scaler = StandardScaler().fit(m_train)
 	m_train_scaled = scaler.transform(m_train)
 
-	m_anomaly = transpose(hcat([[anom_data.m_ZIF_71[i],
-						   anom_data.m_ZIF_8[i]] 
-						   for i=1:length(anom_data[:, 1])]...))
+	m_anomaly = transpose(
+				hcat([[anom_data[:, "m ZIF-71 [g/g]"][i],
+					   anom_data[:, "m ZIF-8 [g/g]"][i]] 
+					   for i=1:length(anom_data[:, 1])]...))
 
 	m_anomaly_scaled = scaler.transform((m_anomaly))
 	
+	
 end
+
+# ╔═╡ 48eaf47b-e2e1-4f70-8a6b-88d70dcb9a18
+
 
 # ╔═╡ c34be089-ff98-404c-85e6-6b605d2cfe1c
 md"!!! example \"\" 
@@ -211,11 +227,11 @@ end
 # ╔═╡ a1a6e4cf-1a15-4492-88f9-f2e68646dcb5
 #function to generate and visualize a SVM given a particular nu, gamma and resolution.
 
-function viz_svm_data_fit(ν = 0.053, γ = 0.38, res = 100)
+function viz_svm_data_fit(trained_svm, res = 100)
 	contour_fig = Figure(resolution=(700, 700))
 
 	#generate the trained SVM
-	fruit_gas_svm = train_svm_rbf(ν, γ)
+	fruit_gas_svm = trained_svm
 	
 	#generate the grid
 	grid_data = generate_grid(fruit_gas_svm, res)
@@ -236,13 +252,13 @@ function viz_svm_data_fit(ν = 0.053, γ = 0.38, res = 100)
 		     color=(:white, 0.0), strokecolor=colors["normal"],
 			 label="normal")
 
-	for i = 1:length(m_anomaly_imported)
-		scatter!(m_anomaly_imported[i][1, :], 
-				 m_anomaly_imported[i][2, :], 
+	for i = 1:length(split_anom_data)
+		scatter!(split_anom_data[i][:, "m ZIF-71 [g/g]"], 
+				 split_anom_data[i][:, "m ZIF-8 [g/g]"], 
 				 strokewidth=1, 
 			     color=(:white, 0.0), 
 				 strokecolor=colors["anomaly"][i],
-				 label="$(anomalous_labels[2][i])")
+				 label="$(split_anom_data[i][1, "label"])")
 	end
 
 	contour!(grid_data[2][:, 1], 
@@ -257,7 +273,7 @@ function viz_svm_data_fit(ν = 0.053, γ = 0.38, res = 100)
 end
 
 # ╔═╡ 037e7b3d-f33a-4dd6-92a1-861c3684d870
-viz_svm_data_fit()
+viz_svm_data_fit(train_svm_rbf())
 
 # ╔═╡ 7b4658d1-8e01-49a9-b935-f5c0ed6bcf15
 fruit_gas_svm_trained = train_svm_rbf()
@@ -265,15 +281,6 @@ fruit_gas_svm_trained = train_svm_rbf()
 # ╔═╡ 37a7cf65-13d1-442d-bfbb-d43392c7acae
 md"!!! example \"\" 
 	Create a second distribution of normal values to test with our trained one class SVM and visualize results with a confusion matrix"
-
-# ╔═╡ 1acf5d25-62bc-43a3-b6ad-3ae10eefe001
-begin
-	test_gas_compositions = zeros(3, data_gen.n_gas_compositions)
-	for g = 1:data_gen.n_gas_compositions
-		test_gas_compositions[:, g] = data_gen.sample_normal_gas_composition()
-	end
-	test_gas_compositions
-end
 
 # ╔═╡ 6591e930-8952-449a-8418-82a96b20fec9
 function viz_confusion_matrix(cm::Matrix{Int64}, naming::Vector{String})
@@ -301,8 +308,7 @@ begin
 	matrix_ticks = ["anomolous", "normal"]
 	
 	conf_matrix = zeros(Int64, 2,2)
-	test_gas_matrix = data_gen.H * test_gas_compositions
-	test_gas_points = scaler.transform(transpose(test_gas_matrix))
+	test_gas_points = scaler.transform(m_test)
 
 	normal_predictions = fruit_gas_svm_trained.predict(test_gas_points)
 	anomalous_predictions = fruit_gas_svm_trained.predict(m_anomaly_scaled)
@@ -1612,9 +1618,9 @@ version = "1.6.38+0"
 
 [[deps.libvorbis_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Ogg_jll", "Pkg"]
-git-tree-sha1 = "c45f4e40e7aafe9d086379e5578947ec8b95a8fb"
+git-tree-sha1 = "b910cb81ef3fe6e78bf6acee440bda86fd6ae00c"
 uuid = "f27f6e37-5d2b-51aa-960f-b287f2bc3b7a"
-version = "1.3.7+0"
+version = "1.3.7+1"
 
 [[deps.nghttp2_jll]]
 deps = ["Artifacts", "Libdl"]
@@ -1642,13 +1648,15 @@ version = "3.5.0+0"
 # ╠═d090131e-6602-4c03-860c-ad3cb6c7844a
 # ╟─b3646dcf-909a-45f1-b273-96a6d67d74a8
 # ╠═4c2d45ba-715e-4369-85a6-73e3ef782273
-# ╠═d30e9e17-c392-4619-9b1a-18d0ea1dba00
 # ╟─5019e8ac-040f-48fd-98e8-21ff7970aa23
 # ╟─d5c471c3-26be-46c0-a174-d580d0ed7f7d
 # ╠═d657ed23-3eb4-49d0-a59c-811e8189c376
 # ╠═a9c93bf0-b75f-421c-a289-2ae3b53b369a
 # ╠═e74dc9b8-9d90-49a1-bdd5-ae2701def278
+# ╠═4fb88337-35c7-468a-b4ae-8c60b1f69ffe
+# ╠═6ae5ee95-9a77-40ba-88b0-ccf89a78ce5e
 # ╠═bae8b35f-7cb5-4bb3-92e4-a4fe8235e118
+# ╠═48eaf47b-e2e1-4f70-8a6b-88d70dcb9a18
 # ╟─c34be089-ff98-404c-85e6-6b605d2cfe1c
 # ╠═af735015-999a-428c-bcec-defdad3caca6
 # ╠═0a0cab3a-0231-4d75-8ce6-fde439204082
@@ -1656,7 +1664,6 @@ version = "3.5.0+0"
 # ╠═a1a6e4cf-1a15-4492-88f9-f2e68646dcb5
 # ╠═7b4658d1-8e01-49a9-b935-f5c0ed6bcf15
 # ╟─37a7cf65-13d1-442d-bfbb-d43392c7acae
-# ╠═1acf5d25-62bc-43a3-b6ad-3ae10eefe001
 # ╠═6591e930-8952-449a-8418-82a96b20fec9
 # ╠═75b10a33-19e5-4e96-ac65-144c4ec0c660
 # ╠═91329c4d-fb0a-4c98-be52-608fb72820cf
