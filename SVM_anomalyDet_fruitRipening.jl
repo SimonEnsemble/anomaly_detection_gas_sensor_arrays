@@ -142,7 +142,7 @@ begin
 	shuffle_df!(norm_data)
 	shuffle_df!(anom_data)
 
-	#establish train, validation, and test split
+	#establish train, validation, and test split numerical values
 	train_nrm, valid_nrm, test_nrm = 0.70, 0.16, 0.14
 	@assert train_nrm + valid_nrm + test_nrm == 1.0
 	
@@ -150,8 +150,10 @@ begin
 	num_valid = round(Int, valid_nrm*length(norm_data[:, 1]))
 	num_test = round(Int, valid_nrm*length(norm_data[:, 1]))
 	num_train += length(norm_data[:, 1]) - (num_train + num_valid + num_test)
+	num_test_anom = round(Int,0.5*length(anom_data[:, 1]))
+	num_valid_anom = length(anom_data[:, 1]) - num_test_anom
 
-	
+	#create normal data matrixes to train/test/validate the SVM
 	m_train = transpose(
 		 	  hcat([[norm_data[:, "m ZIF-71 [g/g]"][i],
 			         norm_data[:, "m ZIF-8 [g/g]"][i]] 
@@ -167,22 +169,29 @@ begin
 				  	 norm_data[:, "m ZIF-71 [g/g]"][num_train + num_test + i]] 
 				  	 for i=1:num_test]...))
 
-	#scale the normal and anomalous data
+	#establish a standard scaler and scale the normal data
 	scaler = StandardScaler().fit(m_train)
 	m_train_scaled = scaler.transform(m_train)
+	m_test_scaled = scaler.transform(m_test)
+	m_valid_scaled = scaler.transform(m_valid)
 
-	m_anomaly = transpose(
-				hcat([[anom_data[:, "m ZIF-71 [g/g]"][i],
-					   anom_data[:, "m ZIF-8 [g/g]"][i]] 
-					   for i=1:length(anom_data[:, 1])]...))
+	#create anomalous data matrixes to train/validate the SVM
+	m_anomaly_test = transpose(
+					 hcat([[anom_data[:, "m ZIF-71 [g/g]"][i],
+					   		anom_data[:, "m ZIF-8 [g/g]"][i]] 
+					   		for i=1:num_test_anom]...))
 
-	m_anomaly_scaled = scaler.transform((m_anomaly))
+	m_anomaly_valid = transpose(
+					 hcat([[anom_data[:, "m ZIF-71 [g/g]"][i],
+					   		anom_data[:, "m ZIF-8 [g/g]"][i]] 
+					   		for i=1+num_test_anom:num_valid_anom+num_test_anom]...))
+
+	#scale the anomalous data matrixes
+	m_anomaly_test_scaled = scaler.transform((m_anomaly_test))
+	m_anomaly_valid_scaled = scaler.transform((m_anomaly_valid))
 	
 	
 end
-
-# ╔═╡ 48eaf47b-e2e1-4f70-8a6b-88d70dcb9a18
-
 
 # ╔═╡ c34be089-ff98-404c-85e6-6b605d2cfe1c
 md"!!! example \"\" 
@@ -311,7 +320,7 @@ begin
 	test_gas_points = scaler.transform(m_test)
 
 	normal_predictions = fruit_gas_svm_trained.predict(test_gas_points)
-	anomalous_predictions = fruit_gas_svm_trained.predict(m_anomaly_scaled)
+	anomalous_predictions = fruit_gas_svm_trained.predict(m_anomaly_test_scaled)
 	
 	for i = 1:length(normal_predictions)
 		if(normal_predictions[i] == 1)
@@ -1656,7 +1665,6 @@ version = "3.5.0+0"
 # ╠═4fb88337-35c7-468a-b4ae-8c60b1f69ffe
 # ╠═6ae5ee95-9a77-40ba-88b0-ccf89a78ce5e
 # ╠═bae8b35f-7cb5-4bb3-92e4-a4fe8235e118
-# ╠═48eaf47b-e2e1-4f70-8a6b-88d70dcb9a18
 # ╟─c34be089-ff98-404c-85e6-6b605d2cfe1c
 # ╠═af735015-999a-428c-bcec-defdad3caca6
 # ╠═0a0cab3a-0231-4d75-8ce6-fde439204082
