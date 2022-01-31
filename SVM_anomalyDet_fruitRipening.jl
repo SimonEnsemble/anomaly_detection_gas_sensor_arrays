@@ -195,7 +195,7 @@ end
 
 # ╔═╡ c34be089-ff98-404c-85e6-6b605d2cfe1c
 md"!!! example \"\" 
-	Create a grid of anomolous scores and plot a colormap to visualize the training data and decision boundary for the one class support vector machine"
+	Create functions to generate a grid of anomoly scores and plot a colormap to visualize the decision boundary for the one class support vector machine"
 
 # ╔═╡ af735015-999a-428c-bcec-defdad3caca6
 #function to generate a trained svm using rbf kernel given a particular nu/gamma pair
@@ -231,6 +231,41 @@ function generate_grid(svm, grid_res::Int64 = 100)
 	
 	return [grid_predictions, feature_space_grid_axes]
 end
+
+
+# ╔═╡ 6eb73e08-3ef0-4aab-910d-28a55501e863
+md"!!! example \"\" 
+	From here start validation process"
+
+# ╔═╡ 7828904d-f379-4273-be91-7996f3ed665b
+md"# WORK HERE
+"
+
+# ╔═╡ 442a4ddc-82f5-4586-b9bd-bbc057dc3b09
+#step 1, create a range of ν and γ values.
+
+# ╔═╡ 799b48d9-2c85-4cce-a215-12d58dee690d
+#step 2, create a function that generates a matrix of svm's given the ν and γ ranges and desired resolution.
+
+# ╔═╡ d6ae4451-12f7-4759-9b33-6cbb72603c0c
+#step 3, read up on precision recall as a metric for creating a heatmap of desired ν and γ values.
+
+# ╔═╡ f8864b43-7316-4788-8ab3-ef106f9d7645
+#step 4, write a function that generates the heat map based on the matrix.
+
+# ╔═╡ e93f96fb-c8cd-4573-a171-8534be79d9e6
+#step 5, look at the heatmap and look for anything that stands out, possibly change ranges/resolution to elucidate data.
+
+# ╔═╡ 79d6d529-232b-433f-b4fb-9a1f9b40113d
+#step 6, retrain an SVM given ideal ν and γ using training data and validation data
+
+# ╔═╡ 0361be91-8f29-4efc-a475-ce6f6da51d94
+#step 7, generate a more complex confusion matrix to illuminate possible trends among different anomaly types
+
+# ╔═╡ 1f0a9e44-66f9-45b5-a77a-84a2ca0380a0
+
+
+# ╔═╡ f3dbe820-d9bc-448f-a7fe-f0b054cbf0a8
 
 
 # ╔═╡ a1a6e4cf-1a15-4492-88f9-f2e68646dcb5
@@ -282,10 +317,10 @@ function viz_svm_data_fit(trained_svm, res = 100)
 end
 
 # ╔═╡ 037e7b3d-f33a-4dd6-92a1-861c3684d870
-viz_svm_data_fit(train_svm_rbf())
-
-# ╔═╡ 7b4658d1-8e01-49a9-b935-f5c0ed6bcf15
-fruit_gas_svm_trained = train_svm_rbf()
+begin
+	fruit_gas_svm_trained = train_svm_rbf()
+	viz_svm_data_fit(fruit_gas_svm_trained)
+end
 
 # ╔═╡ 37a7cf65-13d1-442d-bfbb-d43392c7acae
 md"!!! example \"\" 
@@ -311,6 +346,9 @@ function viz_confusion_matrix(cm::Matrix{Int64}, naming::Vector{String})
     Colorbar(fig[1, 2], hm, label="num of detector points")
     fig
 end
+
+# ╔═╡ 234a23e6-e68f-4c74-83ec-9802e483cb9b
+
 
 # ╔═╡ 75b10a33-19e5-4e96-ac65-144c4ec0c660
 begin
@@ -1668,11 +1706,22 @@ version = "3.5.0+0"
 # ╟─c34be089-ff98-404c-85e6-6b605d2cfe1c
 # ╠═af735015-999a-428c-bcec-defdad3caca6
 # ╠═0a0cab3a-0231-4d75-8ce6-fde439204082
+# ╟─6eb73e08-3ef0-4aab-910d-28a55501e863
+# ╟─7828904d-f379-4273-be91-7996f3ed665b
+# ╠═442a4ddc-82f5-4586-b9bd-bbc057dc3b09
+# ╠═799b48d9-2c85-4cce-a215-12d58dee690d
+# ╠═d6ae4451-12f7-4759-9b33-6cbb72603c0c
+# ╠═f8864b43-7316-4788-8ab3-ef106f9d7645
+# ╠═e93f96fb-c8cd-4573-a171-8534be79d9e6
+# ╠═79d6d529-232b-433f-b4fb-9a1f9b40113d
+# ╠═0361be91-8f29-4efc-a475-ce6f6da51d94
+# ╠═1f0a9e44-66f9-45b5-a77a-84a2ca0380a0
+# ╠═f3dbe820-d9bc-448f-a7fe-f0b054cbf0a8
 # ╠═037e7b3d-f33a-4dd6-92a1-861c3684d870
 # ╠═a1a6e4cf-1a15-4492-88f9-f2e68646dcb5
-# ╠═7b4658d1-8e01-49a9-b935-f5c0ed6bcf15
 # ╟─37a7cf65-13d1-442d-bfbb-d43392c7acae
 # ╠═6591e930-8952-449a-8418-82a96b20fec9
+# ╠═234a23e6-e68f-4c74-83ec-9802e483cb9b
 # ╠═75b10a33-19e5-4e96-ac65-144c4ec0c660
 # ╠═91329c4d-fb0a-4c98-be52-608fb72820cf
 # ╠═24936b61-9669-43d1-851e-532f50f07e55
