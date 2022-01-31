@@ -241,11 +241,21 @@ md"!!! example \"\"
 md"# WORK HERE
 "
 
-# ╔═╡ 442a4ddc-82f5-4586-b9bd-bbc057dc3b09
-#step 1, create a range of ν and γ values.
+# ╔═╡ 796d77dd-7976-4503-8393-ed45572c40e7
+begin
+	#step 1, create a range of ν and γ values.
+	ν_range = (0, 1)
+	γ_range = (0, 5)
+	validation_resolution = 100	
+end
 
 # ╔═╡ 799b48d9-2c85-4cce-a215-12d58dee690d
 #step 2, create a function that generates a matrix of svm's given the ν and γ ranges and desired resolution.
+
+# ╔═╡ a3b3b771-4097-4f24-97f6-8819182fe5f4
+function valid_grid(ν_min, ν_max, γ_min, γ_max, resolution)
+
+end
 
 # ╔═╡ d6ae4451-12f7-4759-9b33-6cbb72603c0c
 #step 3, read up on precision recall as a metric for creating a heatmap of desired ν and γ values.
@@ -1708,8 +1718,9 @@ version = "3.5.0+0"
 # ╠═0a0cab3a-0231-4d75-8ce6-fde439204082
 # ╟─6eb73e08-3ef0-4aab-910d-28a55501e863
 # ╟─7828904d-f379-4273-be91-7996f3ed665b
-# ╠═442a4ddc-82f5-4586-b9bd-bbc057dc3b09
+# ╠═796d77dd-7976-4503-8393-ed45572c40e7
 # ╠═799b48d9-2c85-4cce-a215-12d58dee690d
+# ╠═a3b3b771-4097-4f24-97f6-8819182fe5f4
 # ╠═d6ae4451-12f7-4759-9b33-6cbb72603c0c
 # ╠═f8864b43-7316-4788-8ab3-ef106f9d7645
 # ╠═e93f96fb-c8cd-4573-a171-8534be79d9e6
