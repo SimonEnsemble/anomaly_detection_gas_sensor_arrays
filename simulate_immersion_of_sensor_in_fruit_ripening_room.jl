@@ -122,10 +122,11 @@ md"!!! example \"\"
 # ╔═╡ b5aa0a1e-ff40-4b6a-b0dc-4fcc9f73842f
 begin
 	num_anomalous_points = 10 # each
-	# "C₂H₄ off", "C₂H₄ buildup", "CO₂ buildup"]
+	# ["C₂H₄ off", "C₂H₄ buildup", "CO₂ buildup"]
 	for i = 1:num_anomalous_points
 		# anomaly = "C₂H₄ off"
 		p_C2H4_off_dist = Normal(2.0e-6, 5.0e-6)
+		p_C2H4_off_dist = truncated(p_C2H4_off_dist, 0.0, Inf)
 		composition = Dict(
 			"p C2H4 [bar]" => rand(p_C2H4_off_dist),
 		    "p CO2 [bar]"  => rand(p_CO2_distn),
