@@ -102,65 +102,42 @@ with_terminal() do
 			println("\t\t", data_s[1, "split"], ": ", nrow(data_s))
 		end
 	end
+	@assert sum(data[:, "split"] .== "TBD") == 0 # all assigned a split
 end
 
-# ╔═╡ d6828d8a-c7f2-45b5-81ef-2aeaf7362b72
-normal_data = filter(row -> row["label"] == "normal", data)
+# ╔═╡ 4a986818-d848-4938-9a96-15a455403e4d
+md"get data ready for scikitlearn"
 
-# ╔═╡ 8332b9d0-a1d7-46b1-9571-fc724d502b7f
-anomalous_data = filter(row -> row["label"] != "normal", data)
+# ╔═╡ a769c929-6b30-4a00-bb05-b50f6a3ac91a
+function data_to_Xy(data::DataFrame)
+	# X: (n_samples, n_features)
+	X = Matrix(data[:, "m " .* mofs .* " [g/g]"])
+	# y: anomolous or normal
+	y = map(i -> data[i, "label"] == "normal" ? "normal" : "anomaly", 1:nrow(data))
+	return X, y
+end
 
-# ╔═╡ bae8b35f-7cb5-4bb3-92e4-a4fe8235e118
+# ╔═╡ f16df374-b712-4ed7-894a-76bf9b1e6027
 begin
-	#generate training data matrix and anomalous data matrix from DF from CSV file
+	X = Dict()
+	y = Dict()
+	for split in ["train", "valid", "test"]
+		data_split = filter(row -> row["split"] == split, data)
+		X[split], y[split] = data_to_Xy(data_split)
+	end
+	X, y
+end
 
-	split_anom_data = groupby(anom_data, :label)
-	
-	num_train = round(Int, train_nrm*length(norm_data[:, 1]))
-	num_valid = round(Int, valid_nrm*length(norm_data[:, 1]))
-	num_test = round(Int, valid_nrm*length(norm_data[:, 1]))
-	num_train += length(norm_data[:, 1]) - (num_train + num_valid + num_test)
-	num_test_anom = round(Int,0.5*length(anom_data[:, 1]))
-	num_valid_anom = length(anom_data[:, 1]) - num_test_anom
+# ╔═╡ af2a17f8-069d-4e8c-a89b-b17fbe0eeacb
+md"scaling"
 
-	#create normal data matrixes to train/test/validate the SVM
-	m_train = transpose(
-		 	  hcat([[norm_data[:, "m ZIF-71 [g/g]"][i],
-			         norm_data[:, "m ZIF-8 [g/g]"][i]] 
-					 for i=1:num_train]...))
-
-	m_test = transpose(
-			 hcat([[norm_data[:, "m ZIF-71 [g/g]"][num_train + i],
-			        norm_data[:, "m ZIF-8 [g/g]"][num_train + i]] 
-					for i=1:num_test]...))
-
-	m_valid = transpose(
-			  hcat([[norm_data[:, "m ZIF-71 [g/g]"][num_train + num_test + i], 
-				  	 norm_data[:, "m ZIF-71 [g/g]"][num_train + num_test + i]] 
-				  	 for i=1:num_test]...))
-
-	#establish a standard scaler and scale the normal data
-	scaler = StandardScaler().fit(m_train)
-	m_train_scaled = scaler.transform(m_train)
-	m_test_scaled = scaler.transform(m_test)
-	m_valid_scaled = scaler.transform(m_valid)
-
-	#create anomalous data matrixes to train/validate the SVM
-	m_anomaly_test = transpose(
-					 hcat([[anom_data[:, "m ZIF-71 [g/g]"][i],
-					   		anom_data[:, "m ZIF-8 [g/g]"][i]] 
-					   		for i=1:num_test_anom]...))
-
-	m_anomaly_valid = transpose(
-					 hcat([[anom_data[:, "m ZIF-71 [g/g]"][i],
-					   		anom_data[:, "m ZIF-8 [g/g]"][i]] 
-					   		for i=1+num_test_anom:num_valid_anom+num_test_anom]...))
-
-	#scale the anomalous data matrixes
-	m_anomaly_test_scaled = scaler.transform((m_anomaly_test))
-	m_anomaly_valid_scaled = scaler.transform((m_anomaly_valid))
-	
-	
+# ╔═╡ 23aeb959-c578-405f-90d2-afb158406a4c
+begin
+	scaler = StandardScaler().fit(X["train"])
+	for split in ["test", "valid"]
+		X[split * "_scaled"] = scaler.transform(X[split])
+	end
+	X
 end
 
 # ╔═╡ c34be089-ff98-404c-85e6-6b605d2cfe1c
@@ -169,7 +146,6 @@ md"!!! example \"\"
 
 # ╔═╡ af735015-999a-428c-bcec-defdad3caca6
 #function to generate a trained svm using rbf kernel given a particular nu/gamma pair
-
 function train_svm_rbf(ν = 0.01, γ = 0.38)
 	trained_svm = OneClassSVM(kernel="rbf",gamma=γ, nu=ν)
 	return trained_svm.fit(m_train_scaled)
@@ -1686,9 +1662,11 @@ version = "3.5.0+0"
 # ╠═6efa96c5-f593-4395-a2f1-692ce2ba9e6f
 # ╠═328fd6b5-8be9-4971-9a6d-6fe6921f020c
 # ╠═90f821c6-5156-44ec-ad01-3b6f2fb39ce5
-# ╠═d6828d8a-c7f2-45b5-81ef-2aeaf7362b72
-# ╠═8332b9d0-a1d7-46b1-9571-fc724d502b7f
-# ╠═bae8b35f-7cb5-4bb3-92e4-a4fe8235e118
+# ╟─4a986818-d848-4938-9a96-15a455403e4d
+# ╠═a769c929-6b30-4a00-bb05-b50f6a3ac91a
+# ╠═f16df374-b712-4ed7-894a-76bf9b1e6027
+# ╟─af2a17f8-069d-4e8c-a89b-b17fbe0eeacb
+# ╠═23aeb959-c578-405f-90d2-afb158406a4c
 # ╟─c34be089-ff98-404c-85e6-6b605d2cfe1c
 # ╠═af735015-999a-428c-bcec-defdad3caca6
 # ╠═0a0cab3a-0231-4d75-8ce6-fde439204082
