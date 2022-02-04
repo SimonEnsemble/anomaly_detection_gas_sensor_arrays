@@ -73,13 +73,15 @@ begin
 	μ_H2O = 0.85 * p_H2O_vapor  # 85% RH on average
 	σ_H2O = 0.01 * p_H2O_vapor
 	p_H2O_distn = Normal(μ_H2O, σ_H2O) # bar
-
+	p_H2O_distn = truncated(p_H2O_distn, 0.0, Inf)
+	
 	μ_C2H4 = 150e-6 # 150 ppm on average
 	σ_C2H4 = 50e-6
 	p_C2H4_distn = Normal(μ_C2H4, σ_C2H4) # bar
+	p_C2H4_distn = truncated(p_C2H4_distn, 0.0, Inf)
 
 	# Uniform distribution from 410 ppm to 5000 ppm
-	p_CO2_distn = Uniform(410.0e-6, 5000.0e-6) # bar
+	p_CO2_distn = Uniform(400.0e-6, 5000.0e-6) # bar
 end
 
 # ╔═╡ 69aff7c7-196a-4fee-9070-3d6b49fdaddf
@@ -96,10 +98,6 @@ function sample_normal_gas_composition()
 	composition["p H2O [bar]"]  = rand(p_H2O_distn)
 	composition["p CO2 [bar]"]  = rand(p_CO2_distn)
 	composition["p C2H4 [bar]"] = rand(p_C2H4_distn)
-	# avoid negative concentrations ofc
-	if any([composition["p $gas [bar]"] for gas in gases] .< 0.0) 
-		return sample_normal_gas_composition()
-	end
 	return composition
 end
 
