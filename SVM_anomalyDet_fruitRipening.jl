@@ -145,10 +145,9 @@ md"!!! example \"\"
 	Create functions to generate a grid of anomoly scores and plot a colormap to visualize the decision boundary for the one class support vector machine"
 
 # ╔═╡ af735015-999a-428c-bcec-defdad3caca6
-#function to generate a trained svm using rbf kernel given a particular nu/gamma pair
-function train_svm_rbf(ν = 0.01, γ = 0.38)
-	trained_svm = OneClassSVM(kernel="rbf",gamma=γ, nu=ν)
-	return trained_svm.fit(m_train_scaled)
+function train_anomaly_detector(ν::Float64, γ::Float64)
+	oc_svm = OneClassSVM(kernel="rbf", nu=ν, gamma=γ)
+	return oc_svm.fit(X["train"])
 end
 
 # ╔═╡ 0a0cab3a-0231-4d75-8ce6-fde439204082
