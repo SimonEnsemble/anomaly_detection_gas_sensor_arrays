@@ -5,83 +5,22 @@ using Markdown
 using InteractiveUtils
 
 # ╔═╡ d090131e-6602-4c03-860c-ad3cb6c7844a
-using CairoMakie,CSV, DataFrames, ColorSchemes, Optim, Distributions, PlutoUI, ScikitLearn, Colors, Random
+using CairoMakie,CSV, DataFrames, ColorSchemes, Optim, Distributions, PlutoUI, ScikitLearn, Colors, Random, PlutoUI
+
+# ╔═╡ 31f71438-ff2f-49f9-a801-3a6489eaf271
+include("plot_theme.jl")
 
 # ╔═╡ 1784c510-5465-11ec-0dd1-13e5a66e4ce6
 md"# Anomaly Detection for gas sensor arrays Using One-Class SVM
 "
 
-# ╔═╡ b3646dcf-909a-45f1-b273-96a6d67d74a8
-md"!!! example \"\"
-	Include() alternative
-"
-
-# ╔═╡ 4c2d45ba-715e-4369-85a6-73e3ef782273
-function ingredients(path::String)
-	# this is from the Julia source code (evalfile in base/loading.jl)
-	# but with the modification that it returns the module instead of the last object
-	name = Symbol(basename(path))
-	m = Module(name)
-	Core.eval(m,
-        Expr(:toplevel,
-             :(eval(x) = $(Expr(:core, :eval))($name, x)),
-             :(include(x) = $(Expr(:top, :include))($name, x)),
-             :(include(mapexpr::Function, x) = $(Expr(:top, :include))(mapexpr, $name, x)),
-             :(include($path))))
-	m
+# ╔═╡ 5d920ea0-f04d-475f-b05b-86e7b199d7e0
+begin
+	@sk_import svm : OneClassSVM
+	@sk_import preprocessing : StandardScaler
+	@sk_import metrics : confusion_matrix
+	@sk_import model_selection: train_test_split
 end
-
-# ╔═╡ 5019e8ac-040f-48fd-98e8-21ff7970aa23
-set_theme!(
-    Theme(
-        palette = (color=[c for c in ColorSchemes.Dark2_5], marker=[:circle, :utriangle, :cross, :rect, :diamond, :dtriangle, :pentagon, :xcross]),
-        textcolor = :gray40,
-        linewidth=4,
-        fontsize=20,
-        resolution = (520, 400),
-        Axis = (
-            backgroundcolor = RGB(0.96, 1.0, 0.98),
-            xgridcolor = (:black, 0.15),
-            ygridcolor = (:black, 0.15),
-            leftspinevisible = false,
-            rightspinevisible = false,
-            ygridstyle=:dash,
-            xgridstyle=:dash,
-            bottomspinevisible = false,
-            topspinevisible = false,
-            xminorticksvisible = false,
-            yminorticksvisible = false,
-            xticksvisible = false,
-            yticksvisible = false,
-            xlabelpadding = 3,
-            ylabelpadding = 3
-        ),
-        Legend = (
-            framevisible = true,
-            titlehalign=:left,
-            titlesize=16,
-            labelsize=16,
-            framecolor=(:black, 0.5)
-            # padding = (1, 0, 0, 0),
-        ),
-        Axis3 = (
-            xgridcolor = (:black, 0.07),
-            ygridcolor = (:black, 0.07),
-            zgridcolor = (:black, 0.07),
-            xspinesvisible = false,
-            yspinesvisible = false,
-            zspinesvisible = false,
-            xticksvisible = false,
-            yticksvisible = false,
-            zticksvisible = false,
-        ),
-        Colorbar = (
-            ticksvisible = false,
-            spinewidth = 0,
-            ticklabelpad = 5,
-        )
-    )
-)
 
 # ╔═╡ d5c471c3-26be-46c0-a174-d580d0ed7f7d
 md"!!! example \"\"
@@ -90,61 +29,92 @@ md"!!! example \"\"
 
 # ╔═╡ d657ed23-3eb4-49d0-a59c-811e8189c376
 begin
-	gas_to_pretty_name = Dict("C2H4" => "C₂H₄", "CO2" => "CO₂", "H2O" => "H₂O")
-	
 	gases = ["C2H4", "CO2", "H2O"]
-	
 	mofs = ["ZIF-71", "ZIF-8"]
 	
-	anomalous_labels = ["normal", 
-					    ["no ethylene", "ethylene spike", "CO₂ buildup"]]
+	anomalous_labels = ["C₂H₄ off", "C₂H₄ buildup", "CO₂ buildup"]
 	
+	gas_to_pretty_name = Dict("C2H4" => "C₂H₄", "CO2" => "CO₂", "H2O" => "H₂O")
 	colors = Dict("normal" => "seagreen", "anomaly" => ColorSchemes.RdBu_10)
-
 	color_map = RGBAf.(reverse(ColorSchemes.diverging_gwr_55_95_c38_n256), 0.5) 
-	# custom colorscheme
 
-	@sk_import svm : OneClassSVM
-	@sk_import preprocessing : StandardScaler
-	@sk_import metrics : confusion_matrix
-
+	# load data and shuffle it.
 	data = CSV.read("sensor_data.csv", DataFrame)
+	data = data[shuffle(1:nrow(data)), :]
 end
-
 
 # ╔═╡ a9c93bf0-b75f-421c-a289-2ae3b53b369a
 md"!!! example \"\" 
-	Fit a one class support vector machine to the training data."
+	test/train/validation split. assign each experiment to train, valid, or test.
+"
 
-# ╔═╡ e74dc9b8-9d90-49a1-bdd5-ae2701def278
-#function to permute the rows of a dataframe
-function shuffle_df!(df::AbstractDataFrame)
-    df[:,:] = df[shuffle(1:size(df, 1)),:]
-    return
+# ╔═╡ ff63e947-5e5b-4964-8cef-9b618b32b4f7
+md"normal data: assign to test/train/validation split."
+
+# ╔═╡ c1db156a-fa26-4e57-b8ce-3f9e362d0c14
+data[:, "split"] .= "TBD";
+
+# ╔═╡ 7dc59766-97c8-49d8-8b52-be54cec1902d
+function split_normal!(data::DataFrame)
+	# get ids of normal data
+	ids = filter(i -> data[i, "label"] == "normal", 1:nrow(data))
+
+	# 70% train, 0.5 * 30% valid, 0.5 * 30% test
+	ids_train, ids_valid_test = train_test_split(ids, test_size=0.3)
+	ids_valid, ids_test = train_test_split(ids_valid_test, test_size=0.5)
+
+	# assign outcome of split
+	data[ids_train, "split"] .= "train"
+	data[ids_valid, "split"] .= "valid"
+	data[ids_test , "split"] .= "test"
 end
 
-# ╔═╡ 4fb88337-35c7-468a-b4ae-8c60b1f69ffe
+# ╔═╡ 24483c59-798f-4452-aef1-b77fcb7f9d2d
+split_normal!(data)
 
+# ╔═╡ 470cbac8-9fef-4b0b-8998-db25267424ea
+md"anomalous data: assign 50% of each category to valid, 50% to test."
 
-# ╔═╡ 6ae5ee95-9a77-40ba-88b0-ccf89a78ce5e
-begin
+# ╔═╡ 6efa96c5-f593-4395-a2f1-692ce2ba9e6f
+function split_anomalous!(data::DataFrame, anomaly_label::String)
+	# get ids of this anomalous data
+	ids = filter(i -> data[i, "label"] == anomaly_label, 1:nrow(data))
 
+	# 50/50 split
+	ids_valid, ids_test = train_test_split(ids, test_size=0.5)
+
+	# assign outcome of split
+	data[ids_valid, "split"] .= "valid"
+	data[ids_test , "split"] .= "test"
 end
+
+# ╔═╡ 328fd6b5-8be9-4971-9a6d-6fe6921f020c
+for anomaly_label in anomalous_labels
+	split_anomalous!(data, anomaly_label)
+end
+
+# ╔═╡ 90f821c6-5156-44ec-ad01-3b6f2fb39ce5
+with_terminal() do
+	for data_l in groupby(data, "label")
+		println("label = ", data_l[1, "label"])
+		println("\t# data = ", nrow(data_l))
+		for data_s in groupby(data_l, "split")
+			println("\t\t", data_s[1, "split"], ": ", nrow(data_s))
+		end
+	end
+end
+
+# ╔═╡ d6828d8a-c7f2-45b5-81ef-2aeaf7362b72
+normal_data = filter(row -> row["label"] == "normal", data)
+
+# ╔═╡ 8332b9d0-a1d7-46b1-9571-fc724d502b7f
+anomalous_data = filter(row -> row["label"] != "normal", data)
 
 # ╔═╡ bae8b35f-7cb5-4bb3-92e4-a4fe8235e118
 begin
 	#generate training data matrix and anomalous data matrix from DF from CSV file
-	norm_data = filter(row -> row["label"] == "normal", data)
-	anom_data = filter(row -> row["label"] != "normal", data)
+
 	split_anom_data = groupby(anom_data, :label)
-
-	#shuffle the normal sensor data
-	shuffle_df!(norm_data)
-	shuffle_df!(anom_data)
-
-	#establish train, validation, and test split numerical values
-	train_nrm, valid_nrm, test_nrm = 0.70, 0.16, 0.14
-	@assert train_nrm + valid_nrm + test_nrm == 1.0
 	
 	num_train = round(Int, train_nrm*length(norm_data[:, 1]))
 	num_valid = round(Int, valid_nrm*length(norm_data[:, 1]))
@@ -426,7 +396,7 @@ ScikitLearn = "~0.6.4"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.7.0"
+julia_version = "1.7.1"
 manifest_format = "2.0"
 
 [[deps.AbstractFFTs]]
@@ -1703,15 +1673,21 @@ version = "3.5.0+0"
 # ╔═╡ Cell order:
 # ╟─1784c510-5465-11ec-0dd1-13e5a66e4ce6
 # ╠═d090131e-6602-4c03-860c-ad3cb6c7844a
-# ╟─b3646dcf-909a-45f1-b273-96a6d67d74a8
-# ╠═4c2d45ba-715e-4369-85a6-73e3ef782273
-# ╟─5019e8ac-040f-48fd-98e8-21ff7970aa23
+# ╠═5d920ea0-f04d-475f-b05b-86e7b199d7e0
+# ╠═31f71438-ff2f-49f9-a801-3a6489eaf271
 # ╟─d5c471c3-26be-46c0-a174-d580d0ed7f7d
 # ╠═d657ed23-3eb4-49d0-a59c-811e8189c376
-# ╠═a9c93bf0-b75f-421c-a289-2ae3b53b369a
-# ╠═e74dc9b8-9d90-49a1-bdd5-ae2701def278
-# ╠═4fb88337-35c7-468a-b4ae-8c60b1f69ffe
-# ╠═6ae5ee95-9a77-40ba-88b0-ccf89a78ce5e
+# ╟─a9c93bf0-b75f-421c-a289-2ae3b53b369a
+# ╟─ff63e947-5e5b-4964-8cef-9b618b32b4f7
+# ╠═c1db156a-fa26-4e57-b8ce-3f9e362d0c14
+# ╠═7dc59766-97c8-49d8-8b52-be54cec1902d
+# ╠═24483c59-798f-4452-aef1-b77fcb7f9d2d
+# ╟─470cbac8-9fef-4b0b-8998-db25267424ea
+# ╠═6efa96c5-f593-4395-a2f1-692ce2ba9e6f
+# ╠═328fd6b5-8be9-4971-9a6d-6fe6921f020c
+# ╠═90f821c6-5156-44ec-ad01-3b6f2fb39ce5
+# ╠═d6828d8a-c7f2-45b5-81ef-2aeaf7362b72
+# ╠═8332b9d0-a1d7-46b1-9571-fc724d502b7f
 # ╠═bae8b35f-7cb5-4bb3-92e4-a4fe8235e118
 # ╟─c34be089-ff98-404c-85e6-6b605d2cfe1c
 # ╠═af735015-999a-428c-bcec-defdad3caca6

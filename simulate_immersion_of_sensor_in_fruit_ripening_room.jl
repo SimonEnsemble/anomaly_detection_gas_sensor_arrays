@@ -192,7 +192,7 @@ md"!!! example \"\"
 
 # ╔═╡ e97d395d-c3ab-4d51-ac52-49eb28659f65
 function viz_C2H4_CO2_composition(sensor_data::DataFrame)
-	fig = Figure(resolution=(500, 500))
+	fig = Figure(resolution=(600, 600))
     # create panels
     ax_main  = Axis(fig[2, 1],
                 xlabel="p, $(gas_to_pretty_name[gases[1]]) [ppm]",
@@ -225,16 +225,16 @@ function viz_C2H4_CO2_composition(sensor_data::DataFrame)
 		
 		#density of normal compositions
 		hist!(ax_top, 
-				 sensor_data_g[:, "p $(gases[1]) [bar]"] * 1e6, 
-				 label=label,
-			density=true,
-				 color=(colors[label], 0.5)
+			 sensor_data_g[:, "p $(gases[1]) [bar]"] * 1e6, 
+			 label=label,
+			 probability=true,
+			 color=(colors[label], 0.5)
 		)
 		hist!(ax_right, 
 			  sensor_data_g[:, "p $(gases[2]) [bar]"] * 1e6, 
 			  direction=:x, 
 			  label=label,
-			density=true,
+			  probability=true,
 			  color=(colors[label], 0.5)
 		)
 	end
@@ -346,7 +346,7 @@ PlutoUI = "~0.7.21"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.7.0"
+julia_version = "1.7.1"
 manifest_format = "2.0"
 
 [[deps.AbstractFFTs]]
@@ -442,9 +442,9 @@ version = "1.16.1+1"
 
 [[deps.ChainRulesCore]]
 deps = ["Compat", "LinearAlgebra", "SparseArrays"]
-git-tree-sha1 = "f9982ef575e19b0e5c7a98c6e75ee496c0f73a93"
+git-tree-sha1 = "54fc4400de6e5c3e27be6047da2ef6ba355511f8"
 uuid = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
-version = "1.12.0"
+version = "1.11.6"
 
 [[deps.ChangesOfVariables]]
 deps = ["ChainRulesCore", "LinearAlgebra", "Test"]
@@ -551,9 +551,9 @@ uuid = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 
 [[deps.Distributions]]
 deps = ["ChainRulesCore", "DensityInterface", "FillArrays", "LinearAlgebra", "PDMats", "Printf", "QuadGK", "Random", "SparseArrays", "SpecialFunctions", "Statistics", "StatsBase", "StatsFuns", "Test"]
-git-tree-sha1 = "38bcc22b6e358e88a7715ad0db446dfd3a4fea47"
+git-tree-sha1 = "08f8555cb66936b871dcfdad09a4f89e754181db"
 uuid = "31c24e10-a181-5473-b8eb-7969acd0382f"
-version = "0.25.43"
+version = "0.25.40"
 
 [[deps.DocStringExtensions]]
 deps = ["LibGit2"]
@@ -770,9 +770,9 @@ version = "0.1.2"
 
 [[deps.InlineStrings]]
 deps = ["Parsers"]
-git-tree-sha1 = "61feba885fac3a407465726d0c330b3055df897f"
+git-tree-sha1 = "8d70835a3759cdd75881426fced1508bb7b7e1b6"
 uuid = "842dd82b-1e85-43dc-bf29-5d0ee9dffc48"
-version = "1.1.2"
+version = "1.1.1"
 
 [[deps.IntelOpenMP_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -830,9 +830,9 @@ version = "1.0.0"
 
 [[deps.JLD2]]
 deps = ["DataStructures", "FileIO", "MacroTools", "Mmap", "Pkg", "Printf", "Reexport", "TranscodingStreams", "UUIDs"]
-git-tree-sha1 = "bcb31db46795eeb64480c89d854615bc78a13289"
+git-tree-sha1 = "09ef0c32a26f80b465d808a1ba1e85775a282c97"
 uuid = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
-version = "0.4.19"
+version = "0.4.17"
 
 [[deps.JLLWrappers]]
 deps = ["Preferences"]
@@ -1008,9 +1008,9 @@ version = "0.3.3"
 uuid = "14a3606d-f60d-562e-9121-12d972cd8159"
 
 [[deps.NaNMath]]
-git-tree-sha1 = "b086b7ea07f8e38cf122f5016af580881ac914fe"
+git-tree-sha1 = "f755f36b19a5116bb580de457cda0c140153f283"
 uuid = "77ba4419-2d1f-58cd-9bb1-8ffee604a2e3"
-version = "0.3.7"
+version = "0.3.6"
 
 [[deps.Netpbm]]
 deps = ["FileIO", "ImageCore"]
@@ -1119,9 +1119,9 @@ version = "1.47.0+0"
 
 [[deps.Parsers]]
 deps = ["Dates"]
-git-tree-sha1 = "0b5cfbb704034b5b4c1869e36634438a047df065"
+git-tree-sha1 = "92f91ba9e5941fc781fecf5494ac1da87bdac775"
 uuid = "69de0a69-1ddd-5017-9359-2bf0b02dc9f0"
-version = "2.2.1"
+version = "2.2.0"
 
 [[deps.Pixman_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1141,15 +1141,15 @@ version = "0.1.1"
 
 [[deps.PlotUtils]]
 deps = ["ColorSchemes", "Colors", "Dates", "Printf", "Random", "Reexport", "Statistics"]
-git-tree-sha1 = "6f1b25e8ea06279b5689263cc538f51331d7ca17"
+git-tree-sha1 = "68604313ed59f0408313228ba09e79252e4b2da8"
 uuid = "995b91a9-d308-5afd-9ec6-746e21dbc043"
-version = "1.1.3"
+version = "1.1.2"
 
 [[deps.PlutoUI]]
 deps = ["AbstractPlutoDingetjes", "Base64", "ColorTypes", "Dates", "Hyperscript", "HypertextLiteral", "IOCapture", "InteractiveUtils", "JSON", "Logging", "Markdown", "Random", "Reexport", "UUIDs"]
-git-tree-sha1 = "ae6145ca68947569058866e443df69587acc1806"
+git-tree-sha1 = "5c0eb9099596090bb3215260ceca687b888a1575"
 uuid = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
-version = "0.7.32"
+version = "0.7.30"
 
 [[deps.PolygonOps]]
 git-tree-sha1 = "77b3d3605fc1cd0b42d95eba87dfcd2bf67d5ff6"
@@ -1293,9 +1293,9 @@ uuid = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [[deps.SpecialFunctions]]
 deps = ["ChainRulesCore", "IrrationalConstants", "LogExpFunctions", "OpenLibm_jll", "OpenSpecFun_jll"]
-git-tree-sha1 = "e6bf188613555c78062842777b116905a9f9dd49"
+git-tree-sha1 = "e08890d19787ec25029113e88c34ec20cac1c91e"
 uuid = "276daf66-3868-5448-9aa4-cd146d93841b"
-version = "2.1.0"
+version = "2.0.0"
 
 [[deps.StackViews]]
 deps = ["OffsetArrays"]
@@ -1311,9 +1311,9 @@ version = "0.5.1"
 
 [[deps.StaticArrays]]
 deps = ["LinearAlgebra", "Random", "Statistics"]
-git-tree-sha1 = "2884859916598f974858ff01df7dfc6c708dd895"
+git-tree-sha1 = "2ae4fe21e97cd13efd857462c1869b73c9f61be3"
 uuid = "90137ffa-7385-5640-81b9-e52037218182"
-version = "1.3.3"
+version = "1.3.2"
 
 [[deps.Statistics]]
 deps = ["LinearAlgebra", "SparseArrays"]
@@ -1332,9 +1332,9 @@ version = "0.33.14"
 
 [[deps.StatsFuns]]
 deps = ["ChainRulesCore", "InverseFunctions", "IrrationalConstants", "LogExpFunctions", "Reexport", "Rmath", "SpecialFunctions"]
-git-tree-sha1 = "f35e1879a71cca95f4826a14cdbf0b9e253ed918"
+git-tree-sha1 = "bedb3e17cc1d94ce0e6e66d3afa47157978ba404"
 uuid = "4c63d2b9-4356-54db-8cca-17b64c39e42c"
-version = "0.9.15"
+version = "0.9.14"
 
 [[deps.StructArrays]]
 deps = ["Adapt", "DataAPI", "StaticArrays", "Tables"]
@@ -1507,9 +1507,9 @@ version = "1.6.38+0"
 
 [[deps.libvorbis_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Ogg_jll", "Pkg"]
-git-tree-sha1 = "b910cb81ef3fe6e78bf6acee440bda86fd6ae00c"
+git-tree-sha1 = "c45f4e40e7aafe9d086379e5578947ec8b95a8fb"
 uuid = "f27f6e37-5d2b-51aa-960f-b287f2bc3b7a"
-version = "1.3.7+1"
+version = "1.3.7+0"
 
 [[deps.nghttp2_jll]]
 deps = ["Artifacts", "Libdl"]
