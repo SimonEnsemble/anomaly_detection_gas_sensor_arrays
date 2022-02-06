@@ -191,9 +191,16 @@ md"# WORK HERE
 # ╔═╡ 796d77dd-7976-4503-8393-ed45572c40e7
 begin
 	#step 1, create a range of ν and γ values.
-	ν_range = (0.1, 0.9)
-	γ_range = (0.4, 0.8)
+	ν_validation = (0.1, 0.9)
+	γ_validation = (0.4, 0.8)
 	validation_grid_resolution = 100	
+
+	ν_values = collect(range(ν_validation[1], 
+							 ν_validation[2], 
+							 validation_grid_resolution))
+	γ_values = collect(range(γ_validation[1], 
+							 γ_validation[2], 
+							 validation_grid_resolution))
 end
 
 # ╔═╡ d4789590-9657-4a0f-9653-a6758f0d75c0
@@ -203,10 +210,9 @@ end
 #step 2, create a function that generates a matrix of svm's given the ν and γ ranges and desired resolution.
 
 # ╔═╡ a3b3b771-4097-4f24-97f6-8819182fe5f4
-function generate_validation_grid(ν_min, ν_max, γ_min, γ_max, grid_res)
-
-	ν_values = collect(range(ν_min, ν_max, grid_res))
-	γ_values = collect(range(γ_max, γ_min, grid_res))
+function generate_validation_grid(ν_range::Vector{Float64}, 
+								  γ_range::Vector{Float64}, 
+								  grid_res::Int)
 	
 	svm_grid = []
 	for k = 1:grid_res
@@ -216,7 +222,7 @@ function generate_validation_grid(ν_min, ν_max, γ_min, γ_max, grid_res)
 	for i = 1:grid_res
 		for j = 1:grid_res
 			push!(svm_grid[i], 
-				  train_anomaly_detector(γ_values[i], ν_values[j]))
+				  train_anomaly_detector(γ_range[i], ν_range[j]))
 		end
 	end
 
@@ -224,10 +230,8 @@ function generate_validation_grid(ν_min, ν_max, γ_min, γ_max, grid_res)
 end
 
 # ╔═╡ 57410ba1-0d57-43b5-b9e0-69d2a4a9420b
-validation_grid = generate_validation_grid(ν_range[1], 
-										   ν_range[2], 
-										   γ_range[1], 
-										   γ_range[2], 
+validation_grid = generate_validation_grid(ν_values, 
+										   γ_values, 
 										   validation_grid_resolution)
 
 # ╔═╡ d6ae4451-12f7-4759-9b33-6cbb72603c0c
