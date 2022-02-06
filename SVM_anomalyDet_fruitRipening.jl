@@ -216,9 +216,7 @@ function generate_validation_grid(ν_min, ν_max, γ_min, γ_max, grid_res)
 	for i = 1:grid_res
 		for j = 1:grid_res
 			push!(svm_grid[i], 
-				  train_anomaly_detector(γ_values[i], 
-										 ν_values[j], 
-										 X["valid_scaled"]))
+				  train_anomaly_detector(γ_values[i], ν_values[j]))
 		end
 	end
 
