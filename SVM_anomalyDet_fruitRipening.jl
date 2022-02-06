@@ -145,9 +145,11 @@ md"!!! example \"\"
 	Create functions to generate a grid of anomoly scores and plot a colormap to visualize the decision boundary for the one class support vector machine"
 
 # ╔═╡ af735015-999a-428c-bcec-defdad3caca6
-function train_anomaly_detector(ν::Float64, γ::Float64)
+function train_anomaly_detector(ν::Float64, 
+								γ::Float64, 
+								training_set::Matrix{Float64} = X["train"])
 	oc_svm = OneClassSVM(kernel="rbf", nu=ν, gamma=γ)
-	return oc_svm.fit(X["train"])
+	return oc_svm.fit(training_set)
 end
 
 # ╔═╡ 0a0cab3a-0231-4d75-8ce6-fde439204082
@@ -189,18 +191,46 @@ md"# WORK HERE
 # ╔═╡ 796d77dd-7976-4503-8393-ed45572c40e7
 begin
 	#step 1, create a range of ν and γ values.
-	ν_range = (0, 1)
-	γ_range = (0, 5)
-	validation_resolution = 100	
+	ν_range = (0.1, 0.9)
+	γ_range = (0.4, 0.8)
+	validation_grid_resolution = 100	
 end
+
+# ╔═╡ d4789590-9657-4a0f-9653-a6758f0d75c0
+
 
 # ╔═╡ 799b48d9-2c85-4cce-a215-12d58dee690d
 #step 2, create a function that generates a matrix of svm's given the ν and γ ranges and desired resolution.
 
 # ╔═╡ a3b3b771-4097-4f24-97f6-8819182fe5f4
-function valid_grid(ν_min, ν_max, γ_min, γ_max, resolution)
+function generate_validation_grid(ν_min, ν_max, γ_min, γ_max, grid_res)
 
+	ν_values = collect(range(ν_min, ν_max, grid_res))
+	γ_values = collect(range(γ_max, γ_min, grid_res))
+	
+	svm_grid = []
+	for k = 1:grid_res
+		push!(svm_grid, [])
+	end
+
+	for i = 1:grid_res
+		for j = 1:grid_res
+			push!(svm_grid[i], 
+				  train_anomaly_detector(γ_values[i], 
+										 ν_values[j], 
+										 X["valid_scaled"]))
+		end
+	end
+
+	return svm_grid
 end
+
+# ╔═╡ 57410ba1-0d57-43b5-b9e0-69d2a4a9420b
+validation_grid = generate_validation_grid(ν_range[1], 
+										   ν_range[2], 
+										   γ_range[1], 
+										   γ_range[2], 
+										   validation_grid_resolution)
 
 # ╔═╡ d6ae4451-12f7-4759-9b33-6cbb72603c0c
 #step 3, read up on precision recall as a metric for creating a heatmap of desired ν and γ values.
@@ -371,7 +401,7 @@ ScikitLearn = "~0.6.4"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.7.1"
+julia_version = "1.7.0"
 manifest_format = "2.0"
 
 [[deps.AbstractFFTs]]
@@ -1672,8 +1702,10 @@ version = "3.5.0+0"
 # ╟─6eb73e08-3ef0-4aab-910d-28a55501e863
 # ╟─7828904d-f379-4273-be91-7996f3ed665b
 # ╠═796d77dd-7976-4503-8393-ed45572c40e7
+# ╠═d4789590-9657-4a0f-9653-a6758f0d75c0
 # ╠═799b48d9-2c85-4cce-a215-12d58dee690d
 # ╠═a3b3b771-4097-4f24-97f6-8819182fe5f4
+# ╠═57410ba1-0d57-43b5-b9e0-69d2a4a9420b
 # ╠═d6ae4451-12f7-4759-9b33-6cbb72603c0c
 # ╠═f8864b43-7316-4788-8ab3-ef106f9d7645
 # ╠═e93f96fb-c8cd-4573-a171-8534be79d9e6
