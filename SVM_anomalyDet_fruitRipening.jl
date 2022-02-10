@@ -43,6 +43,9 @@ begin
 	data = data[shuffle(1:nrow(data)), :]
 end
 
+# ╔═╡ b3136b68-20b8-4e94-a407-682abb052132
+length(color_map)/2
+
 # ╔═╡ a9c93bf0-b75f-421c-a289-2ae3b53b369a
 md"!!! example \"\" 
 	test/train/validation split. assign each experiment to train, valid, or test.
@@ -191,9 +194,9 @@ md"# WORK HERE
 # ╔═╡ 796d77dd-7976-4503-8393-ed45572c40e7
 begin
 	#step 1, create a range of ν and γ values.
-	ν_validation = (0.1, 0.9)
-	γ_validation = (0.4, 0.8)
-	validation_grid_resolution = 100	
+	ν_validation = (0.01, 0.9)
+	γ_validation = (0.01, 1.8)
+	validation_grid_resolution = 200	
 
 	ν_values = collect(range(ν_validation[1], 
 							 ν_validation[2], 
@@ -204,7 +207,7 @@ begin
 end
 
 # ╔═╡ d4789590-9657-4a0f-9653-a6758f0d75c0
-
+ν_values
 
 # ╔═╡ 799b48d9-2c85-4cce-a215-12d58dee690d
 #step 2, create a function that generates a matrix of svm's given the ν and γ ranges and desired resolution.
@@ -222,7 +225,7 @@ function generate_validation_grid(ν_range::Vector{Float64},
 	for i = 1:grid_res
 		for j = 1:grid_res
 			push!(svm_grid[i], 
-				  train_anomaly_detector(γ_range[i], ν_range[j]))
+				  train_anomaly_detector(ν_range[j], γ_range[i]))
 		end
 	end
 
@@ -237,21 +240,64 @@ svm_validation_grid = generate_validation_grid(ν_values,
 # ╔═╡ d6ae4451-12f7-4759-9b33-6cbb72603c0c
 #step 3, read up on precision recall as a metric for creating a heatmap of desired ν and γ values.
 
-# ╔═╡ a51494cd-3101-4f7f-be7f-c1a47405c07a
-X["valid_scaled"][2, :]
-
-# ╔═╡ 4114f39a-3d38-4dd0-9329-f804922a97f9
-y["valid"][2]
-
 # ╔═╡ edb99e66-4622-498e-baf1-75387d73b15b
 begin
-#start with a simple test
-validation_grid_test = zeros(validation_grid_resolution,validation_grid_resolution)
+	#start with a simple test
+	validation_grid_test_results = zeros(validation_grid_resolution,
+								 validation_grid_resolution)
+
+	predictions = []
+	validation_set_size = length(X["valid_scaled"][:, 1])
+
+	for i = 1:validation_grid_resolution
+		for j = 1:validation_grid_resolution
+			predictions = 
+		svm_validation_grid[i][j].predict(X["valid_scaled"][1:validation_set_size, :])
+			for k = 1:length(predictions)
+				if (predictions[k] == -1 && y["valid"][k] == "anomaly") || 
+				   (predictions[k] == 1  && y["valid"][k] == "normal")
+					validation_grid_test_results[i, j] += 1
+				end
+			end
+		end
+	end
+
+	validation_grid_test_results
 
 end
 
 # ╔═╡ f8864b43-7316-4788-8ab3-ef106f9d7645
+begin
 #step 4, write a function that generates the heat map based on the matrix.
+color_map[256]
+end
+
+# ╔═╡ 0ea431e9-3701-4660-912a-5537a1576a9e
+function viz_validation_results(test_results_grid::Matrix{Float64})
+	h_map_colors = color_map[168:200]
+
+	h_map_figure = Figure()
+
+	h_map_axis = Axis(h_map_figure[1,1], 
+					  xlabel = "ν",
+					  ylabel = "γ",
+					  aspect = DataAspect())
+
+	validation_map = heatmap!(ν_values, 
+							  γ_values, 
+							  test_results_grid, 
+							  colormap = h_map_colors)
+
+	h_map_figure
+
+	
+end
+
+# ╔═╡ fdddb8c2-4470-42cf-bbfd-7fddb5d641d0
+color_map[128:256]
+
+# ╔═╡ 89dd637f-4165-4544-83a7-13bb21e53a47
+viz_validation_results(validation_grid_test_results)
 
 # ╔═╡ e93f96fb-c8cd-4573-a171-8534be79d9e6
 #step 5, look at the heatmap and look for anything that stands out, possibly change ranges/resolution to elucidate data.
@@ -1697,6 +1743,7 @@ version = "3.5.0+0"
 # ╠═31f71438-ff2f-49f9-a801-3a6489eaf271
 # ╟─d5c471c3-26be-46c0-a174-d580d0ed7f7d
 # ╠═d657ed23-3eb4-49d0-a59c-811e8189c376
+# ╠═b3136b68-20b8-4e94-a407-682abb052132
 # ╟─a9c93bf0-b75f-421c-a289-2ae3b53b369a
 # ╟─ff63e947-5e5b-4964-8cef-9b618b32b4f7
 # ╠═c1db156a-fa26-4e57-b8ce-3f9e362d0c14
@@ -1722,10 +1769,11 @@ version = "3.5.0+0"
 # ╠═a3b3b771-4097-4f24-97f6-8819182fe5f4
 # ╠═57410ba1-0d57-43b5-b9e0-69d2a4a9420b
 # ╠═d6ae4451-12f7-4759-9b33-6cbb72603c0c
-# ╠═a51494cd-3101-4f7f-be7f-c1a47405c07a
-# ╠═4114f39a-3d38-4dd0-9329-f804922a97f9
 # ╠═edb99e66-4622-498e-baf1-75387d73b15b
 # ╠═f8864b43-7316-4788-8ab3-ef106f9d7645
+# ╠═0ea431e9-3701-4660-912a-5537a1576a9e
+# ╠═fdddb8c2-4470-42cf-bbfd-7fddb5d641d0
+# ╠═89dd637f-4165-4544-83a7-13bb21e53a47
 # ╠═e93f96fb-c8cd-4573-a171-8534be79d9e6
 # ╠═79d6d529-232b-433f-b4fb-9a1f9b40113d
 # ╠═0361be91-8f29-4efc-a475-ce6f6da51d94
