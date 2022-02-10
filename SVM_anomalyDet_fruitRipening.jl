@@ -230,12 +230,25 @@ function generate_validation_grid(ν_range::Vector{Float64},
 end
 
 # ╔═╡ 57410ba1-0d57-43b5-b9e0-69d2a4a9420b
-validation_grid = generate_validation_grid(ν_values, 
+svm_validation_grid = generate_validation_grid(ν_values, 
 										   γ_values, 
 										   validation_grid_resolution)
 
 # ╔═╡ d6ae4451-12f7-4759-9b33-6cbb72603c0c
 #step 3, read up on precision recall as a metric for creating a heatmap of desired ν and γ values.
+
+# ╔═╡ a51494cd-3101-4f7f-be7f-c1a47405c07a
+X["valid_scaled"][2, :]
+
+# ╔═╡ 4114f39a-3d38-4dd0-9329-f804922a97f9
+y["valid"][2]
+
+# ╔═╡ edb99e66-4622-498e-baf1-75387d73b15b
+begin
+#start with a simple test
+validation_grid_test = zeros(validation_grid_resolution,validation_grid_resolution)
+
+end
 
 # ╔═╡ f8864b43-7316-4788-8ab3-ef106f9d7645
 #step 4, write a function that generates the heat map based on the matrix.
@@ -1709,6 +1722,9 @@ version = "3.5.0+0"
 # ╠═a3b3b771-4097-4f24-97f6-8819182fe5f4
 # ╠═57410ba1-0d57-43b5-b9e0-69d2a4a9420b
 # ╠═d6ae4451-12f7-4759-9b33-6cbb72603c0c
+# ╠═a51494cd-3101-4f7f-be7f-c1a47405c07a
+# ╠═4114f39a-3d38-4dd0-9329-f804922a97f9
+# ╠═edb99e66-4622-498e-baf1-75387d73b15b
 # ╠═f8864b43-7316-4788-8ab3-ef106f9d7645
 # ╠═e93f96fb-c8cd-4573-a171-8534be79d9e6
 # ╠═79d6d529-232b-433f-b4fb-9a1f9b40113d
