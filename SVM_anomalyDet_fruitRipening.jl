@@ -155,34 +155,6 @@ function train_anomaly_detector(ν::Float64,
 	return oc_svm.fit(training_set)
 end
 
-# ╔═╡ 0a0cab3a-0231-4d75-8ce6-fde439204082
-#function to generate a grid of anomaly scores based on a trained svm and given resolution.
-
-function generate_grid(svm, grid_res::Int64 = 100)
-
-	feature_space_grid_axes = zeros(grid_res, 2)
-	
-	for axis_num = 1:2
-		feature_space_grid_axes[:, axis_num] = 
-		range(0.99*minimum(X["train"][:, axis_num]), 
-			  1.021*maximum(X["train"][:, axis_num]), 
-			  length=grid_res)
-	end
-	
-	grid_predictions = zeros(grid_res, grid_res)
-	
-	for i = 1:grid_res
-		for j = 1:grid_res
-			grid_point = [feature_space_grid_axes[i, 1] feature_space_grid_axes[j, 2]] 
-			grid_point_t = scaler.transform(grid_point)
-			grid_predictions[i, j] = svm.decision_function(grid_point_t)[1]
-		end
-	end
-	
-	return [grid_predictions, feature_space_grid_axes]
-end
-
-
 # ╔═╡ 6eb73e08-3ef0-4aab-910d-28a55501e863
 md"!!! example \"\" 
 	From here start validation process"
@@ -242,9 +214,9 @@ end
 
 # ╔═╡ 57410ba1-0d57-43b5-b9e0-69d2a4a9420b
 begin
-	valid_grid_res = 100
+	valid_grid_res = 400
 	
-	hyperparameter_set = generate_validation_range(0.1, 0.7, 0.1, 1.0, valid_grid_res)
+	hyperparameter_set = generate_validation_range(0.1, 0.7, 0.1, 2.7, valid_grid_res)
 	ν_values = hyperparameter_set[1]
 	γ_values = hyperparameter_set[2]
 		
@@ -259,21 +231,32 @@ end
 
 # ╔═╡ edb99e66-4622-498e-baf1-75387d73b15b
 begin
-	#start with a simple test
+	#start with a simple test to find an area of interest.
+	
 	validation_grid_test_results = zeros(valid_grid_res,
 								         valid_grid_res)
 
 	predictions = []
 	validation_set_size = length(X["valid"][:, 1])
+	anomaly_weight = 3
 
 	for i = 1:valid_grid_res
 		for j = 1:valid_grid_res
 			predictions = 
 		svm_validation_grid[i][j].predict(X["valid"][1:validation_set_size, :])
 			for k = 1:length(predictions)
-				if (predictions[k] == -1 && y["valid"][k] == "anomaly") || 
-				   (predictions[k] == 1  && y["valid"][k] == "normal")
+				
+				#this is where I should consider weighting results differently based 	 
+                #on precision recall (possibly)
+
+				#= current working theory? Because anomaly's are less common and contribute less to the data set, perhaps a correct identification of an anomalous point should be weighted slightly higher.
+				=#
+				
+				if predictions[k] == 1  && y["valid"][k] == "normal"
 					validation_grid_test_results[i, j] += 1
+
+				elseif predictions[k] == -1 && y["valid"][k] == "anomaly"
+					validation_grid_test_results[i, j] += anomaly_weight
 				end
 			end
 		end
@@ -282,9 +265,6 @@ begin
 	validation_grid_test_results
 
 end
-
-# ╔═╡ e80ce942-92a3-42b4-9171-acd3a251115b
-predictions
 
 # ╔═╡ 413fa9eb-b9d2-4c4d-b8f7-44a11632f01f
 y
@@ -307,18 +287,12 @@ function viz_validation_results(test_results_grid::Matrix{Float64})
 	Colorbar(h_map_figure[1, 2], 
 			 limits = (0, 60), 
 			 colormap = h_map_colors, 
-			 label = "Accuracy")
+			 label = "Accuracy Score")
 
 	h_map_figure
 
 	
 end
-
-# ╔═╡ 12313f6b-a2cb-4e9c-9662-3b01badded36
-
-
-# ╔═╡ fdddb8c2-4470-42cf-bbfd-7fddb5d641d0
-color_map[128:256]
 
 # ╔═╡ 89dd637f-4165-4544-83a7-13bb21e53a47
 viz_validation_results(validation_grid_test_results)
@@ -336,6 +310,35 @@ viz_validation_results(validation_grid_test_results)
 
 
 # ╔═╡ f3dbe820-d9bc-448f-a7fe-f0b054cbf0a8
+md"!!! example \"\" 
+	From here work on training a final SVM and vizualizing the ideal decision function contour"
+
+# ╔═╡ 0a0cab3a-0231-4d75-8ce6-fde439204082
+#function to generate a grid of anomaly scores based on a trained svm and given resolution.
+
+function generate_grid(svm, grid_res::Int64 = 100)
+
+	feature_space_grid_axes = zeros(grid_res, 2)
+	
+	for axis_num = 1:2
+		feature_space_grid_axes[:, axis_num] = 
+		range(0.99*minimum(X["train"][:, axis_num]), 
+			  1.021*maximum(X["train"][:, axis_num]), 
+			  length=grid_res)
+	end
+	
+	grid_predictions = zeros(grid_res, grid_res)
+	
+	for i = 1:grid_res
+		for j = 1:grid_res
+			grid_point = [feature_space_grid_axes[i, 1] feature_space_grid_axes[j, 2]] 
+			grid_point_t = scaler.transform(grid_point)
+			grid_predictions[i, j] = svm.decision_function(grid_point_t)[1]
+		end
+	end
+	
+	return [grid_predictions, feature_space_grid_axes]
+end
 
 
 # ╔═╡ a1a6e4cf-1a15-4492-88f9-f2e68646dcb5
@@ -386,14 +389,9 @@ function viz_svm_data_fit(trained_svm, res = 100)
 	contour_fig
 end
 
-# ╔═╡ 037e7b3d-f33a-4dd6-92a1-861c3684d870
-begin
-	viz_svm_data_fit(svm_validation_grid[1][1])
-end
-
 # ╔═╡ 37a7cf65-13d1-442d-bfbb-d43392c7acae
 md"!!! example \"\" 
-	Create a second distribution of normal values to test with our trained one class SVM and visualize results with a confusion matrix"
+	Test results with a confusion matrix"
 
 # ╔═╡ 6591e930-8952-449a-8418-82a96b20fec9
 function viz_confusion_matrix(cm::Matrix{Int64}, naming::Vector{String})
@@ -1783,7 +1781,6 @@ version = "3.5.0+0"
 # ╠═23aeb959-c578-405f-90d2-afb158406a4c
 # ╟─c34be089-ff98-404c-85e6-6b605d2cfe1c
 # ╠═af735015-999a-428c-bcec-defdad3caca6
-# ╠═0a0cab3a-0231-4d75-8ce6-fde439204082
 # ╟─6eb73e08-3ef0-4aab-910d-28a55501e863
 # ╟─7828904d-f379-4273-be91-7996f3ed665b
 # ╠═796d77dd-7976-4503-8393-ed45572c40e7
@@ -1792,20 +1789,17 @@ version = "3.5.0+0"
 # ╠═57410ba1-0d57-43b5-b9e0-69d2a4a9420b
 # ╠═d6ae4451-12f7-4759-9b33-6cbb72603c0c
 # ╠═edb99e66-4622-498e-baf1-75387d73b15b
-# ╠═e80ce942-92a3-42b4-9171-acd3a251115b
 # ╠═413fa9eb-b9d2-4c4d-b8f7-44a11632f01f
 # ╠═0ea431e9-3701-4660-912a-5537a1576a9e
-# ╠═12313f6b-a2cb-4e9c-9662-3b01badded36
-# ╠═fdddb8c2-4470-42cf-bbfd-7fddb5d641d0
 # ╠═89dd637f-4165-4544-83a7-13bb21e53a47
 # ╠═e93f96fb-c8cd-4573-a171-8534be79d9e6
 # ╠═79d6d529-232b-433f-b4fb-9a1f9b40113d
 # ╠═0361be91-8f29-4efc-a475-ce6f6da51d94
 # ╠═1f0a9e44-66f9-45b5-a77a-84a2ca0380a0
-# ╠═f3dbe820-d9bc-448f-a7fe-f0b054cbf0a8
-# ╠═037e7b3d-f33a-4dd6-92a1-861c3684d870
+# ╟─f3dbe820-d9bc-448f-a7fe-f0b054cbf0a8
+# ╠═0a0cab3a-0231-4d75-8ce6-fde439204082
 # ╠═a1a6e4cf-1a15-4492-88f9-f2e68646dcb5
-# ╟─37a7cf65-13d1-442d-bfbb-d43392c7acae
+# ╠═37a7cf65-13d1-442d-bfbb-d43392c7acae
 # ╠═6591e930-8952-449a-8418-82a96b20fec9
 # ╠═234a23e6-e68f-4c74-83ec-9802e483cb9b
 # ╠═75b10a33-19e5-4e96-ac65-144c4ec0c660
