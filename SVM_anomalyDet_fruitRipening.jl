@@ -164,8 +164,8 @@ function generate_grid(svm, grid_res::Int64 = 100)
 	
 	for axis_num = 1:2
 		feature_space_grid_axes[:, axis_num] = 
-		range(0.99*minimum(m_train[:, axis_num]), 
-			  1.021*maximum(m_train[:, axis_num]), 
+		range(0.99*minimum(X["train"][:, axis_num]), 
+			  1.021*maximum(X["train"][:, axis_num]), 
 			  length=grid_res)
 	end
 	
@@ -192,11 +192,20 @@ md"# WORK HERE
 "
 
 # ╔═╡ 796d77dd-7976-4503-8393-ed45572c40e7
-begin
-	#step 1, create a range of ν and γ values.
-	ν_validation = (0.01, 0.9)
-	γ_validation = (0.01, 1.8)
-	validation_grid_resolution = 200	
+function generate_validation_range(ν_min::Float64, 
+								   ν_max::Float64, 
+								   γ_min::Float64, 
+								   γ_max::Float64, 
+								   resolution::Int)
+
+	#establish constraints for ν (0,1] and γ >0
+	@assert ν_min > 0.0
+	@assert ν_max <= 1.0
+	@assert γ_min > 0.0
+	
+	ν_validation = (ν_min, ν_max)
+	γ_validation = (γ_min, γ_max)
+	validation_grid_resolution = resolution
 
 	ν_values = collect(range(ν_validation[1], 
 							 ν_validation[2], 
@@ -204,10 +213,9 @@ begin
 	γ_values = collect(range(γ_validation[1], 
 							 γ_validation[2], 
 							 validation_grid_resolution))
-end
 
-# ╔═╡ d4789590-9657-4a0f-9653-a6758f0d75c0
-ν_values
+	return [ν_values, γ_values]
+end
 
 # ╔═╡ 799b48d9-2c85-4cce-a215-12d58dee690d
 #step 2, create a function that generates a matrix of svm's given the ν and γ ranges and desired resolution.
@@ -233,9 +241,18 @@ function generate_validation_grid(ν_range::Vector{Float64},
 end
 
 # ╔═╡ 57410ba1-0d57-43b5-b9e0-69d2a4a9420b
-svm_validation_grid = generate_validation_grid(ν_values, 
-										   γ_values, 
-										   validation_grid_resolution)
+begin
+	valid_grid_res = 100
+	
+	hyperparameter_set = generate_validation_range(0.1, 0.7, 0.1, 1.0, valid_grid_res)
+	ν_values = hyperparameter_set[1]
+	γ_values = hyperparameter_set[2]
+		
+	svm_validation_grid = generate_validation_grid(ν_values, 
+											   	   γ_values, 
+											       valid_grid_res)
+
+end
 
 # ╔═╡ d6ae4451-12f7-4759-9b33-6cbb72603c0c
 #step 3, read up on precision recall as a metric for creating a heatmap of desired ν and γ values.
@@ -243,16 +260,16 @@ svm_validation_grid = generate_validation_grid(ν_values,
 # ╔═╡ edb99e66-4622-498e-baf1-75387d73b15b
 begin
 	#start with a simple test
-	validation_grid_test_results = zeros(validation_grid_resolution,
-								 validation_grid_resolution)
+	validation_grid_test_results = zeros(valid_grid_res,
+								         valid_grid_res)
 
 	predictions = []
-	validation_set_size = length(X["valid_scaled"][:, 1])
+	validation_set_size = length(X["valid"][:, 1])
 
-	for i = 1:validation_grid_resolution
-		for j = 1:validation_grid_resolution
+	for i = 1:valid_grid_res
+		for j = 1:valid_grid_res
 			predictions = 
-		svm_validation_grid[i][j].predict(X["valid_scaled"][1:validation_set_size, :])
+		svm_validation_grid[i][j].predict(X["valid"][1:validation_set_size, :])
 			for k = 1:length(predictions)
 				if (predictions[k] == -1 && y["valid"][k] == "anomaly") || 
 				   (predictions[k] == 1  && y["valid"][k] == "normal")
@@ -266,27 +283,31 @@ begin
 
 end
 
-# ╔═╡ f8864b43-7316-4788-8ab3-ef106f9d7645
-begin
-#step 4, write a function that generates the heat map based on the matrix.
-color_map[256]
-end
+# ╔═╡ e80ce942-92a3-42b4-9171-acd3a251115b
+predictions
+
+# ╔═╡ 413fa9eb-b9d2-4c4d-b8f7-44a11632f01f
+y
 
 # ╔═╡ 0ea431e9-3701-4660-912a-5537a1576a9e
 function viz_validation_results(test_results_grid::Matrix{Float64})
-	h_map_colors = color_map[168:200]
+	h_map_colors = ColorSchemes.thermal
 
-	h_map_figure = Figure()
+	h_map_figure = Figure(resolution=(800,800))
 
 	h_map_axis = Axis(h_map_figure[1,1], 
 					  xlabel = "ν",
-					  ylabel = "γ",
-					  aspect = DataAspect())
+					  ylabel = "γ")
 
 	validation_map = heatmap!(ν_values, 
 							  γ_values, 
 							  test_results_grid, 
 							  colormap = h_map_colors)
+
+	Colorbar(h_map_figure[1, 2], 
+			 limits = (0, 60), 
+			 colormap = h_map_colors, 
+			 label = "Accuracy")
 
 	h_map_figure
 
@@ -341,7 +362,7 @@ function viz_svm_data_fit(trained_svm, res = 100)
 						colormap = color_map, 
 						colorrange=(-0.002, 0.002))
 
-	scatter!(m_train[:, 1], m_train[:, 2], strokewidth=1, 
+	scatter!(X["train"][:, 1], X["train"][:, 2], strokewidth=1, 
 		     color=(:white, 0.0), strokecolor=colors["normal"],
 			 label="normal")
 
@@ -367,8 +388,7 @@ end
 
 # ╔═╡ 037e7b3d-f33a-4dd6-92a1-861c3684d870
 begin
-	fruit_gas_svm_trained = train_svm_rbf()
-	viz_svm_data_fit(fruit_gas_svm_trained)
+	viz_svm_data_fit(svm_validation_grid[1][1])
 end
 
 # ╔═╡ 37a7cf65-13d1-442d-bfbb-d43392c7acae
@@ -1767,13 +1787,13 @@ version = "3.5.0+0"
 # ╟─6eb73e08-3ef0-4aab-910d-28a55501e863
 # ╟─7828904d-f379-4273-be91-7996f3ed665b
 # ╠═796d77dd-7976-4503-8393-ed45572c40e7
-# ╠═d4789590-9657-4a0f-9653-a6758f0d75c0
 # ╠═799b48d9-2c85-4cce-a215-12d58dee690d
 # ╠═a3b3b771-4097-4f24-97f6-8819182fe5f4
 # ╠═57410ba1-0d57-43b5-b9e0-69d2a4a9420b
 # ╠═d6ae4451-12f7-4759-9b33-6cbb72603c0c
 # ╠═edb99e66-4622-498e-baf1-75387d73b15b
-# ╠═f8864b43-7316-4788-8ab3-ef106f9d7645
+# ╠═e80ce942-92a3-42b4-9171-acd3a251115b
+# ╠═413fa9eb-b9d2-4c4d-b8f7-44a11632f01f
 # ╠═0ea431e9-3701-4660-912a-5537a1576a9e
 # ╠═12313f6b-a2cb-4e9c-9662-3b01badded36
 # ╠═fdddb8c2-4470-42cf-bbfd-7fddb5d641d0
