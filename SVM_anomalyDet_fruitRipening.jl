@@ -5,7 +5,7 @@ using Markdown
 using InteractiveUtils
 
 # ╔═╡ d090131e-6602-4c03-860c-ad3cb6c7844a
-using CairoMakie,CSV, DataFrames, ColorSchemes, Optim, Distributions, PlutoUI, ScikitLearn, Colors, Random, PlutoUI
+using CairoMakie,CSV, DataFrames, ColorSchemes, Optim, Distributions, PlutoUI, ScikitLearn, Colors, Random, PlutoUI, Makie.GeometryBasics
 
 # ╔═╡ 31f71438-ff2f-49f9-a801-3a6489eaf271
 include("plot_theme.jl")
@@ -214,9 +214,9 @@ end
 
 # ╔═╡ 57410ba1-0d57-43b5-b9e0-69d2a4a9420b
 begin
-	valid_grid_res = 400
+	valid_grid_res = 500
 	
-	hyperparameter_set = generate_validation_range(0.1, 0.7, 0.1, 2.7, valid_grid_res)
+	hyperparameter_set = generate_validation_range(0.05, 0.95, 0.05, 10.0, valid_grid_res)
 	ν_values = hyperparameter_set[1]
 	γ_values = hyperparameter_set[2]
 		
@@ -233,11 +233,12 @@ end
 begin
 	#start with a simple test to find an area of interest.
 	
-	validation_grid_test_results = zeros(valid_grid_res,
-								         valid_grid_res)
+	validation_test_results = zeros(valid_grid_res,
+								    valid_grid_res)
 
-	predictions = []
 	validation_set_size = length(X["valid"][:, 1])
+
+	#I'm choosing to weight anomalous data points by 3 here because there are 45 normal data points and 15 (3x more normal) anomalous data points in the validation data set. I think for determining areas of interest this is sufficient, once an area of interest is identified I'll further analyze using precision and recall.
 	anomaly_weight = 3
 
 	for i = 1:valid_grid_res
@@ -246,24 +247,26 @@ begin
 		svm_validation_grid[i][j].predict(X["valid"][1:validation_set_size, :])
 			for k = 1:length(predictions)
 				
-				#this is where I should consider weighting results differently based 	 
-                #on precision recall (possibly)
-
-				#= current working theory? Because anomaly's are less common and contribute less to the data set, perhaps a correct identification of an anomalous point should be weighted slightly higher.
-				=#
-				
 				if predictions[k] == 1  && y["valid"][k] == "normal"
-					validation_grid_test_results[i, j] += 1
+					validation_test_results[valid_grid_res-i+1, j] += 1
 
 				elseif predictions[k] == -1 && y["valid"][k] == "anomaly"
-					validation_grid_test_results[i, j] += anomaly_weight
+					validation_test_results[valid_grid_res-i+1, j] += anomaly_weight
 				end
 			end
 		end
 	end
 
-	validation_grid_test_results
+	validation_test_results
 
+end
+
+# ╔═╡ dcbbba8c-6f10-4e6d-90ff-813c309f584e
+begin
+abc = zeros(4,4)
+
+	abc[2,3] = 5.0
+	abc
 end
 
 # ╔═╡ 413fa9eb-b9d2-4c4d-b8f7-44a11632f01f
@@ -271,7 +274,7 @@ y
 
 # ╔═╡ 0ea431e9-3701-4660-912a-5537a1576a9e
 function viz_validation_results(test_results_grid::Matrix{Float64})
-	h_map_colors = ColorSchemes.thermal
+	h_map_colors = ColorSchemes.linear_green_5_95_c69_n256
 
 	h_map_figure = Figure(resolution=(800,800))
 
@@ -285,17 +288,28 @@ function viz_validation_results(test_results_grid::Matrix{Float64})
 							  colormap = h_map_colors)
 
 	Colorbar(h_map_figure[1, 2], 
-			 limits = (0, 60), 
+			 limits = (0, 90), 
 			 colormap = h_map_colors, 
 			 label = "Accuracy Score")
 
-	h_map_figure
+	return h_map_figure
 
 	
 end
 
 # ╔═╡ 89dd637f-4165-4544-83a7-13bb21e53a47
-viz_validation_results(validation_grid_test_results)
+begin
+	h_map_figure = viz_validation_results(validation_test_results)
+
+
+	area_of_interest_1 = Polygon(
+    Point2f[(0.1, 2.5), (0.2, 2.5), (0.2, 2.6), (0.1, 2.6)],
+    [Point2f[(0.105, 2.505), (0.195, 2.505), (0.195, 2.595), (0.105, 2.595)]])
+
+	poly!(area_of_interest_1, color = :red)
+
+	h_map_figure
+end
 
 # ╔═╡ e93f96fb-c8cd-4573-a171-8534be79d9e6
 #step 5, look at the heatmap and look for anything that stands out, possibly change ranges/resolution to elucidate data.
@@ -462,6 +476,7 @@ ColorSchemes = "35d6a980-a343-548e-a6ea-1d62b119f2f4"
 Colors = "5ae59095-9a9b-59fe-a467-6f913c188581"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 Optim = "429524aa-4258-5aef-a3af-852621145aeb"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
@@ -474,6 +489,7 @@ ColorSchemes = "~3.15.0"
 Colors = "~0.12.8"
 DataFrames = "~1.2.2"
 Distributions = "~0.25.34"
+Makie = "~0.15.3"
 Optim = "~1.5.0"
 PlutoUI = "~0.7.21"
 ScikitLearn = "~0.6.4"
@@ -1789,6 +1805,7 @@ version = "3.5.0+0"
 # ╠═57410ba1-0d57-43b5-b9e0-69d2a4a9420b
 # ╠═d6ae4451-12f7-4759-9b33-6cbb72603c0c
 # ╠═edb99e66-4622-498e-baf1-75387d73b15b
+# ╠═dcbbba8c-6f10-4e6d-90ff-813c309f584e
 # ╠═413fa9eb-b9d2-4c4d-b8f7-44a11632f01f
 # ╠═0ea431e9-3701-4660-912a-5537a1576a9e
 # ╠═89dd637f-4165-4544-83a7-13bb21e53a47
