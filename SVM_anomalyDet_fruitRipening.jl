@@ -214,7 +214,7 @@ end
 
 # ╔═╡ 57410ba1-0d57-43b5-b9e0-69d2a4a9420b
 begin
-	valid_grid_res = 500
+	valid_grid_res = 300
 	
 	hyperparameter_set = generate_validation_range(0.05, 0.95, 0.05, 10.0, valid_grid_res)
 	ν_values = hyperparameter_set[1]
@@ -248,10 +248,10 @@ begin
 			for k = 1:length(predictions)
 				
 				if predictions[k] == 1  && y["valid"][k] == "normal"
-					validation_test_results[valid_grid_res-i+1, j] += 1
+					validation_test_results[i,valid_grid_res-j+1] += 1
 
 				elseif predictions[k] == -1 && y["valid"][k] == "anomaly"
-					validation_test_results[valid_grid_res-i+1, j] += anomaly_weight
+					validation_test_results[i,valid_grid_res-j+1] += anomaly_weight
 				end
 			end
 		end
@@ -259,14 +259,6 @@ begin
 
 	validation_test_results
 
-end
-
-# ╔═╡ dcbbba8c-6f10-4e6d-90ff-813c309f584e
-begin
-abc = zeros(4,4)
-
-	abc[2,3] = 5.0
-	abc
 end
 
 # ╔═╡ 413fa9eb-b9d2-4c4d-b8f7-44a11632f01f
@@ -288,8 +280,9 @@ function viz_validation_results(test_results_grid::Matrix{Float64})
 							  colormap = h_map_colors)
 
 	Colorbar(h_map_figure[1, 2], 
-			 limits = (0, 90), 
+			 limits = (minimum(test_results_grid), maximum(test_results_grid)), 
 			 colormap = h_map_colors, 
+			ticks = minimum(test_results_grid):5:maximum(test_results_grid),
 			 label = "Accuracy Score")
 
 	return h_map_figure
@@ -303,16 +296,31 @@ begin
 
 
 	area_of_interest_1 = Polygon(
-    Point2f[(0.1, 2.5), (0.2, 2.5), (0.2, 2.6), (0.1, 2.6)],
-    [Point2f[(0.105, 2.505), (0.195, 2.505), (0.195, 2.595), (0.105, 2.595)]])
+    Point2f[(0.03, 5.5), (0.3, 5.5), (0.3, 0.01), (0.03, 0.01)],
+    [Point2f[(0.04, 5.49), (0.29, 5.495), (0.29, 0.01), (0.04, 0.015)]])
 
-	poly!(area_of_interest_1, color = :red)
+	poly!(area_of_interest_1, color = :red, label = "area of interest")
+
+	area_label = LineElement(color = :red, linestyle = nothing,
+        points = Point2f[(0, 0), (0, 1), (1, 1), (1, 0), (0, 0)])
+	
+	Legend(h_map_figure[1,1], 
+		   [area_label], 
+		   ["area of interest"], 
+	       tellheight = false,
+           tellwidth = false,
+           halign = :right, 
+		   valign = :top, 
+		   orientation = :horizontal)
 
 	h_map_figure
 end
 
 # ╔═╡ e93f96fb-c8cd-4573-a171-8534be79d9e6
 #step 5, look at the heatmap and look for anything that stands out, possibly change ranges/resolution to elucidate data.
+
+# ╔═╡ ea9920bb-3cf9-49a4-961f-c30860e6cdbe
+maximum(validation_test_results)
 
 # ╔═╡ 79d6d529-232b-433f-b4fb-9a1f9b40113d
 #step 6, retrain an SVM given ideal ν and γ using training data and validation data
@@ -402,6 +410,9 @@ function viz_svm_data_fit(trained_svm, res = 100)
 	save("anomaly_scores.pdf", contour_fig)
 	contour_fig
 end
+
+# ╔═╡ 2c640375-c1da-42ff-8aca-2dfa564ed834
+viz_svm_data_fit(train_anomaly_detector(0.3,0.5))
 
 # ╔═╡ 37a7cf65-13d1-442d-bfbb-d43392c7acae
 md"!!! example \"\" 
@@ -1805,17 +1816,18 @@ version = "3.5.0+0"
 # ╠═57410ba1-0d57-43b5-b9e0-69d2a4a9420b
 # ╠═d6ae4451-12f7-4759-9b33-6cbb72603c0c
 # ╠═edb99e66-4622-498e-baf1-75387d73b15b
-# ╠═dcbbba8c-6f10-4e6d-90ff-813c309f584e
 # ╠═413fa9eb-b9d2-4c4d-b8f7-44a11632f01f
 # ╠═0ea431e9-3701-4660-912a-5537a1576a9e
 # ╠═89dd637f-4165-4544-83a7-13bb21e53a47
 # ╠═e93f96fb-c8cd-4573-a171-8534be79d9e6
+# ╠═ea9920bb-3cf9-49a4-961f-c30860e6cdbe
 # ╠═79d6d529-232b-433f-b4fb-9a1f9b40113d
 # ╠═0361be91-8f29-4efc-a475-ce6f6da51d94
 # ╠═1f0a9e44-66f9-45b5-a77a-84a2ca0380a0
 # ╟─f3dbe820-d9bc-448f-a7fe-f0b054cbf0a8
 # ╠═0a0cab3a-0231-4d75-8ce6-fde439204082
 # ╠═a1a6e4cf-1a15-4492-88f9-f2e68646dcb5
+# ╠═2c640375-c1da-42ff-8aca-2dfa564ed834
 # ╠═37a7cf65-13d1-442d-bfbb-d43392c7acae
 # ╠═6591e930-8952-449a-8418-82a96b20fec9
 # ╠═234a23e6-e68f-4c74-83ec-9802e483cb9b
