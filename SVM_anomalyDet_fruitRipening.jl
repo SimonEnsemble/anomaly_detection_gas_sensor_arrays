@@ -169,7 +169,7 @@ md"!!! example \"\"
 
 # ╔═╡ af735015-999a-428c-bcec-defdad3caca6
 function train_anomaly_detector(ν::Float64, γ::Float64, X::Matrix)
-	oc_svm = OneClassSVM(kernel="poly", nu=ν, gamma=γ)
+	oc_svm = OneClassSVM(kernel=polynomial_kernel, nu=ν, gamma=γ)
 	return oc_svm.fit(X)
 end
 
