@@ -1,11 +1,11 @@
 ### A Pluto.jl notebook ###
-# v0.17.2
+# v0.18.0
 
 using Markdown
 using InteractiveUtils
 
 # ╔═╡ d090131e-6602-4c03-860c-ad3cb6c7844a
-using CairoMakie,CSV, DataFrames, ColorSchemes, Optim, Distributions, PlutoUI, ScikitLearn, Colors, Random, PlutoUI, Makie.GeometryBasics
+using CairoMakie,CSV, DataFrames, ColorSchemes, Optim, Distributions, PlutoUI, ScikitLearn, Colors, Random, PlutoUI
 
 # ╔═╡ 31f71438-ff2f-49f9-a801-3a6489eaf271
 include("plot_theme.jl")
@@ -34,12 +34,14 @@ md"!!! example \"\"
 begin
 	gases = ["C2H4", "CO2", "H2O"]
 	mofs = ["ZIF-71", "ZIF-8"]
+	# https://scikit-learn.org/stable/modules/generated/sklearn.svm.OneClassSVM.html#sklearn.svm.OneClassSVM
+	# Returns -1 for outliers and 1 for inliers.
 	label_to_int = Dict(
-		"normal"   => -1,
-		"anomalous" => 1,
-		"C₂H₄ off" => 1,
-		"C₂H₄ buildup" => 1,
-		"CO₂ buildup" => 1
+		"normal"   => 1,
+		"anomalous" => -1,
+		"C₂H₄ off" => -1,
+		"C₂H₄ buildup" => -1,
+		"CO₂ buildup" => -1
 	)
 	
 	anomalous_labels = ["C₂H₄ off", "C₂H₄ buildup", "CO₂ buildup"]
@@ -169,7 +171,8 @@ md"!!! example \"\"
 
 # ╔═╡ af735015-999a-428c-bcec-defdad3caca6
 function train_anomaly_detector(ν::Float64, γ::Float64, X::Matrix)
-	oc_svm = OneClassSVM(kernel=polynomial_kernel, nu=ν, gamma=γ)
+	# oc_svm = OneClassSVM(kernel=polynomial_kernel, nu=ν, gamma=γ)
+	oc_svm = OneClassSVM(kernel="rbf", nu=ν, gamma=γ)
 	return oc_svm.fit(X)
 end
 
@@ -180,14 +183,15 @@ md"!!! example \"\"
 # ╔═╡ 1a935820-68dc-4fa8-85f5-40b25b102175
 begin
 	# defines hyper-parameter grid
-	νs = range(0.001, 0.01, length=11)
-	γs = range(0.1, 5.0, length=10)
+	νs = range(0.001, 0.1, length=11)
+	γs = range(0.01, 2.0, length=10)
 end
 
 # ╔═╡ d415aba4-1957-4fdb-8980-79c32575c568
 function performance_metric(y_true, y_pred)
-	pr = precision_score(y_true, y_pred)
-	re = recall_score(y_true, y_pred)
+	# positive = anomaly... hence flip signs.
+	pr = precision_score(-1 * y_true, -1 * y_pred)
+	re = recall_score(-1 * y_true, -1 * y_pred)
 	return pr * re
 end
 
@@ -249,6 +253,12 @@ id_opt_ν, id_opt_γ = argmax(val_scores).I
 
 # ╔═╡ 6957c2ce-74dd-4049-ab05-38a0c2eb41a1
 γ_opt = νs[id_opt_γ]
+
+# ╔═╡ 8aed07f0-232a-4567-bda2-154ab1b1993a
+with_terminal() do
+	println("opt ν = ", ν_opt)
+	println("opt γ = ", γ_opt)
+end
 
 # ╔═╡ 7083f478-a811-47e2-af0a-643338138add
 deploy_oc_svm = train_anomaly_detector(ν_opt, γ_opt, X["train_scaled"])
@@ -340,12 +350,12 @@ function viz_svm_data_fit(trained_svm, res=100)
 	data_test = filter(row -> row["split"] == "test", data)
     for sensor_data_g in groupby(data_test, :label)                                       
         label = sensor_data_g[1, "label"]                                                   
-        scatter!(sensor_data_g[:, "m $(mofs[1]) [g/g]"],                                    
-                 sensor_data_g[:, "m $(mofs[2]) [g/g]"],                                    
-                 strokewidth=1,                                                             
-                 markersize=15,                                                             
-                 marker=label == "normal" ? :circle : :x,                                   
-                 color=(:white, 0.0), strokecolor=colors[label],                            
+        scatter!(sensor_data_g[:, "m $(mofs[1]) [g/g]"],                              
+                 sensor_data_g[:, "m $(mofs[2]) [g/g]"],                              
+                 strokewidth=1,                                                       
+                 markersize=15,                                                       
+                 marker=label == "normal" ? :circle : :x,                             
+                 color=(:white, 0.0), strokecolor=colors[label],                      
                  label=label)                                                               
     end                                                                                     
                                                                                             
@@ -380,7 +390,6 @@ ColorSchemes = "35d6a980-a343-548e-a6ea-1d62b119f2f4"
 Colors = "5ae59095-9a9b-59fe-a467-6f913c188581"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
-Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 Optim = "429524aa-4258-5aef-a3af-852621145aeb"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
@@ -393,7 +402,6 @@ ColorSchemes = "~3.15.0"
 Colors = "~0.12.8"
 DataFrames = "~1.2.2"
 Distributions = "~0.25.34"
-Makie = "~0.15.3"
 Optim = "~1.5.0"
 PlutoUI = "~0.7.21"
 ScikitLearn = "~0.6.4"
@@ -403,7 +411,7 @@ ScikitLearn = "~0.6.4"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.7.2"
+julia_version = "1.7.1"
 manifest_format = "2.0"
 
 [[deps.AbstractFFTs]]
@@ -1713,6 +1721,7 @@ version = "3.5.0+0"
 # ╠═4404685d-25fa-44c1-ab90-a31b514aa760
 # ╠═c694a907-6085-462b-b766-d2814b3b6ee1
 # ╠═6957c2ce-74dd-4049-ab05-38a0c2eb41a1
+# ╠═8aed07f0-232a-4567-bda2-154ab1b1993a
 # ╠═7083f478-a811-47e2-af0a-643338138add
 # ╠═59aceee1-20b7-462a-b0d7-a5f70983d9b9
 # ╠═1d2f71c0-3375-49e4-9351-0e0f0ac84616
