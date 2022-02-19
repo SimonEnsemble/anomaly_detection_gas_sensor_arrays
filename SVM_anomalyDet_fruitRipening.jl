@@ -225,7 +225,8 @@ function viz_validation_results(νs, γs, val_scores)
 			  ylabel="ν",
 		      aspect=length(γs) / length(νs),
 			  xticks=(1:length(γs), ["$(round(γ, digits=2))" for γ in γs]),
-		      yticks=(1:length(νs), ["$(round(ν, digits=2))" for ν in νs])
+		      yticks=(1:length(νs), reverse(["$(round(ν, digits=2))" for ν in νs])),
+		      xticklabelrotation=π/2
 	)
 
 	hm = heatmap!(reverse(val_scores, dims=1)', colormap=cmap)
