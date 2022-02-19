@@ -278,7 +278,7 @@ function viz_confusion_matrix(cm::Matrix{Int64}, naming::Vector{String})
     fig = Figure()
     ax = Axis(fig[1, 1],
               xticks=([1, 2], naming),
-              yticks=([1, 2], naming),
+              yticks=([1, 2], reverse(naming)),
 			  xticklabelrotation=45.0,
               ylabel="truth",
               xlabel="prediction"
@@ -295,11 +295,14 @@ function viz_confusion_matrix(cm::Matrix{Int64}, naming::Vector{String})
     fig
 end
 
+# ╔═╡ 97f5f849-a7d6-42d6-9cd1-0aea68a31210
+cm
+
 # ╔═╡ d161fe94-c0cf-46ac-87c3-25c6a27a6b46
 viz_confusion_matrix(cm, ["anomalous", "normal"])
 
 # ╔═╡ b06bf707-1aef-4f8b-add3-0d4f47314969
-sum(y["test"] .==1)
+sum(y_pred .== -1)
 
 # ╔═╡ 79d6d529-232b-433f-b4fb-9a1f9b40113d
 #step 6, retrain an SVM given ideal ν and γ using training data and validation data
@@ -1727,6 +1730,7 @@ version = "3.5.0+0"
 # ╠═59aceee1-20b7-462a-b0d7-a5f70983d9b9
 # ╠═1d2f71c0-3375-49e4-9351-0e0f0ac84616
 # ╠═6591e930-8952-449a-8418-82a96b20fec9
+# ╠═97f5f849-a7d6-42d6-9cd1-0aea68a31210
 # ╠═d161fe94-c0cf-46ac-87c3-25c6a27a6b46
 # ╠═b06bf707-1aef-4f8b-add3-0d4f47314969
 # ╠═5c7379cc-cc01-4025-87d7-92162f65468d
