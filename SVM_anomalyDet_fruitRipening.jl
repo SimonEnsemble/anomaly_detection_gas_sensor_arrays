@@ -183,8 +183,8 @@ md"!!! example \"\"
 # ╔═╡ 1a935820-68dc-4fa8-85f5-40b25b102175
 begin
 	# defines hyper-parameter grid
-	νs = range(0.001, 0.1, length=11)
-	γs = range(0.01, 2.0, length=10)
+	νs = range(0.001, 0.1, length=5)
+	γs = range(0.01, 2.0, length=4)
 end
 
 # ╔═╡ d415aba4-1957-4fdb-8980-79c32575c568
@@ -221,14 +221,14 @@ function viz_validation_results(νs, γs, val_scores)
 	fig = Figure()
 
 	ax = Axis(fig[1, 1], 
-			  xlabel = "ν",
-			  ylabel = "γ",
-		      aspect=1.0,
-		      xticks=(1:length(νs), ["$(round(ν, digits=2))" for ν in νs]),
-		      yticks=(1:length(γs), ["$(round(γ, digits=2))" for γ in γs])
+			  xlabel="γ",
+			  ylabel="ν",
+		      aspect=length(γs) / length(νs),
+			  xticks=(1:length(γs), ["$(round(γ, digits=2))" for γ in γs]),
+		      yticks=(1:length(νs), ["$(round(ν, digits=2))" for ν in νs])
 	)
 
-	hm = heatmap!(reverse(val_scores, dims=2), colormap=cmap)
+	hm = heatmap!(reverse(val_scores, dims=1)', colormap=cmap)
 
 	Colorbar(fig[1, 2], hm, label="validation score")
 			 # # limits = (minimum(test_results_grid), maximum(test_results_grid)), 
