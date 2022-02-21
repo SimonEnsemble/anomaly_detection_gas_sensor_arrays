@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.18.0
+# v0.17.2
 
 using Markdown
 using InteractiveUtils
@@ -183,8 +183,8 @@ md"!!! example \"\"
 # ╔═╡ 1a935820-68dc-4fa8-85f5-40b25b102175
 begin
 	# defines hyper-parameter grid
-	νs = range(0.001, 0.1, length=5)
-	γs = range(0.01, 2.0, length=4)
+	νs = range(0.001, 0.1, length=100)
+	γs = range(0.001, 1.0, length=100)
 end
 
 # ╔═╡ d415aba4-1957-4fdb-8980-79c32575c568
@@ -224,8 +224,8 @@ function viz_validation_results(νs, γs, val_scores)
 			  xlabel="γ",
 			  ylabel="ν",
 		      aspect=length(γs) / length(νs),
-			  xticks=(1:length(γs), ["$(round(γ, digits=2))" for γ in γs]),
-		      yticks=(1:length(νs), reverse(["$(round(ν, digits=2))" for ν in νs])),
+			  xticks=(1:10:length(γs), ["$(round(γs[i], digits=2))" for i=1:10:length(γs)]),
+		      yticks=(1:10:length(νs), reverse(["$(round(νs[i], digits=2))" for i=1:10:length(νs)])),
 		      xticklabelrotation=π/2
 	)
 
@@ -379,6 +379,9 @@ end
 # ╔═╡ 5c7379cc-cc01-4025-87d7-92162f65468d
 viz_svm_data_fit(deploy_oc_svm)
 
+# ╔═╡ f430920c-b85e-49fc-9c14-afb34c596afb
+viz_svm_data_fit(train_anomaly_detector(0.03, 0.4, X["train_scaled"]))
+
 # ╔═╡ 8ef8cc73-862e-476c-b342-047253e5ab97
 grid_predictions, feature_space_grid_axes = generate_response_grid(deploy_oc_svm)
 
@@ -415,7 +418,7 @@ ScikitLearn = "~0.6.4"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.7.1"
+julia_version = "1.7.0"
 manifest_format = "2.0"
 
 [[deps.AbstractFFTs]]
@@ -1734,6 +1737,7 @@ version = "3.5.0+0"
 # ╠═d161fe94-c0cf-46ac-87c3-25c6a27a6b46
 # ╠═b06bf707-1aef-4f8b-add3-0d4f47314969
 # ╠═5c7379cc-cc01-4025-87d7-92162f65468d
+# ╠═f430920c-b85e-49fc-9c14-afb34c596afb
 # ╠═a1a6e4cf-1a15-4492-88f9-f2e68646dcb5
 # ╠═79d6d529-232b-433f-b4fb-9a1f9b40113d
 # ╠═0361be91-8f29-4efc-a475-ce6f6da51d94
