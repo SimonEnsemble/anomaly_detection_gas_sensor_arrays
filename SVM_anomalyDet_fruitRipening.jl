@@ -183,8 +183,8 @@ md"!!! example \"\"
 # ╔═╡ 1a935820-68dc-4fa8-85f5-40b25b102175
 begin
 	# defines hyper-parameter grid
-	νs = range(0.001, 0.7, length=100)
-	γs = range(0.001, 2.0, length=100)
+	νs = range(0.00085111, 0.075, length=50)
+	γs = range(0.24, 0.57, length=50)
 end
 
 # ╔═╡ d415aba4-1957-4fdb-8980-79c32575c568
@@ -195,9 +195,6 @@ function performance_metric(y_true, y_pred)
 	f1_score = 2*re*pr/(re+pr)
 	return re*pr
 end
-
-# ╔═╡ dfe4d40a-9223-4447-87df-31b8ac581cfa
-precision_score()
 
 # ╔═╡ 799b48d9-2c85-4cce-a215-12d58dee690d
 #step 2, create a function that generates a matrix of svm's given the ν and γ ranges and desired resolution.
@@ -229,7 +226,7 @@ function viz_validation_results(νs, γs, val_scores)
 			  ylabel="ν",
 		      aspect=length(γs) / length(νs),
 			  xticks=(1:10:length(γs), ["$(round(γs[i], digits=2))" for i=1:10:length(γs)]),
-		      yticks=(1:10:length(νs), reverse(["$(round(νs[i], digits=2))" for i=1:10:length(νs)])),
+		      yticks=(1:10:length(νs), reverse(["$(round(νs[i], digits=3))" for i=1:10:length(νs)])),
 		      xticklabelrotation=π/2
 	)
 
@@ -257,7 +254,7 @@ id_opt_ν, id_opt_γ = argmax(val_scores).I
 ν_opt = νs[id_opt_ν]
 
 # ╔═╡ 6957c2ce-74dd-4049-ab05-38a0c2eb41a1
-γ_opt = νs[id_opt_γ]
+γ_opt = γs[id_opt_γ]
 
 # ╔═╡ 8aed07f0-232a-4567-bda2-154ab1b1993a
 with_terminal() do
@@ -1779,7 +1776,6 @@ version = "3.5.0+0"
 # ╟─6eb73e08-3ef0-4aab-910d-28a55501e863
 # ╠═1a935820-68dc-4fa8-85f5-40b25b102175
 # ╠═d415aba4-1957-4fdb-8980-79c32575c568
-# ╠═dfe4d40a-9223-4447-87df-31b8ac581cfa
 # ╠═799b48d9-2c85-4cce-a215-12d58dee690d
 # ╠═a3b3b771-4097-4f24-97f6-8819182fe5f4
 # ╠═52899efc-9df7-4552-b47b-fb50e8297116
