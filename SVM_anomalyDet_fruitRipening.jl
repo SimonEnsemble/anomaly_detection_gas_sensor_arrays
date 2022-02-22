@@ -183,17 +183,21 @@ md"!!! example \"\"
 # ╔═╡ 1a935820-68dc-4fa8-85f5-40b25b102175
 begin
 	# defines hyper-parameter grid
-	νs = range(0.001, 0.1, length=100)
-	γs = range(0.001, 1.0, length=100)
+	νs = range(0.001, 0.7, length=100)
+	γs = range(0.001, 2.0, length=100)
 end
 
 # ╔═╡ d415aba4-1957-4fdb-8980-79c32575c568
 function performance_metric(y_true, y_pred)
 	# positive = anomaly... hence flip signs.
-	pr = precision_score(-1 * y_true, -1 * y_pred)
-	re = recall_score(-1 * y_true, -1 * y_pred)
-	return pr * re
+	pr = precision_score( y_true, y_pred)
+	re = recall_score( y_true, y_pred)
+	f1_score = 2*re*pr/(re+pr)
+	return re*pr
 end
+
+# ╔═╡ dfe4d40a-9223-4447-87df-31b8ac581cfa
+precision_score()
 
 # ╔═╡ 799b48d9-2c85-4cce-a215-12d58dee690d
 #step 2, create a function that generates a matrix of svm's given the ν and γ ranges and desired resolution.
@@ -303,6 +307,61 @@ viz_confusion_matrix(cm, ["anomalous", "normal"])
 
 # ╔═╡ b06bf707-1aef-4f8b-add3-0d4f47314969
 sum(y_pred .== -1)
+
+# ╔═╡ 98417c56-d744-4dbc-bb01-0a6a6d9b2203
+md"!!! example \"\" 
+	PROBLEM SOLVING (delete below here)"
+
+# ╔═╡ 1239402f-13e2-43b8-a694-c892b66edf4d
+test_detector = train_anomaly_detector(0.03, 0.4, X["train_scaled"])
+
+# ╔═╡ 402e02a1-eac1-4395-a801-cd65a970a717
+test_detector.predict(X["test_scaled"])
+
+# ╔═╡ 55b72bab-58d3-426c-8b6f-beba3797c1ba
+y["test"]
+
+# ╔═╡ c7f64e62-e67d-4365-9816-fd80581bd1e0
+begin
+
+	prec_test = precision_score([-1,1,-1,1], [-1,1,1,1])
+	rec_test = recall_score([1,1,-1,1], [1,1,1,1])
+
+	# tp/(tp+fp)
+	prec_test
+
+	# tp/(tp+fn)
+end
+
+# ╔═╡ 16c890fb-7565-4457-ac99-2bc6eded2c8b
+begin
+a = precision_score(y["valid"], test_detector.predict(X["valid_scaled"]))
+# 0.8888888888888888
+
+b = recall_score(y["valid"], test_detector.predict(X["valid_scaled"]))
+
+a*b
+end
+
+# ╔═╡ cc69ba79-9d4e-4d77-bab8-3c9af47b1298
+performance_metric(y["valid"], test_detector.predict(X["valid_scaled"]))
+
+# ╔═╡ 86d92f56-ccd5-4b68-a4d0-d4d50173be37
+begin
+aa = precision_score(y["valid"], deploy_oc_svm.predict(X["valid_scaled"]))
+# 0.7884615384615384
+
+bb = recall_score(y["valid"], deploy_oc_svm.predict(X["valid_scaled"]))
+
+aa*bb
+end
+
+# ╔═╡ 110726fb-02cb-444d-872c-ef2fa148fcc9
+performance_metric(y["valid"], deploy_oc_svm.predict(X["valid_scaled"]))
+
+# ╔═╡ 5836945b-39ba-4718-a446-79343fdddf0f
+md"!!! example \"\" 
+	PROBLEM SOLVING (delete above here)"
 
 # ╔═╡ 79d6d529-232b-433f-b4fb-9a1f9b40113d
 #step 6, retrain an SVM given ideal ν and γ using training data and validation data
@@ -1720,6 +1779,7 @@ version = "3.5.0+0"
 # ╟─6eb73e08-3ef0-4aab-910d-28a55501e863
 # ╠═1a935820-68dc-4fa8-85f5-40b25b102175
 # ╠═d415aba4-1957-4fdb-8980-79c32575c568
+# ╠═dfe4d40a-9223-4447-87df-31b8ac581cfa
 # ╠═799b48d9-2c85-4cce-a215-12d58dee690d
 # ╠═a3b3b771-4097-4f24-97f6-8819182fe5f4
 # ╠═52899efc-9df7-4552-b47b-fb50e8297116
@@ -1737,7 +1797,17 @@ version = "3.5.0+0"
 # ╠═d161fe94-c0cf-46ac-87c3-25c6a27a6b46
 # ╠═b06bf707-1aef-4f8b-add3-0d4f47314969
 # ╠═5c7379cc-cc01-4025-87d7-92162f65468d
+# ╟─98417c56-d744-4dbc-bb01-0a6a6d9b2203
 # ╠═f430920c-b85e-49fc-9c14-afb34c596afb
+# ╠═1239402f-13e2-43b8-a694-c892b66edf4d
+# ╠═402e02a1-eac1-4395-a801-cd65a970a717
+# ╠═55b72bab-58d3-426c-8b6f-beba3797c1ba
+# ╠═c7f64e62-e67d-4365-9816-fd80581bd1e0
+# ╠═16c890fb-7565-4457-ac99-2bc6eded2c8b
+# ╠═cc69ba79-9d4e-4d77-bab8-3c9af47b1298
+# ╠═86d92f56-ccd5-4b68-a4d0-d4d50173be37
+# ╠═110726fb-02cb-444d-872c-ef2fa148fcc9
+# ╟─5836945b-39ba-4718-a446-79343fdddf0f
 # ╠═a1a6e4cf-1a15-4492-88f9-f2e68646dcb5
 # ╠═79d6d529-232b-433f-b4fb-9a1f9b40113d
 # ╠═0361be91-8f29-4efc-a475-ce6f6da51d94
