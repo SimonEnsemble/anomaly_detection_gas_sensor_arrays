@@ -234,14 +234,14 @@ function viz_validation_results(νs, γs, val_scores)
 			  xlabel="γ",
 			  ylabel="ν",
 		      aspect=length(γs) / length(νs),
-			  xticks=(1:10:length(γs), ["$(round(γs[i], digits=2))" for i=1:10:length(γs)]),
-		      yticks=(1:10:length(νs), reverse(["$(round(νs[i], digits=3))" for i=1:10:length(νs)])),
+			  xticks=(1:5:length(γs), ["$(round(γs[i], digits=2))" for i=1:5:length(γs)]),
+		      yticks=(1:5:length(νs), reverse(["$(round(νs[i], digits=3))" for i=1:5:length(νs)])),
 		      xticklabelrotation=π/2
 	)
 
 	hm = heatmap!(reverse(val_scores, dims=1)', colormap=cmap)
 
-	Colorbar(fig[1, 2], hm, label="validation score")
+	cb = Colorbar(fig[1, 2], hm, label="validation score")
 			 # # limits = (minimum(test_results_grid), maximum(test_results_grid)), 
 			 # colormap = h_map_colors, 
 			 # ticks = minimum(test_results_grid):5:maximum(test_results_grid),
@@ -324,9 +324,9 @@ md"!!! example \"\"
 # ╔═╡ 59307e73-0106-44c7-94a3-b6ee1b132c33
 begin
 	# defines hyper-parameter grid
-	νsₚ = range(0.001, 0.75, length=10)
-	γsₚ = range(0.01, 2.0, length=10)
-	ds = collect(2:4)
+	νsₚ = range(0.0005, 0.02, length=15)
+	γsₚ = range(0.01, 10.0, length=15)
+	ds = [3]
 end
 
 # ╔═╡ b1493891-768b-4463-8e40-ade5d0b682ec
@@ -353,16 +353,20 @@ end
 # ╔═╡ bb705668-ce28-452a-a21c-ce7cb6ffc519
 val_scores_poly = validation_run_poly(νsₚ, γsₚ, ds)
 
-# ╔═╡ 7878ae01-9666-4294-a97d-f1fd85651b86
-begin
-	fig_poly = Figure()
-	
-	for i=1:length(ds)
-		fig_poly[i, 1] = viz_validation_results(νsₚ, γsₚ, val_scores_poly[:, :, i])
-	end
+# ╔═╡ cb7313c1-4430-4352-9f8c-aa854152ff20
+polynomial_figures = [viz_validation_results(νsₚ, γsₚ, val_scores_poly[:, :, i]) for i=1:length(val_scores_poly[1,1,:])]
 
-	fig_poly
-end
+# ╔═╡ 7878ae01-9666-4294-a97d-f1fd85651b86
+viz_validation_results(νsₚ, γsₚ, val_scores_poly[:, :, 1])
+
+# ╔═╡ bdd99419-5daf-47a8-aef0-c2a2dc46a740
+viz_validation_results(νsₚ, γsₚ, val_scores_poly[:, :, 2])
+
+# ╔═╡ 1cd0aa49-7810-4269-a813-a65c209e9500
+viz_validation_results(νsₚ, γsₚ, val_scores_poly[:, :, 3])
+
+# ╔═╡ fd4945f6-76ff-4cf9-8de8-24b062b0a76f
+
 
 # ╔═╡ dc481c94-6881-421e-b5c4-626963a05748
 
@@ -1810,12 +1814,16 @@ version = "3.5.0+0"
 # ╠═b06bf707-1aef-4f8b-add3-0d4f47314969
 # ╠═5c7379cc-cc01-4025-87d7-92162f65468d
 # ╠═abe7f422-c74f-4402-bc63-bac06506337f
-# ╠═98417c56-d744-4dbc-bb01-0a6a6d9b2203
+# ╟─98417c56-d744-4dbc-bb01-0a6a6d9b2203
 # ╠═59307e73-0106-44c7-94a3-b6ee1b132c33
 # ╠═b1493891-768b-4463-8e40-ade5d0b682ec
 # ╠═6b1b495c-1e4e-41ed-b31f-5fc660db7c54
 # ╠═bb705668-ce28-452a-a21c-ce7cb6ffc519
+# ╠═cb7313c1-4430-4352-9f8c-aa854152ff20
 # ╠═7878ae01-9666-4294-a97d-f1fd85651b86
+# ╠═bdd99419-5daf-47a8-aef0-c2a2dc46a740
+# ╠═1cd0aa49-7810-4269-a813-a65c209e9500
+# ╠═fd4945f6-76ff-4cf9-8de8-24b062b0a76f
 # ╠═dc481c94-6881-421e-b5c4-626963a05748
 # ╠═0e51db4b-8eca-4a39-8c87-b0f190db46c9
 # ╠═4e133aff-829e-485f-84ed-75a9580a1cea
