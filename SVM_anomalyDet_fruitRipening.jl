@@ -14,6 +14,9 @@ include("plot_theme.jl")
 md"# anomaly Detection for gas sensor arrays using one-class SVM
 "
 
+# ╔═╡ f0231253-3262-45aa-954f-d8bcb988f4c9
+
+
 # ╔═╡ 5d920ea0-f04d-475f-b05b-86e7b199d7e0
 begin
 	@sk_import svm : OneClassSVM
@@ -167,32 +170,38 @@ end
 
 # ╔═╡ c34be089-ff98-404c-85e6-6b605d2cfe1c
 md"!!! example \"\" 
-	Create functions to generate a grid of anomoly scores and plot a colormap to visualize the decision boundary for the one class support vector machine"
+	Create functions to generate trained support vector machines for select kernels"
 
 # ╔═╡ af735015-999a-428c-bcec-defdad3caca6
-function train_anomaly_detector(ν::Float64, γ::Float64, X::Matrix)
+function train_rbf_anomaly_detector(ν::Float64, γ::Float64, X::Matrix)
 	# oc_svm = OneClassSVM(kernel=polynomial_kernel, nu=ν, gamma=γ)
 	oc_svm = OneClassSVM(kernel="rbf", nu=ν, gamma=γ)
 	return oc_svm.fit(X)
 end
 
+# ╔═╡ 276589e4-e9ea-4228-aadb-249480128189
+function train_poly_anomaly_detector(ν::Float64, γ::Float64, d::Int, X::Matrix)
+	# oc_svm = OneClassSVM(kernel=polynomial_kernel, nu=ν, gamma=γ)
+	oc_svm = OneClassSVM(kernel="poly", nu=ν, gamma=γ, degree=d)
+	return oc_svm.fit(X)
+end
+
 # ╔═╡ 6eb73e08-3ef0-4aab-910d-28a55501e863
 md"!!! example \"\" 
-	From here start validation process"
+	From here start validation process for the RBF kernel"
 
 # ╔═╡ 1a935820-68dc-4fa8-85f5-40b25b102175
 begin
 	# defines hyper-parameter grid
-	νs = range(0.00085111, 0.075, length=50)
-	γs = range(0.24, 0.57, length=50)
+	νs = range(0.001, 0.075, length=50)
+	γs = range(0.04, 0.77, length=50)
 end
 
 # ╔═╡ d415aba4-1957-4fdb-8980-79c32575c568
 function performance_metric(y_true, y_pred)
-	# positive = anomaly... hence flip signs.
+	# +1 correlates to a normal data point, -1 to an anomalous data point.
 	pr = precision_score( y_true, y_pred)
 	re = recall_score( y_true, y_pred)
-	f1_score = 2*re*pr/(re+pr)
 	return re*pr
 end
 
@@ -200,12 +209,12 @@ end
 #step 2, create a function that generates a matrix of svm's given the ν and γ ranges and desired resolution.
 
 # ╔═╡ a3b3b771-4097-4f24-97f6-8819182fe5f4
-function validation_run(νs, γs)
+function validation_run_rbf(νs, γs)
 	val_scores = zeros(length(νs), length(γs))
 	for (i, ν) in enumerate(νs)
 		for (j, γ) in enumerate(γs)
 			# train SVM
-			oc_svm = train_anomaly_detector(ν, γ, X["train_scaled"])
+			oc_svm = train_rbf_anomaly_detector(ν, γ, X["train_scaled"])
 			# get predictions for validation data
 			y_pred = oc_svm.predict(X["valid_scaled"])
 			# store validation score
@@ -242,13 +251,13 @@ function viz_validation_results(νs, γs, val_scores)
 end
 
 # ╔═╡ 6a22f740-46ae-46b7-8962-b02028b3bf90
-val_scores = validation_run(νs, γs)
+val_scores_rbf = validation_run_rbf(νs, γs)
 
 # ╔═╡ 4f4ab2f4-7e29-4902-a4dd-28e61fab6cb9
-viz_validation_results(νs, γs, val_scores)
+viz_validation_results(νs, γs, val_scores_rbf)
 
 # ╔═╡ 4404685d-25fa-44c1-ab90-a31b514aa760
-id_opt_ν, id_opt_γ = argmax(val_scores).I
+id_opt_ν, id_opt_γ = argmax(val_scores_rbf).I
 
 # ╔═╡ c694a907-6085-462b-b766-d2814b3b6ee1
 ν_opt = νs[id_opt_ν]
@@ -263,7 +272,7 @@ with_terminal() do
 end
 
 # ╔═╡ 7083f478-a811-47e2-af0a-643338138add
-deploy_oc_svm = train_anomaly_detector(ν_opt, γ_opt, X["train_scaled"])
+deploy_oc_svm = train_rbf_anomaly_detector(ν_opt, γ_opt, X["train_scaled"])
 
 # ╔═╡ 59aceee1-20b7-462a-b0d7-a5f70983d9b9
 y_pred = deploy_oc_svm.predict(X["test_scaled"])
@@ -305,60 +314,68 @@ viz_confusion_matrix(cm, ["anomalous", "normal"])
 # ╔═╡ b06bf707-1aef-4f8b-add3-0d4f47314969
 sum(y_pred .== -1)
 
+# ╔═╡ abe7f422-c74f-4402-bc63-bac06506337f
+
+
 # ╔═╡ 98417c56-d744-4dbc-bb01-0a6a6d9b2203
 md"!!! example \"\" 
-	PROBLEM SOLVING (delete below here)"
+	From here start validation process for the polynomial kernel"
 
-# ╔═╡ 1239402f-13e2-43b8-a694-c892b66edf4d
-test_detector = train_anomaly_detector(0.03, 0.4, X["train_scaled"])
-
-# ╔═╡ 402e02a1-eac1-4395-a801-cd65a970a717
-test_detector.predict(X["test_scaled"])
-
-# ╔═╡ 55b72bab-58d3-426c-8b6f-beba3797c1ba
-y["test"]
-
-# ╔═╡ c7f64e62-e67d-4365-9816-fd80581bd1e0
+# ╔═╡ 59307e73-0106-44c7-94a3-b6ee1b132c33
 begin
-
-	prec_test = precision_score([-1,1,-1,1], [-1,1,1,1])
-	rec_test = recall_score([1,1,-1,1], [1,1,1,1])
-
-	# tp/(tp+fp)
-	prec_test
-
-	# tp/(tp+fn)
+	# defines hyper-parameter grid
+	νsₚ = range(0.001, 0.75, length=10)
+	γsₚ = range(0.01, 2.0, length=10)
+	ds = collect(2:4)
 end
 
-# ╔═╡ 16c890fb-7565-4457-ac99-2bc6eded2c8b
-begin
-a = precision_score(y["valid"], test_detector.predict(X["valid_scaled"]))
-# 0.8888888888888888
-
-b = recall_score(y["valid"], test_detector.predict(X["valid_scaled"]))
-
-a*b
+# ╔═╡ b1493891-768b-4463-8e40-ade5d0b682ec
+function validation_run_poly(νs, γs, ds)
+	val_scores = zeros(length(νs), length(γs), length(ds))
+	for (i, ν) in enumerate(νs)
+		for (j, γ) in enumerate(γs)
+			for (k, d) in enumerate(ds)
+				# train SVM
+				oc_svm = train_poly_anomaly_detector(ν, γ, d, X["train_scaled"])
+				# get predictions for validation data
+				y_pred = oc_svm.predict(X["valid_scaled"])
+				# store validation score
+				val_scores[i, j, k] = performance_metric(y["valid"], y_pred)
+			end
+		end
+	end
+	return val_scores
 end
 
-# ╔═╡ cc69ba79-9d4e-4d77-bab8-3c9af47b1298
-performance_metric(y["valid"], test_detector.predict(X["valid_scaled"]))
+# ╔═╡ 6b1b495c-1e4e-41ed-b31f-5fc660db7c54
 
-# ╔═╡ 86d92f56-ccd5-4b68-a4d0-d4d50173be37
+
+# ╔═╡ bb705668-ce28-452a-a21c-ce7cb6ffc519
+val_scores_poly = validation_run_poly(νsₚ, γsₚ, ds)
+
+# ╔═╡ 7878ae01-9666-4294-a97d-f1fd85651b86
 begin
-aa = precision_score(y["valid"], deploy_oc_svm.predict(X["valid_scaled"]))
-# 0.7884615384615384
+	fig_poly = Figure()
+	
+	for i=1:length(ds)
+		fig_poly[i, 1] = viz_validation_results(νsₚ, γsₚ, val_scores_poly[:, :, i])
+	end
 
-bb = recall_score(y["valid"], deploy_oc_svm.predict(X["valid_scaled"]))
-
-aa*bb
+	fig_poly
 end
 
-# ╔═╡ 110726fb-02cb-444d-872c-ef2fa148fcc9
-performance_metric(y["valid"], deploy_oc_svm.predict(X["valid_scaled"]))
+# ╔═╡ dc481c94-6881-421e-b5c4-626963a05748
+
+
+# ╔═╡ 0e51db4b-8eca-4a39-8c87-b0f190db46c9
+
+
+# ╔═╡ 4e133aff-829e-485f-84ed-75a9580a1cea
+
 
 # ╔═╡ 5836945b-39ba-4718-a446-79343fdddf0f
 md"!!! example \"\" 
-	PROBLEM SOLVING (delete above here)"
+	finalize idealized contour using ( ) kernel"
 
 # ╔═╡ 79d6d529-232b-433f-b4fb-9a1f9b40113d
 #step 6, retrain an SVM given ideal ν and γ using training data and validation data
@@ -434,9 +451,6 @@ end
 
 # ╔═╡ 5c7379cc-cc01-4025-87d7-92162f65468d
 viz_svm_data_fit(deploy_oc_svm)
-
-# ╔═╡ f430920c-b85e-49fc-9c14-afb34c596afb
-viz_svm_data_fit(train_anomaly_detector(0.03, 0.4, X["train_scaled"]))
 
 # ╔═╡ 8ef8cc73-862e-476c-b342-047253e5ab97
 grid_predictions, feature_space_grid_axes = generate_response_grid(deploy_oc_svm)
@@ -1751,6 +1765,7 @@ version = "3.5.0+0"
 # ╔═╡ Cell order:
 # ╟─1784c510-5465-11ec-0dd1-13e5a66e4ce6
 # ╠═d090131e-6602-4c03-860c-ad3cb6c7844a
+# ╠═f0231253-3262-45aa-954f-d8bcb988f4c9
 # ╠═5d920ea0-f04d-475f-b05b-86e7b199d7e0
 # ╠═31f71438-ff2f-49f9-a801-3a6489eaf271
 # ╟─d5c471c3-26be-46c0-a174-d580d0ed7f7d
@@ -1773,6 +1788,7 @@ version = "3.5.0+0"
 # ╠═23aeb959-c578-405f-90d2-afb158406a4c
 # ╟─c34be089-ff98-404c-85e6-6b605d2cfe1c
 # ╠═af735015-999a-428c-bcec-defdad3caca6
+# ╠═276589e4-e9ea-4228-aadb-249480128189
 # ╟─6eb73e08-3ef0-4aab-910d-28a55501e863
 # ╠═1a935820-68dc-4fa8-85f5-40b25b102175
 # ╠═d415aba4-1957-4fdb-8980-79c32575c568
@@ -1793,17 +1809,17 @@ version = "3.5.0+0"
 # ╠═d161fe94-c0cf-46ac-87c3-25c6a27a6b46
 # ╠═b06bf707-1aef-4f8b-add3-0d4f47314969
 # ╠═5c7379cc-cc01-4025-87d7-92162f65468d
-# ╟─98417c56-d744-4dbc-bb01-0a6a6d9b2203
-# ╠═f430920c-b85e-49fc-9c14-afb34c596afb
-# ╠═1239402f-13e2-43b8-a694-c892b66edf4d
-# ╠═402e02a1-eac1-4395-a801-cd65a970a717
-# ╠═55b72bab-58d3-426c-8b6f-beba3797c1ba
-# ╠═c7f64e62-e67d-4365-9816-fd80581bd1e0
-# ╠═16c890fb-7565-4457-ac99-2bc6eded2c8b
-# ╠═cc69ba79-9d4e-4d77-bab8-3c9af47b1298
-# ╠═86d92f56-ccd5-4b68-a4d0-d4d50173be37
-# ╠═110726fb-02cb-444d-872c-ef2fa148fcc9
-# ╟─5836945b-39ba-4718-a446-79343fdddf0f
+# ╠═abe7f422-c74f-4402-bc63-bac06506337f
+# ╠═98417c56-d744-4dbc-bb01-0a6a6d9b2203
+# ╠═59307e73-0106-44c7-94a3-b6ee1b132c33
+# ╠═b1493891-768b-4463-8e40-ade5d0b682ec
+# ╠═6b1b495c-1e4e-41ed-b31f-5fc660db7c54
+# ╠═bb705668-ce28-452a-a21c-ce7cb6ffc519
+# ╠═7878ae01-9666-4294-a97d-f1fd85651b86
+# ╠═dc481c94-6881-421e-b5c4-626963a05748
+# ╠═0e51db4b-8eca-4a39-8c87-b0f190db46c9
+# ╠═4e133aff-829e-485f-84ed-75a9580a1cea
+# ╠═5836945b-39ba-4718-a446-79343fdddf0f
 # ╠═a1a6e4cf-1a15-4492-88f9-f2e68646dcb5
 # ╠═79d6d529-232b-433f-b4fb-9a1f9b40113d
 # ╠═0361be91-8f29-4efc-a475-ce6f6da51d94
