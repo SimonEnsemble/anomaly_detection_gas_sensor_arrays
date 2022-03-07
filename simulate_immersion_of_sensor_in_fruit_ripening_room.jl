@@ -240,17 +240,16 @@ function viz_C2H4_CO2_composition(sensor_data::DataFrame)
 	for sensor_data_g in groupby(sensor_data, :label)
 		label = sensor_data_g[1, "label"]
 		
-		#scatter plot of normal compositions
 		scatter!(ax_main, 
 				 sensor_data_g[:, "p $(gases[1]) [bar]"] * 1e6, 
-				 sensor_data_g[:, "p $(gases[2]) [bar]"] * 1e6, 
+				 sensor_data_g[:, "p $(gases[2]) [bar]"] * 1e6,
+			     marker=label == "normal" ? :circle : :x,
 				 strokewidth=1, 
 				 label=label, 
 				 strokecolor=colors[label],
 				 color=(:white, 0.0)
 		)
 		
-		#density of normal compositions
 		hist!(ax_top, 
 			 sensor_data_g[:, "p $(gases[1]) [bar]"] * 1e6, 
 			 label=label,
