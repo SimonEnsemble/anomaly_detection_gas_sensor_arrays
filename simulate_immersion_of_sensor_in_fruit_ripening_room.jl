@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.17.2
+# v0.18.0
 
 using Markdown
 using InteractiveUtils
@@ -16,8 +16,8 @@ md"# Data Generation for Gas Sensor Arrays in a Fruit Ripening Room
 
 # ╔═╡ 06409854-f2b6-4356-ab0c-0c7c7a410d9a
 colors = Dict(zip(
-	["normal", "CO₂ buildup", "C₂H₄ buildup", "C₂H₄ off"],
-	ColorSchemes.Dark2_4)
+	["normal", "CO₂ buildup", "C₂H₄ buildup", "C₂H₄ off", "low RH"],
+	ColorSchemes.Dark2_5)
 )
 
 # ╔═╡ d5c471c3-26be-46c0-a174-d580d0ed7f7d
@@ -27,13 +27,13 @@ md"!!! example \"\"
 
 # ╔═╡ d657ed23-3eb4-49d0-a59c-811e8189c376
 begin
-	gas_to_pretty_name = Dict("C2H4" => "C₂H₄", "CO2" => "CO₂", "H2O" => "H₂O")
-	
 	gases = ["C2H4", "CO2", "H2O"]
-	
 	mofs = ["ZIF-71", "ZIF-8"]
+	
+	gas_to_pretty_name = Dict("C2H4" => "C₂H₄", 
+		                      "CO2"  => "CO₂", 
+		                      "H2O"  => "H₂O")
 
-	# load from identify_henry_coeffs.jl
 	henry_data = load("henry_coeffs.jld2")["henry_data"]
 end
 
@@ -41,16 +41,6 @@ end
 md"!!! example \"\"
 	store data from simulated gas exposure experiments here.
 "
-
-# ╔═╡ 272a7f32-ca99-4132-acdb-2a270173d9f6
-begin
-	sensor_data = DataFrame(p_1=Float64[], p_2=Float64[], p_3=Float64[], 
-		                    label=String[]) # normal/anomaly etc.
-	for i = 1:3
-		rename!(sensor_data, "p_$i" => "p $(gases[i]) [bar]")
-	end
-	sensor_data
-end
 
 # ╔═╡ d1870035-d14f-431a-a7e7-27cd6a9f3dc0
 md"!!! example \"\"
@@ -65,24 +55,67 @@ md"!!! example \"\"
 ```
 "
 
-# ╔═╡ 4245a664-9f18-4ca5-b14b-02f8d7c4bbe2
-begin
-	# water is the background nuissance gas.
-	p_H2O_vapor = 3.1690 * 0.01 # bar
-
-	μ_H2O = 0.85 * p_H2O_vapor  # 85% RH on average
-	σ_H2O = 0.01 * p_H2O_vapor
-	p_H2O_distn = Normal(μ_H2O, σ_H2O) # bar
-	p_H2O_distn = truncated(p_H2O_distn, 0.0, Inf)
-	
-	μ_C2H4 = 150e-6 # 150 ppm on average
-	σ_C2H4 = 50e-6
-	p_C2H4_distn = Normal(μ_C2H4, σ_C2H4) # bar
-	p_C2H4_distn = truncated(p_C2H4_distn, 0.0, Inf)
-
-	# Uniform distribution from 410 ppm to 5000 ppm
-	p_CO2_distn = Uniform(400.0e-6, 5000.0e-6) # bar
+# ╔═╡ 1208db5e-7f60-46fd-ba77-b1387c5c7f79
+# units: bar
+mutable struct GasComp
+	f_C₂H₄::Distribution
+	f_CO₂::Distribution
+	f_H₂O::Distribution
 end
+
+# ╔═╡ dec6b686-719b-4f21-a5a7-c41a7c39300c
+function sample_gas_composition(gas_comp::GasComp)
+	composition = Dict{String, Float64}()
+	composition["p C2H4 [bar]"] = rand(gas_comp.f_C₂H₄)
+	composition["p CO2 [bar]"]  = rand(gas_comp.f_CO₂)
+	composition["p H2O [bar]"]  = rand(gas_comp.f_H₂O)
+	return composition
+end
+
+# ╔═╡ 1a7fa5e6-db59-4fd4-99d7-52613ee2e420
+function response(composition::Dict{String, Float64})
+	response = Dict()
+	for mof in mofs
+		response["m $(mof) [g/g]"] = 0.0
+		for gas in gases
+			H_mof_gas = henry_data[mof][gas]["henry coef [g/(g-bar)]"]
+			p_gas     = composition["p $gas [bar]"]
+			response["m $(mof) [g/g]"] += H_mof_gas * p_gas
+		end
+	end
+	return response
+end
+
+# ╔═╡ 630463cd-2475-4ad4-9ea7-ce62a661f441
+function gen_data_point(gas_comp::GasComp, label::String)
+	p = sample_gas_composition(gas_comp)
+	m = response(p)
+	datum = merge(p, m)
+	datum["label"] = label
+	return datum
+end
+
+# ╔═╡ 02657dc8-46e7-4613-96a5-a4e5985fa39e
+p_H₂O_vapor = 3.1690 * 0.01 # bar
+
+# ╔═╡ 3bea0851-20db-4237-bc74-6940039e792b
+normal_gas_comp = GasComp(
+	# C₂H₄ at 150 ppm
+	truncated(
+		Normal(150e-6, 20e-6), 
+		0.0, Inf
+	),
+	# CO₂. 410 ppm to 5000 ppm
+	Uniform(400.0e-6, 5000.0e-6),
+	# H₂O: 85% RH on average
+	truncated(
+		Normal(0.85 * p_H₂O_vapor, 0.005 * p_H₂O_vapor), 
+		0.0, Inf
+	)
+)
+
+# ╔═╡ 941732c8-e31f-40c7-bc2a-50198ddcab5c
+gen_data_point(normal_gas_comp, "normal")
 
 # ╔═╡ 69aff7c7-196a-4fee-9070-3d6b49fdaddf
 md"!!! example \"\" 
@@ -92,25 +125,26 @@ number of gas compositions (300): It takes about 3 days for a banana to ripen in
 
 "
 
-# ╔═╡ 8bd4eb78-7ec4-4d8a-b5af-9f8647214878
-function sample_normal_gas_composition()
-	composition = Dict()
-	composition["p H2O [bar]"]  = rand(p_H2O_distn)
-	composition["p CO2 [bar]"]  = rand(p_CO2_distn)
-	composition["p C2H4 [bar]"] = rand(p_C2H4_distn)
-	return composition
+# ╔═╡ 272a7f32-ca99-4132-acdb-2a270173d9f6
+begin
+	sensor_data = DataFrame(p_1=Float64[], p_2=Float64[], p_3=Float64[], 
+		                    m_1=Float64[], m_2=Float64[],
+		                    label=String[]) # normal/anomaly etc.
+	for i = 1:3
+		rename!(sensor_data, "p_$i" => "p $(gases[i]) [bar]")
+	end
+	for i = 1:2
+		rename!(sensor_data, "m_$i" => "m $(mofs[i]) [g/g]")
+	end
+	sensor_data
 end
-
-# ╔═╡ 1e78ab7a-2afe-4095-8565-1f18058f479c
-sample_normal_gas_composition()
 
 # ╔═╡ 2b285e2f-4ab2-4670-9575-1410552eefed
 begin
-	n_gas_compositions = 300
+	n_gas_compositions = 100
 	for g = 1:n_gas_compositions
-		composition = sample_normal_gas_composition()
-		composition["label"] = "normal"
-		push!(sensor_data, composition)
+		datum = gen_data_point(normal_gas_comp, "normal")
+		push!(sensor_data, datum)
 	end
 	sensor_data
 end
@@ -125,39 +159,29 @@ begin
 	# ["C₂H₄ off", "C₂H₄ buildup", "CO₂ buildup"]
 	for i = 1:num_anomalous_points
 		# anomaly = "C₂H₄ off"
-		p_C2H4_off_dist = Normal(2.0e-6, 5.0e-6)
-		p_C2H4_off_dist = truncated(p_C2H4_off_dist, 0.0, Inf)
-		composition = Dict(
-			"p C2H4 [bar]" => rand(p_C2H4_off_dist),
-		    "p CO2 [bar]"  => rand(p_CO2_distn),
-			"p H2O [bar]"  => rand(p_H2O_distn),
-			"label"        => "C₂H₄ off"
-		)
-		push!(sensor_data, composition)
+		anomalous_gas_comp = deepcopy(normal_gas_comp)
+		anomalous_gas_comp.f_C₂H₄ = Uniform(0.0e-6, 10.0e-6)
+		datum = gen_data_point(anomalous_gas_comp, "C₂H₄ off")
+		push!(sensor_data, datum)
 
 		# anomaly = "C₂H₄ buildup"
-		p_C2H4_buidup_distn = Uniform(200e-6, 1000e-6)
-		composition = Dict(
-			"p C2H4 [bar]" => rand(p_C2H4_buidup_distn),
-		    "p CO2 [bar]"  => rand(p_CO2_distn),
-			"p H2O [bar]"  => rand(p_H2O_distn),
-			"label"        => "C₂H₄ buildup"
-		)
-		push!(sensor_data, composition)
+		anomalous_gas_comp = deepcopy(normal_gas_comp)
+		anomalous_gas_comp.f_C₂H₄ = Uniform(300e-6, 1000e-6)
+		datum = gen_data_point(anomalous_gas_comp, "C₂H₄ buildup")
+		push!(sensor_data, datum)
 		
 		# anomaly = "CO₂ buildup"
-		p_CO2_buidup_distn = Uniform(7500e-6, 20000e-6)
-		composition = Dict(
-			"p C2H4 [bar]" => rand(p_C2H4_distn),
-		    "p CO2 [bar]"  => rand(p_CO2_buidup_distn),
-			"p H2O [bar]"  => rand(p_H2O_distn),
-			"label"        => "CO₂ buildup"
-		)
-		push!(sensor_data, composition)
+		anomalous_gas_comp = deepcopy(normal_gas_comp)
+		anomalous_gas_comp.f_CO₂ = Uniform(7500e-6, 20000e-6)
+		datum = gen_data_point(anomalous_gas_comp, "CO₂ buildup")
+		push!(sensor_data, datum)
+
+		# # anomaly = "low humidity"
+		# anomalous_gas_comp = deepcopy(normal_gas_comp)
+		# anomalous_gas_comp.f_H₂O = Uniform(0.7 * p_H₂O_vapor, 0.8 * p_H₂O_vapor)
+		# datum = gen_data_point(anomalous_gas_comp, "low RH")
+		# push!(sensor_data, datum)
 	end
-	# filter out any negative compositions
-	filter!(row -> (row["p C2H4 [bar]"] >= 0.0) && (row["p CO2 [bar]"] >= 0.0) && (row["p H2O [bar]"] >= 0.0), 
-		sensor_data)
 	sensor_data
 end
 
@@ -176,7 +200,7 @@ function viz_H2O_compositions(sensor_data::DataFrame)
 	ax = Axis(fig[1, 1], 
 		      xlabel="p, H₂O [relative humidity]", 
 		      ylabel="# compositions")
-	hist!(sensor_data[:, "p H2O [bar]"] / p_H2O_vapor)
+	hist!(sensor_data[:, "p H2O [bar]"] / p_H₂O_vapor)
 	ylims!(0.0, nothing)
 	save("H2O_compositions.pdf", fig)
 	fig
@@ -253,16 +277,6 @@ viz_C2H4_CO2_composition(sensor_data)
 # ╔═╡ 5620c09f-65b0-4161-bece-593fc5c7681a
 md"!!! example \"\" 
 	predict response of sensor array to the gas composition via Henry's law"
-
-# ╔═╡ 680ddd33-f965-4a61-abeb-95f7cbff2b7d
-begin
-	for m = 1:2
-		insertcols!(sensor_data, 
-			"m $(mofs[m]) [g/g]" => [NaN for _ = 1:nrow(sensor_data)]
-		)
-	end
-	sensor_data
-end
 
 # ╔═╡ c8d753c5-c53e-4073-b3f2-31b72f9c6b7e
 begin
@@ -345,8 +359,9 @@ PlutoUI = "~0.7.21"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.7.0"
+julia_version = "1.8.0-DEV.1390"
 manifest_format = "2.0"
+project_hash = "8eca5590bd71bbb3541dc58a2ead874bceca8129"
 
 [[deps.AbstractFFTs]]
 deps = ["ChainRulesCore", "LinearAlgebra"]
@@ -379,6 +394,7 @@ version = "0.4.1"
 
 [[deps.ArgTools]]
 uuid = "0dad84c5-d112-42e6-8d28-ef12dabb789f"
+version = "1.1.1"
 
 [[deps.ArrayInterface]]
 deps = ["Compat", "IfElse", "LinearAlgebra", "Requires", "SparseArrays", "Static"]
@@ -496,6 +512,7 @@ version = "3.41.0"
 [[deps.CompilerSupportLibraries_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "e66e0078-7015-5450-92f7-15fbd957f2ae"
+version = "0.5.0+0"
 
 [[deps.Contour]]
 deps = ["StaticArrays"]
@@ -561,8 +578,9 @@ uuid = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
 version = "0.8.6"
 
 [[deps.Downloads]]
-deps = ["ArgTools", "LibCURL", "NetworkOptions"]
+deps = ["ArgTools", "FileWatching", "LibCURL", "NetworkOptions"]
 uuid = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
+version = "1.6.0"
 
 [[deps.EarCut_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -617,6 +635,9 @@ deps = ["Compat", "Dates", "Mmap", "Printf", "Test", "UUIDs"]
 git-tree-sha1 = "04d13bfa8ef11720c24e4d840c0033d145537df7"
 uuid = "48062228-2e41-5def-b9a4-89aafe57970f"
 version = "0.9.17"
+
+[[deps.FileWatching]]
+uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
 
 [[deps.FillArrays]]
 deps = ["LinearAlgebra", "Random", "SparseArrays", "Statistics"]
@@ -875,10 +896,12 @@ uuid = "4af54fe1-eca0-43a8-85a7-787d91b784e3"
 [[deps.LibCURL]]
 deps = ["LibCURL_jll", "MozillaCACerts_jll"]
 uuid = "b27032c2-a3e7-50c8-80cd-2d36dbcbfd21"
+version = "0.6.3"
 
 [[deps.LibCURL_jll]]
 deps = ["Artifacts", "LibSSH2_jll", "Libdl", "MbedTLS_jll", "Zlib_jll", "nghttp2_jll"]
 uuid = "deac9b47-8bc7-5906-a0fe-35ac56dc84c0"
+version = "7.73.0+4"
 
 [[deps.LibGit2]]
 deps = ["Base64", "NetworkOptions", "Printf", "SHA"]
@@ -887,6 +910,7 @@ uuid = "76f85450-5226-5b5a-8eaa-529ad045b433"
 [[deps.LibSSH2_jll]]
 deps = ["Artifacts", "Libdl", "MbedTLS_jll"]
 uuid = "29816b5a-b9ab-546f-933c-edad1886dfa8"
+version = "1.9.1+2"
 
 [[deps.Libdl]]
 uuid = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
@@ -987,6 +1011,7 @@ version = "0.2.1"
 [[deps.MbedTLS_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "c8ffd9c3-330d-5841-b78e-0817d7145fa1"
+version = "2.24.0+2"
 
 [[deps.Missings]]
 deps = ["DataAPI"]
@@ -1005,6 +1030,7 @@ version = "0.3.3"
 
 [[deps.MozillaCACerts_jll]]
 uuid = "14a3606d-f60d-562e-9121-12d972cd8159"
+version = "2020.7.22"
 
 [[deps.NaNMath]]
 git-tree-sha1 = "f755f36b19a5116bb580de457cda0c140153f283"
@@ -1019,6 +1045,7 @@ version = "1.0.2"
 
 [[deps.NetworkOptions]]
 uuid = "ca575930-c2e3-43a9-ace4-1e988b2c1908"
+version = "1.2.0"
 
 [[deps.Observables]]
 git-tree-sha1 = "fe29afdef3d0c4a8286128d4e45cc50621b1e43d"
@@ -1040,6 +1067,7 @@ version = "1.3.5+1"
 [[deps.OpenBLAS_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Libdl"]
 uuid = "4536629a-c528-5b80-bd46-f80d51c5b363"
+version = "0.3.17+2"
 
 [[deps.OpenEXR]]
 deps = ["Colors", "FileIO", "OpenEXR_jll"]
@@ -1056,6 +1084,7 @@ version = "3.1.1+0"
 [[deps.OpenLibm_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "05823500-19ac-5b8b-9628-191a04bc5112"
+version = "0.8.1+0"
 
 [[deps.OpenSSL_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1131,6 +1160,7 @@ version = "0.40.1+0"
 [[deps.Pkg]]
 deps = ["Artifacts", "Dates", "Downloads", "LibGit2", "Libdl", "Logging", "Markdown", "Printf", "REPL", "Random", "SHA", "Serialization", "TOML", "Tar", "UUIDs", "p7zip_jll"]
 uuid = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
+version = "1.8.0"
 
 [[deps.PkgVersion]]
 deps = ["Pkg"]
@@ -1234,6 +1264,7 @@ version = "0.3.0+0"
 
 [[deps.SHA]]
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
+version = "0.7.0"
 
 [[deps.SIMD]]
 git-tree-sha1 = "39e3df417a0dd0c4e1f89891a281f82f5373ea3b"
@@ -1348,6 +1379,7 @@ uuid = "4607b0f0-06f3-5cda-b6b1-a6196a1729e9"
 [[deps.TOML]]
 deps = ["Dates"]
 uuid = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
+version = "1.0.0"
 
 [[deps.TableTraits]]
 deps = ["IteratorInterfaceExtensions"]
@@ -1364,6 +1396,7 @@ version = "1.6.1"
 [[deps.Tar]]
 deps = ["ArgTools", "SHA"]
 uuid = "a4e569a6-e804-4fa4-b0f3-eef7a1d5b13e"
+version = "1.10.0"
 
 [[deps.TensorCore]]
 deps = ["LinearAlgebra"]
@@ -1475,6 +1508,7 @@ version = "1.4.0+3"
 [[deps.Zlib_jll]]
 deps = ["Libdl"]
 uuid = "83775a58-1f1d-513f-b197-d71354ab007a"
+version = "1.2.12+1"
 
 [[deps.isoband_jll]]
 deps = ["Libdl", "Pkg"]
@@ -1491,6 +1525,7 @@ version = "0.15.1+0"
 [[deps.libblastrampoline_jll]]
 deps = ["Artifacts", "Libdl", "OpenBLAS_jll"]
 uuid = "8e850b90-86db-534c-a0d3-1478176c7d93"
+version = "4.0.0+0"
 
 [[deps.libfdk_aac_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1513,10 +1548,12 @@ version = "1.3.7+1"
 [[deps.nghttp2_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "8e850ede-7688-5339-a07c-302acd2aaf8d"
+version = "1.41.0+1"
 
 [[deps.p7zip_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
+version = "16.2.1+1"
 
 [[deps.x264_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1539,12 +1576,16 @@ version = "3.5.0+0"
 # ╟─d5c471c3-26be-46c0-a174-d580d0ed7f7d
 # ╠═d657ed23-3eb4-49d0-a59c-811e8189c376
 # ╟─438b8614-9fb9-4014-932b-32a09f7f1fa2
-# ╠═272a7f32-ca99-4132-acdb-2a270173d9f6
 # ╟─d1870035-d14f-431a-a7e7-27cd6a9f3dc0
-# ╠═4245a664-9f18-4ca5-b14b-02f8d7c4bbe2
+# ╠═1208db5e-7f60-46fd-ba77-b1387c5c7f79
+# ╠═dec6b686-719b-4f21-a5a7-c41a7c39300c
+# ╠═1a7fa5e6-db59-4fd4-99d7-52613ee2e420
+# ╠═630463cd-2475-4ad4-9ea7-ce62a661f441
+# ╠═02657dc8-46e7-4613-96a5-a4e5985fa39e
+# ╠═3bea0851-20db-4237-bc74-6940039e792b
+# ╠═941732c8-e31f-40c7-bc2a-50198ddcab5c
 # ╟─69aff7c7-196a-4fee-9070-3d6b49fdaddf
-# ╠═8bd4eb78-7ec4-4d8a-b5af-9f8647214878
-# ╠═1e78ab7a-2afe-4095-8565-1f18058f479c
+# ╠═272a7f32-ca99-4132-acdb-2a270173d9f6
 # ╠═2b285e2f-4ab2-4670-9575-1410552eefed
 # ╟─ee190ccc-15e4-416a-a58c-21bc62fde1a5
 # ╠═b5aa0a1e-ff40-4b6a-b0dc-4fcc9f73842f
@@ -1555,7 +1596,6 @@ version = "3.5.0+0"
 # ╠═e97d395d-c3ab-4d51-ac52-49eb28659f65
 # ╠═2811f5ad-d7b4-4ff2-8d67-8b4da9950832
 # ╟─5620c09f-65b0-4161-bece-593fc5c7681a
-# ╠═680ddd33-f965-4a61-abeb-95f7cbff2b7d
 # ╠═c8d753c5-c53e-4073-b3f2-31b72f9c6b7e
 # ╟─ecf86f67-114e-482e-9429-1dc6fdb62c7c
 # ╠═ad9e96d5-7668-4e5a-950d-e5a6bfd29db7
