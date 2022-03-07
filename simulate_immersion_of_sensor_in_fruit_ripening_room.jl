@@ -16,7 +16,7 @@ md"# Data Generation for Gas Sensor Arrays in a Fruit Ripening Room
 
 # ╔═╡ 06409854-f2b6-4356-ab0c-0c7c7a410d9a
 colors = Dict(zip(
-	["normal", "CO₂ buildup", "C₂H₄ buildup", "C₂H₄ off", "low RH"],
+	["normal", "CO₂ buildup", "C₂H₄ buildup", "C₂H₄ off", "CO₂ & C₂H₄ buildup"],
 	ColorSchemes.Dark2_5)
 )
 
@@ -27,14 +27,11 @@ md"!!! example \"\"
 
 # ╔═╡ d657ed23-3eb4-49d0-a59c-811e8189c376
 begin
-	gases = ["C2H4", "CO2", "H2O"]
-	mofs = ["ZIF-71", "ZIF-8"]
-	
-	gas_to_pretty_name = Dict("C2H4" => "C₂H₄", 
-		                      "CO2"  => "CO₂", 
-		                      "H2O"  => "H₂O")
-
-	henry_data = load("henry_coeffs.jld2")["henry_data"]
+	gases              = load("henry_coeffs.jld2")["gases"]
+	mofs               = load("henry_coeffs.jld2")["mofs"]
+	gas_to_pretty_name = load("henry_coeffs.jld2")["gas_to_pretty_name"]
+	henry_data         = load("henry_coeffs.jld2")["henry_data"]
+	@info gases, mofs
 end
 
 # ╔═╡ 438b8614-9fb9-4014-932b-32a09f7f1fa2
@@ -141,7 +138,7 @@ end
 
 # ╔═╡ 2b285e2f-4ab2-4670-9575-1410552eefed
 begin
-	n_gas_compositions = 100
+	n_gas_compositions = 150
 	for g = 1:n_gas_compositions
 		datum = gen_data_point(normal_gas_comp, "normal")
 		push!(sensor_data, datum)
@@ -166,7 +163,7 @@ begin
 
 		# anomaly = "C₂H₄ buildup"
 		anomalous_gas_comp = deepcopy(normal_gas_comp)
-		anomalous_gas_comp.f_C₂H₄ = Uniform(300e-6, 1000e-6)
+		anomalous_gas_comp.f_C₂H₄ = Uniform(300e-6, 2000e-6)
 		datum = gen_data_point(anomalous_gas_comp, "C₂H₄ buildup")
 		push!(sensor_data, datum)
 		
@@ -174,6 +171,13 @@ begin
 		anomalous_gas_comp = deepcopy(normal_gas_comp)
 		anomalous_gas_comp.f_CO₂ = Uniform(7500e-6, 20000e-6)
 		datum = gen_data_point(anomalous_gas_comp, "CO₂ buildup")
+		push!(sensor_data, datum)
+
+		# anomaly = "CO₂ & C₂H₄ buildup"
+		anomalous_gas_comp = deepcopy(normal_gas_comp)
+		anomalous_gas_comp.f_CO₂ = Uniform(7500e-6, 20000e-6)
+		anomalous_gas_comp.f_C₂H₄ = Uniform(300e-6, 1000e-6)
+		datum = gen_data_point(anomalous_gas_comp, "CO₂ & C₂H₄ buildup")
 		push!(sensor_data, datum)
 
 		# # anomaly = "low humidity"
@@ -329,8 +333,8 @@ md"!!! example \"\"
 	export the simulated gas exposure experiment data set. 
 "
 
-# ╔═╡ 2318b9ae-f3ae-449c-be2c-4eee0d898695
-CSV.write("sensor_data.csv", sensor_data)
+# ╔═╡ 5b263732-2ff7-456a-978f-90d7fb43411e
+jldsave("sensor_data.jld2"; gas_to_pretty_name, gases, mofs, sensor_data, colors)
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -1600,6 +1604,6 @@ version = "3.5.0+0"
 # ╟─ecf86f67-114e-482e-9429-1dc6fdb62c7c
 # ╠═ad9e96d5-7668-4e5a-950d-e5a6bfd29db7
 # ╟─13f4c61a-2e80-46c3-9ee1-657ad7b92ea1
-# ╠═2318b9ae-f3ae-449c-be2c-4eee0d898695
+# ╠═5b263732-2ff7-456a-978f-90d7fb43411e
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

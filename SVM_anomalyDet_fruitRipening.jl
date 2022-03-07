@@ -1,11 +1,11 @@
 ### A Pluto.jl notebook ###
-# v0.17.2
+# v0.18.0
 
 using Markdown
 using InteractiveUtils
 
 # ╔═╡ d090131e-6602-4c03-860c-ad3cb6c7844a
-using CairoMakie,CSV, DataFrames, ColorSchemes, Optim, Distributions, PlutoUI, ScikitLearn, Colors, Random, PlutoUI
+using CairoMakie,CSV, DataFrames, ColorSchemes, Optim, Distributions, PlutoUI, ScikitLearn, Colors, Random, PlutoUI, JLD2
 
 # ╔═╡ 31f71438-ff2f-49f9-a801-3a6489eaf271
 include("plot_theme.jl")
@@ -31,36 +31,31 @@ md"!!! example \"\"
 	Declare utility data structures to be used in data processing such as lists of names of gases, mofs, filename for the CSV file and import henry coefficients and sk learn libraries.
 "
 
-# ╔═╡ d657ed23-3eb4-49d0-a59c-811e8189c376
-begin
-	gases = ["C2H4", "CO2", "H2O"]
-	mofs = ["ZIF-71", "ZIF-8"]
-	# https://scikit-learn.org/stable/modules/generated/sklearn.svm.OneClassSVM.html#sklearn.svm.OneClassSVM
-	# Returns -1 for outliers and 1 for inliers.
-	label_to_int = Dict(
-		"normal"   => 1,
-		"anomalous" => -1,
-		"C₂H₄ off" => -1,
-		"C₂H₄ buildup" => -1,
-		"CO₂ buildup" => -1
-	)
-	
-	anomalous_labels = ["C₂H₄ off", "C₂H₄ buildup", "CO₂ buildup"]
-	colors = Dict(zip(                                                                          
-	    ["normal", "CO₂ buildup", "C₂H₄ buildup", "C₂H₄ off"],                                  
-	    ColorSchemes.Dark2_4)                                                                   
-	)
-	gas_to_pretty_name = Dict("C2H4" => "C₂H₄", "CO2" => "CO₂", "H2O" => "H₂O")
-	colors["anomaly"] = "red"
-	color_map = RGBAf.(reverse(ColorSchemes.diverging_gwr_55_95_c38_n256), 0.5)
-	nothing
-end
-
 # ╔═╡ 91a56f3c-36ca-4799-be4c-1a209b42f162
 begin
 	# load data and shuffle it.
-	data = CSV.read("sensor_data.csv", DataFrame)
+	data = load("sensor_data.jld2")["sensor_data"]
 	data = data[shuffle(1:nrow(data)), :]
+end
+
+# ╔═╡ d657ed23-3eb4-49d0-a59c-811e8189c376
+begin
+	gases              = load("sensor_data.jld2")["gases"]
+	mofs               = load("sensor_data.jld2")["mofs"]
+	gas_to_pretty_name = load("sensor_data.jld2")["gas_to_pretty_name"]
+	colors             = load("sensor_data.jld2")["colors"]
+	colors["anomaly"] = "red"
+
+	anomalous_labels = filter(x -> x != "normal", unique(data[:, "label"]))
+	
+	# https://scikit-learn.org/stable/modules/generated/sklearn.svm.OneClassSVM.html#sklearn.svm.OneClassSVM
+	# Returns -1 for outliers and 1 for inliers.
+	label_to_int = Dict(zip(anomalous_labels, [-1 for i = 1:length(anomalous_labels)]))
+	label_to_int["normal"] = 1
+	label_to_int["anomalous"] = -1
+	
+	color_map = RGBAf.(reverse(ColorSchemes.diverging_gwr_55_95_c38_n256), 0.5)
+	nothing
 end
 
 # ╔═╡ a9c93bf0-b75f-421c-a289-2ae3b53b369a
@@ -131,7 +126,7 @@ with_terminal() do
 end
 
 # ╔═╡ 7f70bf3a-222e-4996-a781-6c4c4690e2be
-data
+data[:, "label"]
 
 # ╔═╡ 4a986818-d848-4938-9a96-15a455403e4d
 md"!!! example \"\" 
@@ -176,7 +171,7 @@ md"!!! example \"\"
 
 # ╔═╡ af735015-999a-428c-bcec-defdad3caca6
 function train_anomaly_detector(X::Matrix, ν::Float64, γ::Float64, kernel::String)
-	oc_svm = OneClassSVM(kernel=kernel, nu=ν, gamma=γ, degree=2, coef0=0.0)
+	oc_svm = OneClassSVM(kernel=kernel, nu=ν, degree=2, gamma=γ, coef0=0.0)
 	return oc_svm.fit(X)
 end
 
@@ -190,10 +185,10 @@ begin
 	# defines hyper-parameter grid
 	if kernel == "rbf"
 		νs = range(0.001, 0.075, length=10)
-		γs = range(0.04, 0.77, length=10)
+		γs = range(0.2, 1.2, length=15)
 	else
-		νs = range(0.001, 0.1, length=5)
-		γs = 10.0 .^ range(-5, -1.0, length=15)
+		νs = range(0.001, 0.9, length=25)
+		γs = 10.0 .^ range(-2, -1, length=25)
 		# γs = range(0.01, 2.0, length=15)
 	end
 end
@@ -335,13 +330,13 @@ scaler.transform([0.013 0.0175])
 
 # ╔═╡ 0a0cab3a-0231-4d75-8ce6-fde439204082
 #function to generate a grid of anomaly scores based on a trained svm and given resolution.
-function generate_response_grid(mysvm, scaler, grid_res::Int64=100)
+function generate_response_grid(mysvm, scaler; grid_res::Int64=100, pad::Float64=0.01)
 	# lay grid over feature space
-	x₁s = range(0.99 * minimum(X["test"][:, 1]), 
-			    1.01 * maximum(X["test"][:, 1]), 
+	x₁s = range((1-pad) * minimum(X["test"][:, 1]), 
+			    (1+pad) * maximum(X["test"][:, 1]), 
 				  length=grid_res)
-	x₂s = range(0.99 * minimum(X["test"][:, 2]), 
-		        1.01 * maximum(X["test"][:, 2]), 
+	x₂s = range((1-pad) * minimum(X["test"][:, 2]), 
+		        (1+pad) * maximum(X["test"][:, 2]), 
 			      length=grid_res)
 
 	# get svm prediciton at each point
@@ -362,7 +357,8 @@ end
 function viz_svm_data_fit(trained_svm, res=100)
 	fig = Figure(resolution=(700, 700))
 	# generate the grid
-	x₁s, x₂s, predictions = generate_response_grid(trained_svm, scaler, res)
+	x₁s, x₂s, predictions = generate_response_grid(trained_svm, scaler, 
+		grid_res=res, pad=0.02)
 	
 	ax1 = Axis(fig[1,1], 
 			   xlabel = "m, " * mofs[1] * " [g/g]",
@@ -373,53 +369,30 @@ function viz_svm_data_fit(trained_svm, res=100)
 			 x₂s,
              predictions, 
 		     levels=[0.0], 
-			 color=:black)
-
-	# # lay grid over feature space
-	# grid_res=10
-	# x₁s = range(0.99 * minimum(X["test"][:, 1]), 
-	# 		    1.01 * maximum(X["test"][:, 1]), 
-	# 			  length=grid_res)
-	# x₂s = range(0.99 * minimum(X["test"][:, 2]), 
-	# 	        1.01 * maximum(X["test"][:, 2]), 
-	# 		      length=grid_res)
-
-	# # get svm prediciton at each point
-	# for i = 1:grid_res
-	# 	for j = 1:grid_res
-	# 		x = [x₁s[i] x₂s[j]]
-	# 		x_scaled = scaler.transform(x)
-	# 		my_pred = trained_svm.predict(x_scaled)[1]
-	# 		scatter!([x[1]], [x[2]], marker= my_pred == -1 ? :x : :rect, color=:black)
-	# 	end
-	# end
+			 color=:black,
+		     label="decision boundary"
+	)   
 	
 	data_test = filter(row -> row["split"] == "test", data)
-    for sensor_data_g in groupby(data_test, :label)                                       
-        label = sensor_data_g[1, "label"]                                                   
-        scatter!(sensor_data_g[:, "m $(mofs[1]) [g/g]"],                              
-                 sensor_data_g[:, "m $(mofs[2]) [g/g]"],                              
+    for label in vcat(["normal"], anomalous_labels)
+		sensor_data_g = filter(row -> row["label"] == label, data_test)
+		
+        scatter!(sensor_data_g[:, "m $(mofs[1]) [g/g]"],                                               sensor_data_g[:, "m $(mofs[2]) [g/g]"],                              
                  strokewidth=1,                                                       
                  markersize=15,                                                       
                  marker=label == "normal" ? :circle : :x,                             
                  color=(:white, 0.0), strokecolor=colors[label],                      
                  label=label)                                                               
-    end                                                                                     
-                                                                                            
+    end                                                                               
+                                                                                
     axislegend("test data", position=:rb)
 
-	
+	save("result_no_label.pdf", fig)
 	fig
 end
 
 # ╔═╡ 5c7379cc-cc01-4025-87d7-92162f65468d
 viz_svm_data_fit(deploy_oc_svm)
-
-# ╔═╡ 2c9fbe7c-6409-45df-a4ca-10224c62b98f
-label_to_int
-
-# ╔═╡ 439bc2df-473a-402e-9339-fa8084a8f40f
-deploy_oc_svm.predict(scaler.transform([0.013 0.017]))
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -430,6 +403,7 @@ ColorSchemes = "35d6a980-a343-548e-a6ea-1d62b119f2f4"
 Colors = "5ae59095-9a9b-59fe-a467-6f913c188581"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 Optim = "429524aa-4258-5aef-a3af-852621145aeb"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
@@ -442,6 +416,7 @@ ColorSchemes = "~3.15.0"
 Colors = "~0.12.8"
 DataFrames = "~1.2.2"
 Distributions = "~0.25.34"
+JLD2 = "~0.4.22"
 Optim = "~1.5.0"
 PlutoUI = "~0.7.21"
 ScikitLearn = "~0.6.4"
@@ -451,8 +426,9 @@ ScikitLearn = "~0.6.4"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.7.2"
+julia_version = "1.8.0-DEV.1390"
 manifest_format = "2.0"
+project_hash = "54ff43e40f4c2672ef7bc7b2d112174717c3ebe7"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -485,6 +461,7 @@ version = "0.4.1"
 
 [[deps.ArgTools]]
 uuid = "0dad84c5-d112-42e6-8d28-ef12dabb789f"
+version = "1.1.1"
 
 [[deps.ArrayInterface]]
 deps = ["Compat", "IfElse", "LinearAlgebra", "Requires", "SparseArrays", "Static"]
@@ -608,6 +585,7 @@ version = "3.40.0"
 [[deps.CompilerSupportLibraries_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "e66e0078-7015-5450-92f7-15fbd957f2ae"
+version = "0.5.0+0"
 
 [[deps.Conda]]
 deps = ["Downloads", "JSON", "VersionParsing"]
@@ -691,8 +669,9 @@ uuid = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
 version = "0.8.6"
 
 [[deps.Downloads]]
-deps = ["ArgTools", "LibCURL", "NetworkOptions"]
+deps = ["ArgTools", "FileWatching", "LibCURL", "NetworkOptions"]
 uuid = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
+version = "1.6.0"
 
 [[deps.EarCut_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -747,6 +726,9 @@ deps = ["Compat", "Dates", "Mmap", "Printf", "Test", "UUIDs"]
 git-tree-sha1 = "04d13bfa8ef11720c24e4d840c0033d145537df7"
 uuid = "48062228-2e41-5def-b9a4-89aafe57970f"
 version = "0.9.17"
+
+[[deps.FileWatching]]
+uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
 
 [[deps.FillArrays]]
 deps = ["LinearAlgebra", "Random", "SparseArrays", "Statistics"]
@@ -969,6 +951,12 @@ git-tree-sha1 = "a3f24677c21f5bbe9d2a714f95dcd58337fb2856"
 uuid = "82899510-4779-5014-852e-03e436cf321d"
 version = "1.0.0"
 
+[[deps.JLD2]]
+deps = ["FileIO", "MacroTools", "Mmap", "OrderedCollections", "Pkg", "Printf", "Reexport", "TranscodingStreams", "UUIDs"]
+git-tree-sha1 = "81b9477b49402b47fbe7f7ae0b252077f53e4a08"
+uuid = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
+version = "0.4.22"
+
 [[deps.JLLWrappers]]
 deps = ["Preferences"]
 git-tree-sha1 = "642a199af8b68253517b80bd3bfd17eb4e84df6e"
@@ -1011,10 +999,12 @@ uuid = "4af54fe1-eca0-43a8-85a7-787d91b784e3"
 [[deps.LibCURL]]
 deps = ["LibCURL_jll", "MozillaCACerts_jll"]
 uuid = "b27032c2-a3e7-50c8-80cd-2d36dbcbfd21"
+version = "0.6.3"
 
 [[deps.LibCURL_jll]]
 deps = ["Artifacts", "LibSSH2_jll", "Libdl", "MbedTLS_jll", "Zlib_jll", "nghttp2_jll"]
 uuid = "deac9b47-8bc7-5906-a0fe-35ac56dc84c0"
+version = "7.73.0+4"
 
 [[deps.LibGit2]]
 deps = ["Base64", "NetworkOptions", "Printf", "SHA"]
@@ -1023,6 +1013,7 @@ uuid = "76f85450-5226-5b5a-8eaa-529ad045b433"
 [[deps.LibSSH2_jll]]
 deps = ["Artifacts", "Libdl", "MbedTLS_jll"]
 uuid = "29816b5a-b9ab-546f-933c-edad1886dfa8"
+version = "1.9.1+2"
 
 [[deps.Libdl]]
 uuid = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
@@ -1129,6 +1120,7 @@ version = "0.2.1"
 [[deps.MbedTLS_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "c8ffd9c3-330d-5841-b78e-0817d7145fa1"
+version = "2.24.0+2"
 
 [[deps.Missings]]
 deps = ["DataAPI"]
@@ -1147,6 +1139,7 @@ version = "0.3.3"
 
 [[deps.MozillaCACerts_jll]]
 uuid = "14a3606d-f60d-562e-9121-12d972cd8159"
+version = "2020.7.22"
 
 [[deps.NLSolversBase]]
 deps = ["DiffResults", "Distributed", "FiniteDiff", "ForwardDiff"]
@@ -1167,6 +1160,7 @@ version = "1.0.2"
 
 [[deps.NetworkOptions]]
 uuid = "ca575930-c2e3-43a9-ace4-1e988b2c1908"
+version = "1.2.0"
 
 [[deps.Observables]]
 git-tree-sha1 = "fe29afdef3d0c4a8286128d4e45cc50621b1e43d"
@@ -1188,6 +1182,7 @@ version = "1.3.5+1"
 [[deps.OpenBLAS_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Libdl"]
 uuid = "4536629a-c528-5b80-bd46-f80d51c5b363"
+version = "0.3.17+2"
 
 [[deps.OpenEXR]]
 deps = ["Colors", "FileIO", "OpenEXR_jll"]
@@ -1204,6 +1199,7 @@ version = "3.1.1+0"
 [[deps.OpenLibm_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "05823500-19ac-5b8b-9628-191a04bc5112"
+version = "0.8.1+0"
 
 [[deps.OpenSSL_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1291,6 +1287,7 @@ version = "0.40.1+0"
 [[deps.Pkg]]
 deps = ["Artifacts", "Dates", "Downloads", "LibGit2", "Libdl", "Logging", "Markdown", "Printf", "REPL", "Random", "SHA", "Serialization", "TOML", "Tar", "UUIDs", "p7zip_jll"]
 uuid = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
+version = "1.8.0"
 
 [[deps.PkgVersion]]
 deps = ["Pkg"]
@@ -1406,6 +1403,7 @@ version = "0.3.0+0"
 
 [[deps.SHA]]
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
+version = "0.7.0"
 
 [[deps.SIMD]]
 git-tree-sha1 = "9ba33637b24341aba594a2783a502760aa0bff04"
@@ -1532,6 +1530,7 @@ uuid = "4607b0f0-06f3-5cda-b6b1-a6196a1729e9"
 [[deps.TOML]]
 deps = ["Dates"]
 uuid = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
+version = "1.0.0"
 
 [[deps.TableTraits]]
 deps = ["IteratorInterfaceExtensions"]
@@ -1548,6 +1547,7 @@ version = "1.6.0"
 [[deps.Tar]]
 deps = ["ArgTools", "SHA"]
 uuid = "a4e569a6-e804-4fa4-b0f3-eef7a1d5b13e"
+version = "1.10.0"
 
 [[deps.TensorCore]]
 deps = ["LinearAlgebra"]
@@ -1669,6 +1669,7 @@ version = "1.4.0+3"
 [[deps.Zlib_jll]]
 deps = ["Libdl"]
 uuid = "83775a58-1f1d-513f-b197-d71354ab007a"
+version = "1.2.12+1"
 
 [[deps.isoband_jll]]
 deps = ["Libdl", "Pkg"]
@@ -1685,6 +1686,7 @@ version = "0.15.1+0"
 [[deps.libblastrampoline_jll]]
 deps = ["Artifacts", "Libdl", "OpenBLAS_jll"]
 uuid = "8e850b90-86db-534c-a0d3-1478176c7d93"
+version = "4.0.0+0"
 
 [[deps.libfdk_aac_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1707,10 +1709,12 @@ version = "1.3.7+1"
 [[deps.nghttp2_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "8e850ede-7688-5339-a07c-302acd2aaf8d"
+version = "1.41.0+1"
 
 [[deps.p7zip_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
+version = "16.2.1+1"
 
 [[deps.x264_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1776,7 +1780,5 @@ version = "3.5.0+0"
 # ╠═0a0cab3a-0231-4d75-8ce6-fde439204082
 # ╠═a1a6e4cf-1a15-4492-88f9-f2e68646dcb5
 # ╠═5c7379cc-cc01-4025-87d7-92162f65468d
-# ╠═2c9fbe7c-6409-45df-a4ca-10224c62b98f
-# ╠═439bc2df-473a-402e-9339-fa8084a8f40f
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
