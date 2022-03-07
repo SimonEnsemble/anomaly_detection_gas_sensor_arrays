@@ -312,7 +312,8 @@ function viz_confusion_matrix(cm::Matrix{Int64}, naming::Vector{String})
                   position=(i, j), align=(:center, :center), color=:black)
         end
     end
-    Colorbar(fig[1, 2], hm, label="num of detector points")
+    Colorbar(fig[1, 2], hm, label="# compositions")
+	save("cm.pdf", fig)
     fig
 end
 
@@ -387,7 +388,7 @@ function viz_svm_data_fit(trained_svm, res=100)
                                                                                 
     axislegend("test data", position=:rb)
 
-	save("result_no_label.pdf", fig)
+	save("result.pdf", fig)
 	fig
 end
 
