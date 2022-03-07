@@ -5,7 +5,7 @@ using Markdown
 using InteractiveUtils
 
 # ╔═╡ d090131e-6602-4c03-860c-ad3cb6c7844a
-using CairoMakie,CSV, DataFrames, ColorSchemes, Distributions, Optim, PlutoUI, Colors, JLD2
+using CairoMakie,CSV, DataFrames, ColorSchemes, Distributions, Optim, PlutoUI, Colors, JLD2, LinearAlgebra
 
 # ╔═╡ 5019e8ac-040f-48fd-98e8-21ff7970aa23
 include("plot_theme.jl")
@@ -244,6 +244,33 @@ md"!!! example \"\"
 # ╔═╡ 19c10c96-70f9-47a1-a2d8-9d8fb57c8d12
 jldsave("henry_coeffs.jld2"; henry_data, gas_to_pretty_name, gases, mofs)
 
+# ╔═╡ 30fc6e3a-8e7d-4a7a-bca9-e11c02030db6
+md"## find null space"
+
+# ╔═╡ 4ef435b9-eee5-43a4-bc2e-20c6b3b2e2be
+H = [henry_data[mof][gas]["henry coef [g/(g-bar)]"] for mof in mofs, gas in gases]
+
+# ╔═╡ 294b2945-1d85-427b-9727-3f1a871fcbb8
+f = svd(H, full=true)
+
+# ╔═╡ e75c56b8-87a4-405c-9e61-e7e86df3f432
+p_null = f.V[:, 3]
+
+# ╔═╡ 2617f194-21e5-44e0-95d9-4b8dac412664
+gases
+
+# ╔═╡ 8edcc78e-a9d7-4e3c-bd57-6914c6f5e3d3
+begin
+	p₀ = [100, 100, 100]
+	H * p₀
+end
+
+# ╔═╡ 7c76b64b-e121-4cf8-9c6d-b876253ccf9a
+Δp = p_null * 100
+
+# ╔═╡ 1ab4e12a-cc8a-45d3-9991-7f03d32d416a
+H * (p₀ + Δp)
+
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
@@ -254,6 +281,7 @@ Colors = "5ae59095-9a9b-59fe-a467-6f913c188581"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Optim = "429524aa-4258-5aef-a3af-852621145aeb"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 
@@ -275,7 +303,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.8.0-DEV.1390"
 manifest_format = "2.0"
-project_hash = "e2161779147c7b1150fd362bc33ddc51f3deb599"
+project_hash = "1054a9aa69a1a9a8d0e16beb332a844f9f2a8440"
 
 [[deps.AbstractFFTs]]
 deps = ["ChainRulesCore", "LinearAlgebra"]
@@ -1569,5 +1597,13 @@ version = "3.5.0+0"
 # ╠═97f1099f-0417-4688-93f8-16a14cbe40c3
 # ╟─d6920bb1-6bb5-4b18-88aa-17f8c78d8974
 # ╠═19c10c96-70f9-47a1-a2d8-9d8fb57c8d12
+# ╟─30fc6e3a-8e7d-4a7a-bca9-e11c02030db6
+# ╠═4ef435b9-eee5-43a4-bc2e-20c6b3b2e2be
+# ╠═294b2945-1d85-427b-9727-3f1a871fcbb8
+# ╠═e75c56b8-87a4-405c-9e61-e7e86df3f432
+# ╠═2617f194-21e5-44e0-95d9-4b8dac412664
+# ╠═8edcc78e-a9d7-4e3c-bd57-6914c6f5e3d3
+# ╠═7c76b64b-e121-4cf8-9c6d-b876253ccf9a
+# ╠═1ab4e12a-cc8a-45d3-9991-7f03d32d416a
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
