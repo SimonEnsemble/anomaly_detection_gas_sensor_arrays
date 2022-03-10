@@ -171,25 +171,25 @@ md"!!! example \"\"
 
 # ╔═╡ af735015-999a-428c-bcec-defdad3caca6
 function train_anomaly_detector(X::Matrix, ν::Float64, γ::Float64, kernel::String)
-	oc_svm = OneClassSVM(kernel=kernel, nu=ν, degree=2, gamma=γ, coef0=0.0)
+	oc_svm = OneClassSVM(kernel=kernel, nu=ν, degree=4, gamma=γ, coef0=0.0)
 	return oc_svm.fit(X)
 end
 
 # ╔═╡ 6eb73e08-3ef0-4aab-910d-28a55501e863
 md"!!! example \"\" 
-	From here start validation process for the RBF kernel"
+	From here start validation process"
 
 # ╔═╡ 1a935820-68dc-4fa8-85f5-40b25b102175
 begin
-	kernel = "rbf"
+	kernel = "poly"
 	# defines hyper-parameter grid
 	if kernel == "rbf"
-		νs = range(0.001, 0.1, length=100)
-		γs = range(0.2, 1.0, length=35)
+		νs = range(0.0001, 0.1, length=25)
+		γs = range(0.1, 1.0, length=25)
 	else
-		νs = range(0.001, 0.9, length=25)
-		γs = 10.0 .^ range(-2, -1, length=25)
-		# γs = range(0.01, 2.0, length=15)
+		νs = range(0.0001, 0.9, length=25)
+		γs = 10.0 .^ range(-5, -1, length=25)
+		#γs = range(0.0001, 5.0, length=100)
 	end
 end
 
@@ -278,18 +278,23 @@ end
 
 # ╔═╡ 7083f478-a811-47e2-af0a-643338138add
 deploy_oc_svm = train_anomaly_detector(X["train_scaled"], ν_opt, γ_opt, kernel)
+#deploy_oc_svm = train_anomaly_detector(X["train_scaled"], 0.02, 0.040, kernel)
 
 # ╔═╡ 59aceee1-20b7-462a-b0d7-a5f70983d9b9
-y_pred = deploy_oc_svm.predict(X["test_scaled"])
+#y_pred = deploy_oc_svm.predict(X["test_scaled"])
+y_pred = deploy_oc_svm.predict(X["train_scaled"])
 
 # ╔═╡ 1d2f71c0-3375-49e4-9351-0e0f0ac84616
-cm = confusion_matrix(y["test"], y_pred)
+#cm = confusion_matrix(y["test"], y_pred)
+cm = confusion_matrix(y["train"], y_pred)
 
 # ╔═╡ 4f7e5474-8712-425e-b1f1-1e96161f1fdb
-sum(y_pred .== y["test"])
+#sum(y_pred .== y["test"])
+sum(y_pred .== y["train"])
 
 # ╔═╡ 562f2305-0fcd-4c6f-aca7-07deb7b74e05
-sum(y_pred .!= y["test"])
+#sum(y_pred .!= y["test"])
+sum(y_pred .!= y["train"])
 
 # ╔═╡ 6591e930-8952-449a-8418-82a96b20fec9
 function viz_confusion_matrix(cm::Matrix{Int64}, naming::Vector{String})
@@ -402,6 +407,9 @@ viz_svm_data_fit(deploy_oc_svm, "test")
 
 # ╔═╡ 91326408-9e8c-401a-9d4f-64a92866b82d
 viz_svm_data_fit(deploy_oc_svm, "train")
+
+# ╔═╡ efba55d1-f7dc-4a92-99ca-64d97e4fb4a5
+deploy_oc_svm.fit_status_
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -1786,5 +1794,6 @@ version = "3.5.0+0"
 # ╠═a1a6e4cf-1a15-4492-88f9-f2e68646dcb5
 # ╠═5c7379cc-cc01-4025-87d7-92162f65468d
 # ╠═91326408-9e8c-401a-9d4f-64a92866b82d
+# ╠═efba55d1-f7dc-4a92-99ca-64d97e4fb4a5
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
