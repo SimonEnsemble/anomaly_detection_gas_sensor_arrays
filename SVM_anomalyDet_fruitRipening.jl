@@ -171,7 +171,7 @@ md"!!! example \"\"
 
 # ╔═╡ af735015-999a-428c-bcec-defdad3caca6
 function train_anomaly_detector(X::Matrix, ν::Float64, γ::Float64, kernel::String)
-	oc_svm = OneClassSVM(kernel=kernel, nu=ν, degree=4, gamma=γ, coef0=0.0)
+	oc_svm = OneClassSVM(kernel=kernel, nu=ν, degree=2, gamma=γ, coef0=0.001)
 	return oc_svm.fit(X)
 end
 
@@ -181,15 +181,15 @@ md"!!! example \"\"
 
 # ╔═╡ 1a935820-68dc-4fa8-85f5-40b25b102175
 begin
-	kernel = "poly"
+	kernel = "rbf"
 	# defines hyper-parameter grid
 	if kernel == "rbf"
-		νs = range(0.0001, 0.1, length=25)
-		γs = range(0.1, 1.0, length=25)
+		νs = range(0.0005, 0.001, length=15)
+		γs = range(0.1, 0.5, length=15)
 	else
-		νs = range(0.0001, 0.9, length=25)
-		γs = 10.0 .^ range(-5, -1, length=25)
-		#γs = range(0.0001, 5.0, length=100)
+		νs = range(0.01, 0.9, length=15)
+		#γs = 10.0 .^ range(-2, -1, length=25)
+		γs = range(0.05, 0.2, length=15)
 	end
 end
 
@@ -281,20 +281,24 @@ deploy_oc_svm = train_anomaly_detector(X["train_scaled"], ν_opt, γ_opt, kernel
 #deploy_oc_svm = train_anomaly_detector(X["train_scaled"], 0.02, 0.040, kernel)
 
 # ╔═╡ 59aceee1-20b7-462a-b0d7-a5f70983d9b9
-#y_pred = deploy_oc_svm.predict(X["test_scaled"])
-y_pred = deploy_oc_svm.predict(X["train_scaled"])
+y_pred = deploy_oc_svm.predict(X["test_scaled"])
+#y_pred = deploy_oc_svm.predict(X["train_scaled"])
 
 # ╔═╡ 1d2f71c0-3375-49e4-9351-0e0f0ac84616
-#cm = confusion_matrix(y["test"], y_pred)
-cm = confusion_matrix(y["train"], y_pred)
+cm = confusion_matrix(y["test"], y_pred)
+#cm = confusion_matrix(y["train"], y_pred)
 
 # ╔═╡ 4f7e5474-8712-425e-b1f1-1e96161f1fdb
-#sum(y_pred .== y["test"])
-sum(y_pred .== y["train"])
+sum(y_pred .== y["test"])
+#sum(y_pred .== y["train"])
 
 # ╔═╡ 562f2305-0fcd-4c6f-aca7-07deb7b74e05
-#sum(y_pred .!= y["test"])
-sum(y_pred .!= y["train"])
+sum(y_pred .!= y["test"])
+#sum(y_pred .!= y["train"])
+
+# ╔═╡ f1be79a4-e36e-480f-a575-70d3ee062a14
+md"!!! example \"\" 
+	Confusiona matrix work."
 
 # ╔═╡ 6591e930-8952-449a-8418-82a96b20fec9
 function viz_confusion_matrix(cm::Matrix{Int64}, naming::Vector{String})
@@ -322,17 +326,70 @@ function viz_confusion_matrix(cm::Matrix{Int64}, naming::Vector{String})
     fig
 end
 
-# ╔═╡ 97f5f849-a7d6-42d6-9cd1-0aea68a31210
-cm
+# ╔═╡ c9286036-dae6-494a-949e-02882a7aac77
+md"# WORK HERE
+"
+
+# ╔═╡ 9396ce45-70f6-485f-9015-b586d0950342
+function viz_anomaly_type_confusion_matrix(mysvm, anomalous_naming::Vector{String})
+	
+	train_data = filter(row -> row[:split] == "test", data)
+	naming = vcat(["normal"], anomalous_naming)
+	num_types = length(naming)
+	cm_plot = zeros(2, num_types)
+	xy_bylabel = Dict()
+
+	fig = Figure()
+	ax = Axis(fig[1, 1],
+		  xticks=([1, 2], ["anomalous", "normal"]),
+		  yticks=([i for i=1:num_types], naming),
+		  xticklabelrotation=45.0,
+		  ylabel="truth",
+		  xlabel="prediction"
+    )
+
+	for name_index = 1:num_types
+		label = naming[name_index]
+		data_bylabel = filter(row -> row[:label] == label, train_data)
+		temp_x, temp_y = data_to_Xy(data_bylabel)
+		xy_bylabel[label] = Dict("x" => scaler.transform(temp_x), "y" => temp_y)
+		predictions = mysvm.predict(xy_bylabel[label]["x"])
+
+		for i = 1:length(predictions)
+			if name_index == 1 #normal is first
+				if predictions[i] == xy_bylabel[label]["y"][i]
+					cm_plot[2, 1] += 1
+				else
+					cm_plot[1, 1] += 1
+				end
+			else #not normal data
+				if predictions[i] == xy_bylabel[label]["y"][i]
+					cm_plot[1, name_index] += 1
+				else
+					cm_plot[2, name_index] += 1
+				end
+			end
+		end
+	end
+
+	hm = heatmap!(cm_plot, 
+	colormap=ColorSchemes.algae, colorrange=(0, sum(cm_plot)))
+    for i = 1:2
+        for j = 1:length(naming)
+            text!("$(cm_plot[i, j])",
+                  position=(i, j), align=(:center, :center), color=:black)
+        end
+    end
+    Colorbar(fig[1, 2], hm, label="# compositions")
+	save("cm_anomaly.pdf", fig)
+    fig
+end
+
+# ╔═╡ ab8acf22-ab5d-471a-b914-f3a8749bf178
+viz_anomaly_type_confusion_matrix(deploy_oc_svm, anomalous_labels)
 
 # ╔═╡ d161fe94-c0cf-46ac-87c3-25c6a27a6b46
 viz_confusion_matrix(cm, ["anomalous", "normal"])
-
-# ╔═╡ b06bf707-1aef-4f8b-add3-0d4f47314969
-sum(y_pred .== -1)
-
-# ╔═╡ 9020468a-6ce6-43f7-bf49-5b2c19b86807
-scaler.transform([0.013 0.0175])
 
 # ╔═╡ 0a0cab3a-0231-4d75-8ce6-fde439204082
 #function to generate a grid of anomaly scores based on a trained svm and given resolution.
@@ -357,9 +414,6 @@ function generate_response_grid(mysvm, scaler; grid_res::Int64=100, pad::Float64
 	
 	return x₁s, x₂s, predictions
 end
-
-# ╔═╡ 3100e102-5935-491f-b510-65d8108e73d5
-data
 
 # ╔═╡ a1a6e4cf-1a15-4492-88f9-f2e68646dcb5
 #function to generate and visualize a SVM given a particular nu, gamma and resolution.
@@ -1784,13 +1838,13 @@ version = "3.5.0+0"
 # ╠═1d2f71c0-3375-49e4-9351-0e0f0ac84616
 # ╠═4f7e5474-8712-425e-b1f1-1e96161f1fdb
 # ╠═562f2305-0fcd-4c6f-aca7-07deb7b74e05
+# ╟─f1be79a4-e36e-480f-a575-70d3ee062a14
 # ╠═6591e930-8952-449a-8418-82a96b20fec9
-# ╠═97f5f849-a7d6-42d6-9cd1-0aea68a31210
+# ╟─c9286036-dae6-494a-949e-02882a7aac77
+# ╠═9396ce45-70f6-485f-9015-b586d0950342
+# ╠═ab8acf22-ab5d-471a-b914-f3a8749bf178
 # ╠═d161fe94-c0cf-46ac-87c3-25c6a27a6b46
-# ╠═b06bf707-1aef-4f8b-add3-0d4f47314969
-# ╠═9020468a-6ce6-43f7-bf49-5b2c19b86807
 # ╠═0a0cab3a-0231-4d75-8ce6-fde439204082
-# ╠═3100e102-5935-491f-b510-65d8108e73d5
 # ╠═a1a6e4cf-1a15-4492-88f9-f2e68646dcb5
 # ╠═5c7379cc-cc01-4025-87d7-92162f65468d
 # ╠═91326408-9e8c-401a-9d4f-64a92866b82d
