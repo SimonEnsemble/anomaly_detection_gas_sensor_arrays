@@ -8,7 +8,10 @@ using InteractiveUtils
 using CairoMakie,CSV, DataFrames, ColorSchemes, Optim, Distributions, PlutoUI, ScikitLearn, Colors, Random, PlutoUI, JLD2
 
 # ╔═╡ 31f71438-ff2f-49f9-a801-3a6489eaf271
+begin
 include("plot_theme.jl")
+include("simulate_immersion_of_sensor_in_fruit_ripening_room.jl")
+end
 
 # ╔═╡ 1784c510-5465-11ec-0dd1-13e5a66e4ce6
 md"# anomaly Detection for gas sensor arrays using one-class SVM

@@ -61,32 +61,38 @@ mutable struct GasComp
 end
 
 # ╔═╡ dec6b686-719b-4f21-a5a7-c41a7c39300c
-function sample_gas_composition(gas_comp::GasComp)
+function sample_gas_composition(gas_comp::GasComp, error_σs::Float64)
 	composition = Dict{String, Float64}()
-	composition["p C2H4 [bar]"] = rand(gas_comp.f_C₂H₄)
+	composition["p C2H4 [bar]"] = rand(gas_comp.f_C₂H₄) 
+								+ error_σs*(randn()*std(gas_comp.f_C₂H₄))
 	composition["p CO2 [bar]"]  = rand(gas_comp.f_CO₂)
+								+ error_σs*(randn()*std(gas_comp.f_CO₂))
 	composition["p H2O [bar]"]  = rand(gas_comp.f_H₂O)
+								+ error_σs*(randn()*std(gas_comp.f_H₂O))
 	return composition
 end
 
+# ╔═╡ 4870aa09-0f01-42f9-810a-d468876d7cd7
+randn()
+
 # ╔═╡ 1a7fa5e6-db59-4fd4-99d7-52613ee2e420
-function response(composition::Dict{String, Float64})
+function response(composition::Dict{String, Float64}, error_σs::Float64)
 	response = Dict()
 	for mof in mofs
 		response["m $(mof) [g/g]"] = 0.0
 		for gas in gases
 			H_mof_gas = henry_data[mof][gas]["henry coef [g/(g-bar)]"]
 			p_gas     = composition["p $gas [bar]"]
-			response["m $(mof) [g/g]"] += H_mof_gas * p_gas
+			response["m $(mof) [g/g]"] += H_mof_gas * sample_gas_composition
 		end
 	end
 	return response
 end
 
 # ╔═╡ 630463cd-2475-4ad4-9ea7-ce62a661f441
-function gen_data_point(gas_comp::GasComp, label::String)
-	p = sample_gas_composition(gas_comp)
-	m = response(p)
+function gen_data_point(gas_comp::GasComp, label::String, error_σs::Float64)
+	p = sample_gas_composition(gas_comp, error_σs)
+	m = response(p, error_σs)
 	datum = merge(p, m)
 	datum["label"] = label
 	return datum
@@ -112,7 +118,7 @@ normal_gas_comp = GasComp(
 )
 
 # ╔═╡ 941732c8-e31f-40c7-bc2a-50198ddcab5c
-gen_data_point(normal_gas_comp, "normal")
+gen_data_point(normal_gas_comp, "normal", 0.0)
 
 # ╔═╡ 69aff7c7-196a-4fee-9070-3d6b49fdaddf
 md"!!! example \"\" 
@@ -123,7 +129,8 @@ number of gas compositions (300): It takes about 3 days for a banana to ripen in
 "
 
 # ╔═╡ 272a7f32-ca99-4132-acdb-2a270173d9f6
-begin
+
+function generate_normal_sensor_data(n_gas_compositions::Int, error_σs::Float64)
 	sensor_data = DataFrame(p_1=Float64[], p_2=Float64[], p_3=Float64[], 
 		                    m_1=Float64[], m_2=Float64[],
 		                    label=String[]) # normal/anomaly etc.
@@ -133,17 +140,17 @@ begin
 	for i = 1:2
 		rename!(sensor_data, "m_$i" => "m $(mofs[i]) [g/g]")
 	end
-	sensor_data
-end
 
-# ╔═╡ 2b285e2f-4ab2-4670-9575-1410552eefed
-begin
-	n_gas_compositions = 150
 	for g = 1:n_gas_compositions
 		datum = gen_data_point(normal_gas_comp, "normal")
 		push!(sensor_data, datum)
 	end
-	sensor_data
+	return sensor_data
+end
+
+# ╔═╡ 2b285e2f-4ab2-4670-9575-1410552eefed
+begin
+	sensor_data = generate_normal_sensor_data(150, 0.0)
 end
 
 # ╔═╡ ee190ccc-15e4-416a-a58c-21bc62fde1a5
@@ -325,6 +332,17 @@ begin
 	axislegend(position=:rb)
 	save("responses.pdf", fig_r)
 	fig_r
+end
+
+# ╔═╡ 4ddcf3a7-228f-4e5c-bdf2-7715d96c9c73
+md"!!! example \"\"
+	create a function to generate sensor response data with controlled error. 
+"
+
+# ╔═╡ 9f0ea3da-32b0-4d38-b971-043d3067904d
+function generate_error_test_data(num_compositions::Int, σs::Float64)
+
+	
 end
 
 # ╔═╡ 13f4c61a-2e80-46c3-9ee1-657ad7b92ea1
@@ -1578,6 +1596,7 @@ version = "3.5.0+0"
 # ╟─d1870035-d14f-431a-a7e7-27cd6a9f3dc0
 # ╠═1208db5e-7f60-46fd-ba77-b1387c5c7f79
 # ╠═dec6b686-719b-4f21-a5a7-c41a7c39300c
+# ╠═4870aa09-0f01-42f9-810a-d468876d7cd7
 # ╠═1a7fa5e6-db59-4fd4-99d7-52613ee2e420
 # ╠═630463cd-2475-4ad4-9ea7-ce62a661f441
 # ╠═02657dc8-46e7-4613-96a5-a4e5985fa39e
@@ -1598,7 +1617,9 @@ version = "3.5.0+0"
 # ╠═c8d753c5-c53e-4073-b3f2-31b72f9c6b7e
 # ╟─ecf86f67-114e-482e-9429-1dc6fdb62c7c
 # ╠═ad9e96d5-7668-4e5a-950d-e5a6bfd29db7
-# ╟─13f4c61a-2e80-46c3-9ee1-657ad7b92ea1
+# ╟─4ddcf3a7-228f-4e5c-bdf2-7715d96c9c73
+# ╠═9f0ea3da-32b0-4d38-b971-043d3067904d
+# ╠═13f4c61a-2e80-46c3-9ee1-657ad7b92ea1
 # ╠═5b263732-2ff7-456a-978f-90d7fb43411e
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
