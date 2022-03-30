@@ -10,6 +10,9 @@ using CairoMakie,CSV, DataFrames, ColorSchemes, Distributions, PlutoUI, Colors, 
 # ╔═╡ 2f4ddeea-a40a-428e-a979-9eaf850227dd
 include("plot_theme.jl")
 
+# ╔═╡ 17aa6afd-82d3-407e-a53f-8a83232f0994
+include("src/FruitRipeningRoom.jl")
+
 # ╔═╡ 1784c510-5465-11ec-0dd1-13e5a66e4ce6
 md"# Data Generation for Gas Sensor Arrays in a Fruit Ripening Room
 "
@@ -61,14 +64,11 @@ mutable struct GasComp
 end
 
 # ╔═╡ dec6b686-719b-4f21-a5a7-c41a7c39300c
-function sample_gas_composition(gas_comp::GasComp, error_σs::Float64)
+function sample_gas_composition(gas_comp::GasComp)
 	composition = Dict{String, Float64}()
 	composition["p C2H4 [bar]"] = rand(gas_comp.f_C₂H₄) 
-								+ error_σs*(randn()*std(gas_comp.f_C₂H₄))
 	composition["p CO2 [bar]"]  = rand(gas_comp.f_CO₂)
-								+ error_σs*(randn()*std(gas_comp.f_CO₂))
 	composition["p H2O [bar]"]  = rand(gas_comp.f_H₂O)
-								+ error_σs*(randn()*std(gas_comp.f_H₂O))
 	return composition
 end
 
@@ -76,23 +76,23 @@ end
 randn()
 
 # ╔═╡ 1a7fa5e6-db59-4fd4-99d7-52613ee2e420
-function response(composition::Dict{String, Float64}, error_σs::Float64)
+function response(composition::Dict{String, Float64})
 	response = Dict()
 	for mof in mofs
 		response["m $(mof) [g/g]"] = 0.0
 		for gas in gases
 			H_mof_gas = henry_data[mof][gas]["henry coef [g/(g-bar)]"]
 			p_gas     = composition["p $gas [bar]"]
-			response["m $(mof) [g/g]"] += H_mof_gas * sample_gas_composition
+			response["m $(mof) [g/g]"] += H_mof_gas * p_gas
 		end
 	end
 	return response
 end
 
 # ╔═╡ 630463cd-2475-4ad4-9ea7-ce62a661f441
-function gen_data_point(gas_comp::GasComp, label::String, error_σs::Float64)
-	p = sample_gas_composition(gas_comp, error_σs)
-	m = response(p, error_σs)
+function gen_data_point(gas_comp::GasComp, label::String)
+	p = sample_gas_composition(gas_comp)
+	m = response(p)
 	datum = merge(p, m)
 	datum["label"] = label
 	return datum
@@ -118,7 +118,7 @@ normal_gas_comp = GasComp(
 )
 
 # ╔═╡ 941732c8-e31f-40c7-bc2a-50198ddcab5c
-gen_data_point(normal_gas_comp, "normal", 0.0)
+gen_data_point(normal_gas_comp, "normal")
 
 # ╔═╡ 69aff7c7-196a-4fee-9070-3d6b49fdaddf
 md"!!! example \"\" 
@@ -130,7 +130,7 @@ number of gas compositions (300): It takes about 3 days for a banana to ripen in
 
 # ╔═╡ 272a7f32-ca99-4132-acdb-2a270173d9f6
 
-function generate_normal_sensor_data(n_gas_compositions::Int, error_σs::Float64)
+function generate_normal_sensor_data(n_gas_compositions::Int)
 	sensor_data = DataFrame(p_1=Float64[], p_2=Float64[], p_3=Float64[], 
 		                    m_1=Float64[], m_2=Float64[],
 		                    label=String[]) # normal/anomaly etc.
@@ -150,7 +150,7 @@ end
 
 # ╔═╡ 2b285e2f-4ab2-4670-9575-1410552eefed
 begin
-	sensor_data = generate_normal_sensor_data(150, 0.0)
+	sensor_data = generate_normal_sensor_data(150)
 end
 
 # ╔═╡ ee190ccc-15e4-416a-a58c-21bc62fde1a5
@@ -352,6 +352,9 @@ md"!!! example \"\"
 
 # ╔═╡ 5b263732-2ff7-456a-978f-90d7fb43411e
 jldsave("sensor_data.jld2"; gas_to_pretty_name, gases, mofs, sensor_data, colors)
+
+# ╔═╡ 7df3de82-d361-417f-93fc-11428558c546
+
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -1589,6 +1592,7 @@ version = "3.5.0+0"
 # ╟─1784c510-5465-11ec-0dd1-13e5a66e4ce6
 # ╠═d090131e-6602-4c03-860c-ad3cb6c7844a
 # ╠═2f4ddeea-a40a-428e-a979-9eaf850227dd
+# ╠═17aa6afd-82d3-407e-a53f-8a83232f0994
 # ╠═06409854-f2b6-4356-ab0c-0c7c7a410d9a
 # ╟─d5c471c3-26be-46c0-a174-d580d0ed7f7d
 # ╠═d657ed23-3eb4-49d0-a59c-811e8189c376
@@ -1621,5 +1625,6 @@ version = "3.5.0+0"
 # ╠═9f0ea3da-32b0-4d38-b971-043d3067904d
 # ╠═13f4c61a-2e80-46c3-9ee1-657ad7b92ea1
 # ╠═5b263732-2ff7-456a-978f-90d7fb43411e
+# ╠═7df3de82-d361-417f-93fc-11428558c546
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

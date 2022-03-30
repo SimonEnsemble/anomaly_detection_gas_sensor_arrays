@@ -4,13 +4,16 @@
 using Markdown
 using InteractiveUtils
 
+# ╔═╡ 43caff06-f74c-44b1-b8a4-7963a8d3f12d
+push!(LOAD_PATH, "src/")
+
 # ╔═╡ d090131e-6602-4c03-860c-ad3cb6c7844a
 using CairoMakie,CSV, DataFrames, ColorSchemes, Optim, Distributions, PlutoUI, ScikitLearn, Colors, Random, PlutoUI, JLD2
 
 # ╔═╡ 31f71438-ff2f-49f9-a801-3a6489eaf271
 begin
 include("plot_theme.jl")
-include("simulate_immersion_of_sensor_in_fruit_ripening_room.jl")
+#include("simulate_immersion_of_sensor_in_fruit_ripening_room.jl")
 end
 
 # ╔═╡ 1784c510-5465-11ec-0dd1-13e5a66e4ce6
@@ -243,7 +246,7 @@ function viz_validation_results(νs, γs, val_scores)
 		  	  xticks=(1:length(γs), 
 				  ["$(round(γ, digits=2))" for γ in γs]),
 		      yticks=(1:length(νs), 
-				  reverse(["$(round(ν, digits=3))" for ν in νs])),
+				  reverse(["$(round(ν, digits=5))" for ν in νs])),
 		      xticklabelrotation=π/2
 	)
 
@@ -1801,6 +1804,7 @@ version = "3.5.0+0"
 # ╔═╡ Cell order:
 # ╟─1784c510-5465-11ec-0dd1-13e5a66e4ce6
 # ╠═d090131e-6602-4c03-860c-ad3cb6c7844a
+# ╠═43caff06-f74c-44b1-b8a4-7963a8d3f12d
 # ╠═5d920ea0-f04d-475f-b05b-86e7b199d7e0
 # ╠═31f71438-ff2f-49f9-a801-3a6489eaf271
 # ╟─d5c471c3-26be-46c0-a174-d580d0ed7f7d
