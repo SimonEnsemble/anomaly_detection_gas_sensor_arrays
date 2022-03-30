@@ -190,8 +190,8 @@ begin
 	kernel = "rbf"
 	# defines hyper-parameter grid
 	if kernel == "rbf"
-		νs = range(0.0005, 0.001, length=15)
-		γs = range(0.1, 0.5, length=15)
+		νs = range(0.001, 0.05, length=30)
+		γs = range(0.1, 0.5, length=30)
 	else
 		νs = range(0.01, 0.9, length=15)
 		#γs = 10.0 .^ range(-2, -1, length=25)
@@ -304,7 +304,7 @@ sum(y_pred .!= y["test"])
 
 # ╔═╡ f1be79a4-e36e-480f-a575-70d3ee062a14
 md"!!! example \"\" 
-	Confusiona matrix work."
+	Fabricate a confusion matrix for anomalous vs normal data and a confusion matrix by anomaly type."
 
 # ╔═╡ 6591e930-8952-449a-8418-82a96b20fec9
 function viz_confusion_matrix(cm::Matrix{Int64}, naming::Vector{String})
@@ -331,10 +331,6 @@ function viz_confusion_matrix(cm::Matrix{Int64}, naming::Vector{String})
 	save("cm.pdf", fig)
     fig
 end
-
-# ╔═╡ c9286036-dae6-494a-949e-02882a7aac77
-md"# WORK HERE
-"
 
 # ╔═╡ 9396ce45-70f6-485f-9015-b586d0950342
 function viz_anomaly_type_confusion_matrix(mysvm, anomalous_naming::Vector{String})
@@ -1847,7 +1843,6 @@ version = "3.5.0+0"
 # ╠═562f2305-0fcd-4c6f-aca7-07deb7b74e05
 # ╟─f1be79a4-e36e-480f-a575-70d3ee062a14
 # ╠═6591e930-8952-449a-8418-82a96b20fec9
-# ╟─c9286036-dae6-494a-949e-02882a7aac77
 # ╠═9396ce45-70f6-485f-9015-b586d0950342
 # ╠═ab8acf22-ab5d-471a-b914-f3a8749bf178
 # ╠═d161fe94-c0cf-46ac-87c3-25c6a27a6b46
