@@ -17,7 +17,7 @@ include("plot_theme.jl")
 end
 
 # ╔═╡ 1784c510-5465-11ec-0dd1-13e5a66e4ce6
-md"# anomaly Detection for gas sensor arrays using one-class SVM
+md"# anomaly Detection for gas sensor arrays using one-class SVM with unsupervised validation
 "
 
 # ╔═╡ 5d920ea0-f04d-475f-b05b-86e7b199d7e0
@@ -203,12 +203,6 @@ end
 md"!!! example \"\" 
 	utilize new validation procedure to identify ideal γ and ν"
 
-# ╔═╡ 696de0e3-ee86-4627-8f6f-db917bf3a4a8
-begin
-	k = 3 #number of neighboors to
-
-end
-
 # ╔═╡ 405f8ea9-d9a1-4355-a3e7-0daf2bd02420
 function euclidean_distance(point1::Vector{Float64}, point2::Vector{Float64})
 	#the dimensionality of the points must be the same
@@ -225,6 +219,7 @@ end
 
 # ╔═╡ a1ef76d3-08ac-4e4b-82b7-50136c176df7
 function identify_sⁱₖ(k::Int, point::Vector{Float64}, data::Matrix{Float64})
+	@assert k <= length(data[:,1])
 	proximities = Dict{Int, Float64}()
 	index = 0
 
@@ -238,14 +233,50 @@ function identify_sⁱₖ(k::Int, point::Vector{Float64}, data::Matrix{Float64})
 	#sort by euclidean distance
 	sorted_data = sort(collect(proximities), by=x->x[2])
 	
-	#iterate through k values of sorted data and sum feature differences
-	for i = 1:k
-		
+	#iterate through the first k data points of sorted data and sum feature differences 
+	feature_difference_sum = 0
+	num_dimensions = length(point)
+	for kᵢ = 2:k+1
+		for dᵢ = 1:num_dimensions
+		feature_difference_sum += abs(point[dᵢ] - sorted_data[kᵢ][dᵢ])
+		end
 	end
+
+	sⁱₖ = (1/k) * feature_difference_sum
 	
-	#return sⁱₖ
-	return proximities
+	return sⁱₖ
 end
+
+# ╔═╡ 420daad4-afa2-4029-acee-29b25d3a0d5a
+function viz_sⁱₖ_plot(sⁱₖ_vector::Vector{Float64})
+	sorted_sⁱₖ_values = sort(sⁱₖ_vector)
+	indexes = collect(1:length(sⁱₖ_vector))
+	
+    fig = Figure()
+    ax = Axis(fig[1, 1], ylabel="sⁱₖ", xlabel="index")
+	lines!(indexes, sorted_sⁱₖ_values)
+	
+	save("density_measure_plot.pdf", fig)
+    fig
+end
+
+# ╔═╡ ca104ced-6fbd-4ced-b21f-37045dd98b26
+begin
+	#create an array of density measures, sort them and plot
+	sⁱₖ_values::Vector{Float64} = []
+	k_neighbors = 5
+
+	
+	for datum in eachrow(X["valid_scaled"])
+		point = [datum[i] for i = 1:length(datum)]
+		push!(sⁱₖ_values, identify_sⁱₖ(k_neighbors, point, X["valid_scaled"]))
+	end
+
+	viz_sⁱₖ_plot(sⁱₖ_values)	
+end
+
+# ╔═╡ 07c31636-93d5-4c98-a681-33cfd245f7bd
+length(X["valid_scaled"][:,1])
 
 # ╔═╡ c2156637-7bb4-4308-bbef-a1b6d63f0caa
 distances = identify_sⁱₖ(3, X["valid_scaled"][3,:], X["valid_scaled"] )
@@ -254,7 +285,7 @@ distances = identify_sⁱₖ(3, X["valid_scaled"][3,:], X["valid_scaled"] )
 sorted = sort(collect(distances), by=x->x[2])
 
 # ╔═╡ f6404521-00b5-4592-aa47-571383ee01cb
-sorted[1][2]
+sorted[1][]
 
 # ╔═╡ 12613f1c-d8c3-4dd2-b804-cb1d13029c5c
 begin
@@ -1841,9 +1872,11 @@ version = "3.5.0+0"
 # ╠═6eb73e08-3ef0-4aab-910d-28a55501e863
 # ╠═1a935820-68dc-4fa8-85f5-40b25b102175
 # ╟─4805bb61-14fa-4f40-8e5f-adff350575b2
-# ╠═696de0e3-ee86-4627-8f6f-db917bf3a4a8
 # ╠═405f8ea9-d9a1-4355-a3e7-0daf2bd02420
 # ╠═a1ef76d3-08ac-4e4b-82b7-50136c176df7
+# ╠═420daad4-afa2-4029-acee-29b25d3a0d5a
+# ╠═ca104ced-6fbd-4ced-b21f-37045dd98b26
+# ╠═07c31636-93d5-4c98-a681-33cfd245f7bd
 # ╠═c2156637-7bb4-4308-bbef-a1b6d63f0caa
 # ╠═e60c42e0-6748-4b07-b161-4336cb846055
 # ╠═f6404521-00b5-4592-aa47-571383ee01cb
