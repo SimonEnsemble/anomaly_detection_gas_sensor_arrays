@@ -199,82 +199,93 @@ begin
 	end
 end
 
-# ╔═╡ d415aba4-1957-4fdb-8980-79c32575c568
+# ╔═╡ 4805bb61-14fa-4f40-8e5f-adff350575b2
+md"!!! example \"\" 
+	utilize new validation procedure to identify ideal γ and ν"
+
+# ╔═╡ 696de0e3-ee86-4627-8f6f-db917bf3a4a8
 begin
-	@assert label_to_int["anomalous"] == -1 # anomaly considered "positive" below
+	k = 3 #number of neighboors to
+
+end
+
+# ╔═╡ 405f8ea9-d9a1-4355-a3e7-0daf2bd02420
+function euclidean_distance(point1::Vector{Float64}, point2::Vector{Float64})
+	#the dimensionality of the points must be the same
+	@assert length(point1) == length(point2)
 	
-	function performance_metric(y_true, y_pred)
-		# anomalies (-1) are considered "positives"
-		pr = precision_score(-y_true, -y_pred)
-		re =    recall_score(-y_true, -y_pred)
-		return re * pr
-		#return accuracy_score(y_true, y_pred)
+	sum_diff_squares = 0
+
+	for i = 1:length(point1)
+		sum_diff_squares += (point1[i]-point2[i])^2
 	end
+
+	return sum_diff_squares^(1/2)
 end
 
-# ╔═╡ 799b48d9-2c85-4cce-a215-12d58dee690d
-#step 2, create a function that generates a matrix of svm's given the ν and γ ranges and desired resolution.
+# ╔═╡ a1ef76d3-08ac-4e4b-82b7-50136c176df7
+function identify_sⁱₖ(k::Int, point::Vector{Float64}, data::Matrix{Float64})
+	proximities = Dict{Int, Float64}()
+	index = 0
 
-# ╔═╡ a3b3b771-4097-4f24-97f6-8819182fe5f4
-function validation_run(νs, γs)
-	val_scores = zeros(length(νs), length(γs))
-	for (i, ν) in enumerate(νs)
-		for (j, γ) in enumerate(γs)
-			# train SVM
-			oc_svm = train_anomaly_detector(X["train_scaled"], ν, γ, kernel)
-			# get predictions for validation data
-			y_pred = oc_svm.predict(X["valid_scaled"])
-			# store validation score
-			val_scores[i, j] = performance_metric(y["valid"], y_pred)
-		end
+	#obtain euclidean distances for each data point
+	for row in eachrow(data)
+		index += 1
+		proximity = euclidean_distance(point, row[:])
+		proximities[index] = proximity
 	end
-	return val_scores
+
+	#sort by euclidean distance
+	sorted_data = sort(collect(proximities), by=x->x[2])
+	
+	#iterate through k values of sorted data and sum feature differences
+	for i = 1:k
+		
+	end
+	
+	#return sⁱₖ
+	return proximities
 end
 
-# ╔═╡ 52899efc-9df7-4552-b47b-fb50e8297116
-function viz_validation_results(νs, γs, val_scores)
-	cmap = ColorSchemes.linear_green_5_95_c69_n256
+# ╔═╡ c2156637-7bb4-4308-bbef-a1b6d63f0caa
+distances = identify_sⁱₖ(3, X["valid_scaled"][3,:], X["valid_scaled"] )
 
-	fig = Figure()
+# ╔═╡ e60c42e0-6748-4b07-b161-4336cb846055
+sorted = sort(collect(distances), by=x->x[2])
 
-	ax = Axis(fig[1, 1], 
-			  xlabel="γ",
-			  ylabel="ν",
-		      aspect=length(γs) / length(νs),
-			  # xticks=(1:5:length(γs), ["$(round(γs[i], digits=2))" for i=1:5:length(γs)]),
-		   #    yticks=(1:5:length(νs), reverse(["$(round(νs[i], digits=3))" for i=1:5:length(νs)])),
-		  	  xticks=(1:length(γs), 
-				  ["$(round(γ, digits=2))" for γ in γs]),
-		      yticks=(1:length(νs), 
-				  reverse(["$(round(ν, digits=5))" for ν in νs])),
-		      xticklabelrotation=π/2
-	)
+# ╔═╡ f6404521-00b5-4592-aa47-571383ee01cb
+sorted[1][2]
 
-	hm = heatmap!(reverse(val_scores, dims=1)', colormap=cmap)
-
-	cb = Colorbar(fig[1, 2], hm, label="validation score")
-			 # # limits = (minimum(test_results_grid), maximum(test_results_grid)), 
-			 # colormap = h_map_colors, 
-			 # ticks = minimum(test_results_grid):5:maximum(test_results_grid),
-			 # label = "Accuracy Score")
-
-	return fig
+# ╔═╡ 12613f1c-d8c3-4dd2-b804-cb1d13029c5c
+begin
+	
+for i in eachrow(X["valid_scaled"])
+testing = i
 end
 
-# ╔═╡ 6a22f740-46ae-46b7-8962-b02028b3bf90
-val_scores = validation_run(νs, γs)
 
-# ╔═╡ 4f4ab2f4-7e29-4902-a4dd-28e61fab6cb9
-viz_validation_results(νs, γs, val_scores)
+end
 
-# ╔═╡ 4404685d-25fa-44c1-ab90-a31b514aa760
-id_opt_ν, id_opt_γ = argmax(val_scores).I
+# ╔═╡ 85b10e98-7ac6-4a1a-8d16-398ae9534552
+typeof(X["valid_scaled"][3,:])
 
-# ╔═╡ c694a907-6085-462b-b766-d2814b3b6ee1
-ν_opt = νs[id_opt_ν]
+# ╔═╡ a679d0ce-371e-4beb-86d6-0c8edcdda33f
+begin
+abc = (1.0,2.0)
+abc[1]
+end
 
-# ╔═╡ 6957c2ce-74dd-4049-ab05-38a0c2eb41a1
-γ_opt = γs[id_opt_γ]
+# ╔═╡ 4a998a63-f368-49f1-b0cc-82b222b36c8e
+
+
+# ╔═╡ 86283cb9-2f23-4503-9361-a40093037991
+
+
+# ╔═╡ ae08491a-e3d8-48e9-bf82-6c327d176616
+
+
+# ╔═╡ a24f1321-e464-4120-8dfd-16944941671a
+
 
 # ╔═╡ 8aed07f0-232a-4567-bda2-154ab1b1993a
 with_terminal() do
@@ -1827,17 +1838,22 @@ version = "3.5.0+0"
 # ╠═23aeb959-c578-405f-90d2-afb158406a4c
 # ╟─c34be089-ff98-404c-85e6-6b605d2cfe1c
 # ╠═af735015-999a-428c-bcec-defdad3caca6
-# ╟─6eb73e08-3ef0-4aab-910d-28a55501e863
+# ╠═6eb73e08-3ef0-4aab-910d-28a55501e863
 # ╠═1a935820-68dc-4fa8-85f5-40b25b102175
-# ╠═d415aba4-1957-4fdb-8980-79c32575c568
-# ╠═799b48d9-2c85-4cce-a215-12d58dee690d
-# ╠═a3b3b771-4097-4f24-97f6-8819182fe5f4
-# ╠═52899efc-9df7-4552-b47b-fb50e8297116
-# ╠═6a22f740-46ae-46b7-8962-b02028b3bf90
-# ╠═4f4ab2f4-7e29-4902-a4dd-28e61fab6cb9
-# ╠═4404685d-25fa-44c1-ab90-a31b514aa760
-# ╠═c694a907-6085-462b-b766-d2814b3b6ee1
-# ╠═6957c2ce-74dd-4049-ab05-38a0c2eb41a1
+# ╟─4805bb61-14fa-4f40-8e5f-adff350575b2
+# ╠═696de0e3-ee86-4627-8f6f-db917bf3a4a8
+# ╠═405f8ea9-d9a1-4355-a3e7-0daf2bd02420
+# ╠═a1ef76d3-08ac-4e4b-82b7-50136c176df7
+# ╠═c2156637-7bb4-4308-bbef-a1b6d63f0caa
+# ╠═e60c42e0-6748-4b07-b161-4336cb846055
+# ╠═f6404521-00b5-4592-aa47-571383ee01cb
+# ╠═12613f1c-d8c3-4dd2-b804-cb1d13029c5c
+# ╠═85b10e98-7ac6-4a1a-8d16-398ae9534552
+# ╠═a679d0ce-371e-4beb-86d6-0c8edcdda33f
+# ╠═4a998a63-f368-49f1-b0cc-82b222b36c8e
+# ╠═86283cb9-2f23-4503-9361-a40093037991
+# ╠═ae08491a-e3d8-48e9-bf82-6c327d176616
+# ╠═a24f1321-e464-4120-8dfd-16944941671a
 # ╠═8aed07f0-232a-4567-bda2-154ab1b1993a
 # ╠═7083f478-a811-47e2-af0a-643338138add
 # ╠═59aceee1-20b7-462a-b0d7-a5f70983d9b9
