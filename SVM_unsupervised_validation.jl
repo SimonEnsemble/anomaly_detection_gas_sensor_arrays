@@ -187,7 +187,7 @@ md"!!! example \"\"
 
 # ╔═╡ 1a935820-68dc-4fa8-85f5-40b25b102175
 begin
-	kernel = "poly"
+	kernel = "rbf"
 	# defines hyper-parameter grid
 	if kernel == "rbf"
 		νs = range(0.001, 0.05, length=30)
@@ -219,7 +219,7 @@ end
 
 # ╔═╡ a1ef76d3-08ac-4e4b-82b7-50136c176df7
 function identify_sⁱₖ(k::Int, point::Vector{Float64}, data::Matrix{Float64})
-	@assert k <= length(data[:,1])
+	@assert k < length(data[:,1])
 	proximities = Dict{Int, Float64}()
 	index = 0
 
@@ -248,15 +248,28 @@ function identify_sⁱₖ(k::Int, point::Vector{Float64}, data::Matrix{Float64})
 end
 
 # ╔═╡ 420daad4-afa2-4029-acee-29b25d3a0d5a
-function viz_sⁱₖ_plot(sⁱₖ_vector::Vector{Float64})
+function viz_sⁱₖ_plot(sⁱₖ_vector::Vector{Float64}, elbow_index::Int)
 	sorted_sⁱₖ_values = sort(sⁱₖ_vector)
 	indexes = collect(1:length(sⁱₖ_vector))
+	elbow_sⁱₖ = sorted_sⁱₖ_values[elbow_index]
 	
     fig = Figure()
+	
     ax = Axis(fig[1, 1], ylabel="sⁱₖ", xlabel="index")
+	
 	lines!(indexes, sorted_sⁱₖ_values)
 	
+	lines!([0, elbow_index, elbow_index], 
+		   [elbow_sⁱₖ, elbow_sⁱₖ, minimum(sⁱₖ_vector)], 
+		   linestyle = :dash, 
+		   color = :red)
+
+	text!("$(round(elbow_sⁱₖ, digits=3))",
+	      position = (0, elbow_sⁱₖ))
+	
+	
 	save("density_measure_plot.pdf", fig)
+	
     fig
 end
 
@@ -264,7 +277,7 @@ end
 begin
 	#create an array of density measures, sort them and plot
 	sⁱₖ_values::Vector{Float64} = []
-	k_neighbors = 5
+	k_neighbors = 61
 
 	
 	for datum in eachrow(X["valid_scaled"])
@@ -272,51 +285,22 @@ begin
 		push!(sⁱₖ_values, identify_sⁱₖ(k_neighbors, point, X["valid_scaled"]))
 	end
 
-	viz_sⁱₖ_plot(sⁱₖ_values)	
+	knee_index_guess = 59
+	viz_sⁱₖ_plot(sⁱₖ_values, knee_index_guess)	
 end
 
 # ╔═╡ 07c31636-93d5-4c98-a681-33cfd245f7bd
-length(X["valid_scaled"][:,1])
-
-# ╔═╡ c2156637-7bb4-4308-bbef-a1b6d63f0caa
-distances = identify_sⁱₖ(3, X["valid_scaled"][3,:], X["valid_scaled"] )
-
-# ╔═╡ e60c42e0-6748-4b07-b161-4336cb846055
-sorted = sort(collect(distances), by=x->x[2])
-
-# ╔═╡ f6404521-00b5-4592-aa47-571383ee01cb
-sorted[1][]
-
-# ╔═╡ 12613f1c-d8c3-4dd2-b804-cb1d13029c5c
 begin
+	num_data = length(X["valid_scaled"][:, 1])
+	sₘk = sort(sⁱₖ_values)[knee_index_guess]
+
+	#optimal ν is the fraction of data after the knee
+	ν_opt::Float64 = (num_data - knee_index_guess) / num_data
+
+	#optimal γ is 1/density at the knee
+	γ_opt = 1/sₘk
 	
-for i in eachrow(X["valid_scaled"])
-testing = i
 end
-
-
-end
-
-# ╔═╡ 85b10e98-7ac6-4a1a-8d16-398ae9534552
-typeof(X["valid_scaled"][3,:])
-
-# ╔═╡ a679d0ce-371e-4beb-86d6-0c8edcdda33f
-begin
-abc = (1.0,2.0)
-abc[1]
-end
-
-# ╔═╡ 4a998a63-f368-49f1-b0cc-82b222b36c8e
-
-
-# ╔═╡ 86283cb9-2f23-4503-9361-a40093037991
-
-
-# ╔═╡ ae08491a-e3d8-48e9-bf82-6c327d176616
-
-
-# ╔═╡ a24f1321-e464-4120-8dfd-16944941671a
-
 
 # ╔═╡ 8aed07f0-232a-4567-bda2-154ab1b1993a
 with_terminal() do
@@ -1877,16 +1861,6 @@ version = "3.5.0+0"
 # ╠═420daad4-afa2-4029-acee-29b25d3a0d5a
 # ╠═ca104ced-6fbd-4ced-b21f-37045dd98b26
 # ╠═07c31636-93d5-4c98-a681-33cfd245f7bd
-# ╠═c2156637-7bb4-4308-bbef-a1b6d63f0caa
-# ╠═e60c42e0-6748-4b07-b161-4336cb846055
-# ╠═f6404521-00b5-4592-aa47-571383ee01cb
-# ╠═12613f1c-d8c3-4dd2-b804-cb1d13029c5c
-# ╠═85b10e98-7ac6-4a1a-8d16-398ae9534552
-# ╠═a679d0ce-371e-4beb-86d6-0c8edcdda33f
-# ╠═4a998a63-f368-49f1-b0cc-82b222b36c8e
-# ╠═86283cb9-2f23-4503-9361-a40093037991
-# ╠═ae08491a-e3d8-48e9-bf82-6c327d176616
-# ╠═a24f1321-e464-4120-8dfd-16944941671a
 # ╠═8aed07f0-232a-4567-bda2-154ab1b1993a
 # ╠═7083f478-a811-47e2-af0a-643338138add
 # ╠═59aceee1-20b7-462a-b0d7-a5f70983d9b9
