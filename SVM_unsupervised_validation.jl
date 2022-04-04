@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.18.1
+# v0.18.4
 
 using Markdown
 using InteractiveUtils
@@ -8,7 +8,7 @@ using InteractiveUtils
 push!(LOAD_PATH, "src/")
 
 # ╔═╡ d090131e-6602-4c03-860c-ad3cb6c7844a
-using CairoMakie,CSV, DataFrames, ColorSchemes, Optim, Distributions, PlutoUI, ScikitLearn, Colors, Random, PlutoUI, JLD2
+using CairoMakie,CSV, DataFrames, ColorSchemes, Optim, Distributions, PlutoUI, ScikitLearn, Colors, Random, PlutoUI, JLD2, LinearAlgebra
 
 # ╔═╡ 31f71438-ff2f-49f9-a801-3a6489eaf271
 begin
@@ -203,76 +203,45 @@ end
 md"!!! example \"\" 
 	utilize new validation procedure to identify ideal γ and ν"
 
-# ╔═╡ 405f8ea9-d9a1-4355-a3e7-0daf2bd02420
-function euclidean_distance(point1::Vector{Float64}, point2::Vector{Float64})
-	#the dimensionality of the points must be the same
-	@assert length(point1) == length(point2)
-	
-	sum_diff_squares = 0
-
-	for i = 1:length(point1)
-		sum_diff_squares += (point1[i]-point2[i])^2
-	end
-
-	return sum_diff_squares^(1/2)
-end
+# ╔═╡ 5c921cd0-2961-42e6-9a51-c4822981db55
+X["valid_scaled"]
 
 # ╔═╡ a1ef76d3-08ac-4e4b-82b7-50136c176df7
-function identify_sⁱₖ(k::Int, point::Vector{Float64}, data::Matrix{Float64})
-	@assert k < length(data[:,1])
-	proximities = Dict{Int, Float64}()
-	index = 0
+function identify_sⁱₖ(i::Int, K::Int, X::Matrix{Float64})
+	x = X[i, :]
+	
+	nb_data = length(X[:, 1])
+	@assert K < nb_data
+	
+	proximities = zeros(nb_data)
 
 	#obtain euclidean distances for each data point
-	for row in eachrow(data)
-		index += 1
-		proximity = euclidean_distance(point, row[:])
-		proximities[index] = proximity
+	for j = 1:nb_data
+		proximities[j] = norm(x - X[j, :])
 	end
 
 	#sort by euclidean distance
-	sorted_data = sort(collect(proximities), by=x->x[2])
-	
-	#iterate through the first k data points of sorted data and sum feature differences, skipping the first point.
-	feature_difference_sum = 0.0
-	num_dimensions = length(point)
-	for kᵢ = 2:k+1
-		
-		feature_difference_sum += sorted_data[kᵢ][2]
-		#for dᵢ = 1:num_dimensions
-		#feature_difference_sum += abs(point[dᵢ] - sorted_data[kᵢ][dᵢ])
-		#end
-	end
-
-	sⁱₖ = (1/k) * feature_difference_sum
+	sorted_proximities = sort(proximities)
+	sⁱₖ = sum(sorted_proximities[2:K+1]) / K
 	
 	return sⁱₖ
 end
 
-# ╔═╡ 229f5c9b-1c6b-4e65-bdb3-6f69670cf6a7
-function viz_Cf_plot(sⁱₖ_vector::Vector{Float64}, elbow_index::Int)
-	sorted_sⁱₖ_values = sort(sⁱₖ_vector)
-	indexes = collect(1:length(sⁱₖ_vector))
-	Cf_values = zeros(length(sⁱₖ_vector)-2)
-	
-
-	
-end
+# ╔═╡ 1477b31a-125c-43d8-9c9e-d756ebae3e67
+identify_sⁱₖ(2, 6, X["valid_scaled"])
 
 # ╔═╡ 420daad4-afa2-4029-acee-29b25d3a0d5a
-function viz_sⁱₖ_plot(sⁱₖ_vector::Vector{Float64}, elbow_index::Int)
-	sorted_sⁱₖ_values = sort(sⁱₖ_vector)
-	indexes = collect(1:length(sⁱₖ_vector))
-	elbow_sⁱₖ = sorted_sⁱₖ_values[elbow_index]
+function viz_sⁱₖ_plot(sorted_sⁱₖ_vector::Vector{Float64}, elbow_index::Int)
+	elbow_sⁱₖ = sorted_sⁱₖ_vector[elbow_index]
 	
     fig = Figure()
 	
-    ax = Axis(fig[1, 1], ylabel="sⁱₖ", xlabel="index")
+    ax = Axis(fig[1, 1], ylabel="sⁱₖ", xlabel="(sorted) index")
 	
-	lines!(indexes, sorted_sⁱₖ_values)
+	lines!(1:length(sorted_sⁱₖ_vector), sorted_sⁱₖ_vector)
 	
 	lines!([0, elbow_index, elbow_index], 
-		   [elbow_sⁱₖ, elbow_sⁱₖ, minimum(sⁱₖ_vector)], 
+		   [elbow_sⁱₖ, elbow_sⁱₖ, minimum(sorted_sⁱₖ_vector)], 
 		   linestyle = :dash, 
 		   color = :red)
 
@@ -288,36 +257,26 @@ end
 # ╔═╡ ca104ced-6fbd-4ced-b21f-37045dd98b26
 begin
 	#create an array of density measures, sort them and plot
-	sⁱₖ_values::Vector{Float64} = []
-	k_neighbors = 7
+	nb_valid_data = size(X["valid_scaled"], 1)
 
-	
-	for datum in eachrow(X["valid_scaled"])
-		point = [datum[i] for i = 1:length(datum)]
-		push!(sⁱₖ_values, identify_sⁱₖ(k_neighbors, point, X["valid_scaled"]))
-	end
+	K = 7
+	sⁱₖ_vector = [identify_sⁱₖ(i, K, X["valid_scaled"]) for i = 1:nb_valid_data]
+	sorted_sⁱₖ_vector = sort(sⁱₖ_vector)
 
 	knee_index_guess = 55
-	viz_sⁱₖ_plot(sⁱₖ_values, knee_index_guess)	
-end
 
-# ╔═╡ 07c31636-93d5-4c98-a681-33cfd245f7bd
-begin
-	num_data = length(X["valid_scaled"][:, 1])
-	sₘk = sort(sⁱₖ_values)[knee_index_guess]
+	sₘk = sorted_sⁱₖ_vector[knee_index_guess]
 
 	#optimal ν is the fraction of data after the knee
-	ν_opt::Float64 = (abs(num_data - knee_index_guess) / num_data)
+	ν_opt = abs(nb_valid_data - knee_index_guess) / nb_valid_data
 
 	#optimal γ is 1/density at the knee
-	γ_opt = 1/sₘk
+	γ_opt = 1 / sₘk
 	
-end
+	println("ν opt = ", ν_opt)
+	println("γ opt = ", γ_opt)
 
-# ╔═╡ 8aed07f0-232a-4567-bda2-154ab1b1993a
-with_terminal() do
-	println("opt ν = ", ν_opt)
-	println("opt γ = ", γ_opt)
+	viz_sⁱₖ_plot(sorted_sⁱₖ_vector, knee_index_guess)
 end
 
 # ╔═╡ 7083f478-a811-47e2-af0a-643338138add
@@ -419,7 +378,7 @@ function viz_anomaly_type_confusion_matrix(mysvm, anomalous_naming::Vector{Strin
 	colormap=ColorSchemes.algae, colorrange=(0, sum(cm_plot)))
     for i = 1:2
         for j = 1:length(naming)
-            text!("$(cm_plot[i, j])",
+            text!("$(Int(cm_plot[i, j]))",
                   position=(i, j), align=(:center, :center), color=:black)
         end
     end
@@ -518,6 +477,7 @@ Colors = "5ae59095-9a9b-59fe-a467-6f913c188581"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Optim = "429524aa-4258-5aef-a3af-852621145aeb"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
@@ -540,8 +500,9 @@ ScikitLearn = "~0.6.4"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.7.2"
+julia_version = "1.8.0-DEV.1390"
 manifest_format = "2.0"
+project_hash = "1e25a18462c5b5ad82257f9ef79114ea10a9fd86"
 
 [[deps.AbstractFFTs]]
 deps = ["ChainRulesCore", "LinearAlgebra"]
@@ -574,6 +535,7 @@ version = "0.4.1"
 
 [[deps.ArgTools]]
 uuid = "0dad84c5-d112-42e6-8d28-ef12dabb789f"
+version = "1.1.1"
 
 [[deps.ArrayInterface]]
 deps = ["Compat", "IfElse", "LinearAlgebra", "Requires", "SparseArrays", "Static"]
@@ -703,6 +665,7 @@ version = "3.42.0"
 [[deps.CompilerSupportLibraries_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "e66e0078-7015-5450-92f7-15fbd957f2ae"
+version = "0.5.0+0"
 
 [[deps.Conda]]
 deps = ["Downloads", "JSON", "VersionParsing"]
@@ -786,8 +749,9 @@ uuid = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
 version = "0.8.6"
 
 [[deps.Downloads]]
-deps = ["ArgTools", "LibCURL", "NetworkOptions"]
+deps = ["ArgTools", "FileWatching", "LibCURL", "NetworkOptions"]
 uuid = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
+version = "1.6.0"
 
 [[deps.DualNumbers]]
 deps = ["Calculus", "NaNMath", "SpecialFunctions"]
@@ -847,6 +811,9 @@ deps = ["Compat", "Dates", "Mmap", "Printf", "Test", "UUIDs"]
 git-tree-sha1 = "04d13bfa8ef11720c24e4d840c0033d145537df7"
 uuid = "48062228-2e41-5def-b9a4-89aafe57970f"
 version = "0.9.17"
+
+[[deps.FileWatching]]
+uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
 
 [[deps.FillArrays]]
 deps = ["LinearAlgebra", "Random", "SparseArrays", "Statistics"]
@@ -1123,10 +1090,12 @@ uuid = "4af54fe1-eca0-43a8-85a7-787d91b784e3"
 [[deps.LibCURL]]
 deps = ["LibCURL_jll", "MozillaCACerts_jll"]
 uuid = "b27032c2-a3e7-50c8-80cd-2d36dbcbfd21"
+version = "0.6.3"
 
 [[deps.LibCURL_jll]]
 deps = ["Artifacts", "LibSSH2_jll", "Libdl", "MbedTLS_jll", "Zlib_jll", "nghttp2_jll"]
 uuid = "deac9b47-8bc7-5906-a0fe-35ac56dc84c0"
+version = "7.73.0+4"
 
 [[deps.LibGit2]]
 deps = ["Base64", "NetworkOptions", "Printf", "SHA"]
@@ -1135,6 +1104,7 @@ uuid = "76f85450-5226-5b5a-8eaa-529ad045b433"
 [[deps.LibSSH2_jll]]
 deps = ["Artifacts", "Libdl", "MbedTLS_jll"]
 uuid = "29816b5a-b9ab-546f-933c-edad1886dfa8"
+version = "1.9.1+2"
 
 [[deps.Libdl]]
 uuid = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
@@ -1241,6 +1211,7 @@ version = "0.2.1"
 [[deps.MbedTLS_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "c8ffd9c3-330d-5841-b78e-0817d7145fa1"
+version = "2.24.0+2"
 
 [[deps.Missings]]
 deps = ["DataAPI"]
@@ -1259,6 +1230,7 @@ version = "0.3.3"
 
 [[deps.MozillaCACerts_jll]]
 uuid = "14a3606d-f60d-562e-9121-12d972cd8159"
+version = "2020.7.22"
 
 [[deps.NLSolversBase]]
 deps = ["DiffResults", "Distributed", "FiniteDiff", "ForwardDiff"]
@@ -1279,6 +1251,7 @@ version = "1.0.2"
 
 [[deps.NetworkOptions]]
 uuid = "ca575930-c2e3-43a9-ace4-1e988b2c1908"
+version = "1.2.0"
 
 [[deps.Observables]]
 git-tree-sha1 = "fe29afdef3d0c4a8286128d4e45cc50621b1e43d"
@@ -1300,6 +1273,7 @@ version = "1.3.5+1"
 [[deps.OpenBLAS_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Libdl"]
 uuid = "4536629a-c528-5b80-bd46-f80d51c5b363"
+version = "0.3.17+2"
 
 [[deps.OpenEXR]]
 deps = ["Colors", "FileIO", "OpenEXR_jll"]
@@ -1316,6 +1290,7 @@ version = "3.1.1+0"
 [[deps.OpenLibm_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "05823500-19ac-5b8b-9628-191a04bc5112"
+version = "0.8.1+0"
 
 [[deps.OpenSSL_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1403,6 +1378,7 @@ version = "0.40.1+0"
 [[deps.Pkg]]
 deps = ["Artifacts", "Dates", "Downloads", "LibGit2", "Libdl", "Logging", "Markdown", "Printf", "REPL", "Random", "SHA", "Serialization", "TOML", "Tar", "UUIDs", "p7zip_jll"]
 uuid = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
+version = "1.8.0"
 
 [[deps.PkgVersion]]
 deps = ["Pkg"]
@@ -1518,6 +1494,7 @@ version = "0.3.0+0"
 
 [[deps.SHA]]
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
+version = "0.7.0"
 
 [[deps.SIMD]]
 git-tree-sha1 = "7dbc15af7ed5f751a82bf3ed37757adf76c32402"
@@ -1645,6 +1622,7 @@ uuid = "4607b0f0-06f3-5cda-b6b1-a6196a1729e9"
 [[deps.TOML]]
 deps = ["Dates"]
 uuid = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
+version = "1.0.0"
 
 [[deps.TableTraits]]
 deps = ["IteratorInterfaceExtensions"]
@@ -1661,6 +1639,7 @@ version = "1.7.0"
 [[deps.Tar]]
 deps = ["ArgTools", "SHA"]
 uuid = "a4e569a6-e804-4fa4-b0f3-eef7a1d5b13e"
+version = "1.10.0"
 
 [[deps.TensorCore]]
 deps = ["LinearAlgebra"]
@@ -1782,6 +1761,7 @@ version = "1.4.0+3"
 [[deps.Zlib_jll]]
 deps = ["Libdl"]
 uuid = "83775a58-1f1d-513f-b197-d71354ab007a"
+version = "1.2.12+1"
 
 [[deps.isoband_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1798,6 +1778,7 @@ version = "0.15.1+0"
 [[deps.libblastrampoline_jll]]
 deps = ["Artifacts", "Libdl", "OpenBLAS_jll"]
 uuid = "8e850b90-86db-534c-a0d3-1478176c7d93"
+version = "4.0.0+0"
 
 [[deps.libfdk_aac_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1820,10 +1801,12 @@ version = "1.3.7+1"
 [[deps.nghttp2_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "8e850ede-7688-5339-a07c-302acd2aaf8d"
+version = "1.41.0+1"
 
 [[deps.p7zip_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
+version = "16.2.1+1"
 
 [[deps.x264_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1868,13 +1851,11 @@ version = "3.5.0+0"
 # ╠═6eb73e08-3ef0-4aab-910d-28a55501e863
 # ╠═1a935820-68dc-4fa8-85f5-40b25b102175
 # ╟─4805bb61-14fa-4f40-8e5f-adff350575b2
-# ╠═405f8ea9-d9a1-4355-a3e7-0daf2bd02420
+# ╠═5c921cd0-2961-42e6-9a51-c4822981db55
+# ╠═1477b31a-125c-43d8-9c9e-d756ebae3e67
 # ╠═a1ef76d3-08ac-4e4b-82b7-50136c176df7
-# ╠═229f5c9b-1c6b-4e65-bdb3-6f69670cf6a7
 # ╠═420daad4-afa2-4029-acee-29b25d3a0d5a
 # ╠═ca104ced-6fbd-4ced-b21f-37045dd98b26
-# ╠═07c31636-93d5-4c98-a681-33cfd245f7bd
-# ╠═8aed07f0-232a-4567-bda2-154ab1b1993a
 # ╠═7083f478-a811-47e2-af0a-643338138add
 # ╠═59aceee1-20b7-462a-b0d7-a5f70983d9b9
 # ╠═fd32cc28-6215-4acf-81e3-39a020542a23
