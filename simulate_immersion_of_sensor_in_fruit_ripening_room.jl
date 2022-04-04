@@ -150,7 +150,7 @@ end
 
 # ╔═╡ 2b285e2f-4ab2-4670-9575-1410552eefed
 begin
-	sensor_data = generate_normal_sensor_data(150)
+	sensor_data = generate_normal_sensor_data(300)
 end
 
 # ╔═╡ ee190ccc-15e4-416a-a58c-21bc62fde1a5

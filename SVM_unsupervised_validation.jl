@@ -233,18 +233,30 @@ function identify_sⁱₖ(k::Int, point::Vector{Float64}, data::Matrix{Float64})
 	#sort by euclidean distance
 	sorted_data = sort(collect(proximities), by=x->x[2])
 	
-	#iterate through the first k data points of sorted data and sum feature differences 
-	feature_difference_sum = 0
+	#iterate through the first k data points of sorted data and sum feature differences, skipping the first point.
+	feature_difference_sum = 0.0
 	num_dimensions = length(point)
 	for kᵢ = 2:k+1
-		for dᵢ = 1:num_dimensions
-		feature_difference_sum += abs(point[dᵢ] - sorted_data[kᵢ][dᵢ])
-		end
+		
+		feature_difference_sum += sorted_data[kᵢ][2]
+		#for dᵢ = 1:num_dimensions
+		#feature_difference_sum += abs(point[dᵢ] - sorted_data[kᵢ][dᵢ])
+		#end
 	end
 
 	sⁱₖ = (1/k) * feature_difference_sum
 	
 	return sⁱₖ
+end
+
+# ╔═╡ 229f5c9b-1c6b-4e65-bdb3-6f69670cf6a7
+function viz_Cf_plot(sⁱₖ_vector::Vector{Float64}, elbow_index::Int)
+	sorted_sⁱₖ_values = sort(sⁱₖ_vector)
+	indexes = collect(1:length(sⁱₖ_vector))
+	Cf_values = zeros(length(sⁱₖ_vector)-2)
+	
+
+	
 end
 
 # ╔═╡ 420daad4-afa2-4029-acee-29b25d3a0d5a
@@ -277,7 +289,7 @@ end
 begin
 	#create an array of density measures, sort them and plot
 	sⁱₖ_values::Vector{Float64} = []
-	k_neighbors = 61
+	k_neighbors = 7
 
 	
 	for datum in eachrow(X["valid_scaled"])
@@ -285,7 +297,7 @@ begin
 		push!(sⁱₖ_values, identify_sⁱₖ(k_neighbors, point, X["valid_scaled"]))
 	end
 
-	knee_index_guess = 59
+	knee_index_guess = 55
 	viz_sⁱₖ_plot(sⁱₖ_values, knee_index_guess)	
 end
 
@@ -295,7 +307,7 @@ begin
 	sₘk = sort(sⁱₖ_values)[knee_index_guess]
 
 	#optimal ν is the fraction of data after the knee
-	ν_opt::Float64 = (num_data - knee_index_guess) / num_data
+	ν_opt::Float64 = (abs(num_data - knee_index_guess) / num_data)
 
 	#optimal γ is 1/density at the knee
 	γ_opt = 1/sₘk
@@ -1858,6 +1870,7 @@ version = "3.5.0+0"
 # ╟─4805bb61-14fa-4f40-8e5f-adff350575b2
 # ╠═405f8ea9-d9a1-4355-a3e7-0daf2bd02420
 # ╠═a1ef76d3-08ac-4e4b-82b7-50136c176df7
+# ╠═229f5c9b-1c6b-4e65-bdb3-6f69670cf6a7
 # ╠═420daad4-afa2-4029-acee-29b25d3a0d5a
 # ╠═ca104ced-6fbd-4ced-b21f-37045dd98b26
 # ╠═07c31636-93d5-4c98-a681-33cfd245f7bd
