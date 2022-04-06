@@ -201,13 +201,12 @@ end
 
 # ╔═╡ 4805bb61-14fa-4f40-8e5f-adff350575b2
 md"!!! example \"\" 
-	utilize new validation procedure to identify ideal γ and ν"
-
-# ╔═╡ 5c921cd0-2961-42e6-9a51-c4822981db55
-X["valid_scaled"]
+	utilize an unsupervised validation procedure to identify ideal γ and ν hyperparameters to generate a one-class support vector machine"
 
 # ╔═╡ a1ef76d3-08ac-4e4b-82b7-50136c176df7
 function identify_sⁱₖ(i::Int, K::Int, X::Matrix{Float64})
+	#function to identify the the value of the density metric of k nearest neighboors for point number i of the feature matrix X using euclidean distance as a metric for evaluating proximity.
+	
 	x = X[i, :]
 	
 	nb_data = length(X[:, 1])
@@ -227,11 +226,10 @@ function identify_sⁱₖ(i::Int, K::Int, X::Matrix{Float64})
 	return sⁱₖ
 end
 
-# ╔═╡ 1477b31a-125c-43d8-9c9e-d756ebae3e67
-identify_sⁱₖ(2, 6, X["valid_scaled"])
-
 # ╔═╡ 420daad4-afa2-4029-acee-29b25d3a0d5a
 function viz_sⁱₖ_plot(sorted_sⁱₖ_vector::Vector{Float64}, elbow_index::Int)
+	#visualizes the ordered density plot and index of maximum curvature of the ordered density vector.
+	
 	elbow_sⁱₖ = sorted_sⁱₖ_vector[elbow_index]
 	
     fig = Figure()
@@ -297,27 +295,10 @@ begin
 end
 
 # ╔═╡ 7083f478-a811-47e2-af0a-643338138add
-deploy_oc_svm = train_anomaly_detector(X["train_scaled"], ν_opt, γ_opt, kernel)
-#deploy_oc_svm = train_anomaly_detector(X["train_scaled"], 0.02, 0.040, kernel)
-
-# ╔═╡ 59aceee1-20b7-462a-b0d7-a5f70983d9b9
-y_pred = deploy_oc_svm.predict(X["test_scaled"])
-#y_pred = deploy_oc_svm.predict(X["train_scaled"])
-
-# ╔═╡ fd32cc28-6215-4acf-81e3-39a020542a23
-
-
-# ╔═╡ 1d2f71c0-3375-49e4-9351-0e0f0ac84616
-cm = confusion_matrix(y["test"], y_pred)
-#cm = confusion_matrix(y["train"], y_pred)
-
-# ╔═╡ 4f7e5474-8712-425e-b1f1-1e96161f1fdb
-sum(y_pred .== y["test"])
-#sum(y_pred .== y["train"])
-
-# ╔═╡ 562f2305-0fcd-4c6f-aca7-07deb7b74e05
-sum(y_pred .!= y["test"])
-#sum(y_pred .!= y["train"])
+begin
+	#generate the optimal one-class support vector machine using optimized hyperparameters.
+	deploy_oc_svm = train_anomaly_detector(X["train_scaled"], ν_opt, γ_opt, kernel)
+end
 
 # ╔═╡ f1be79a4-e36e-480f-a575-70d3ee062a14
 md"!!! example \"\" 
@@ -405,10 +386,21 @@ function viz_anomaly_type_confusion_matrix(mysvm, anomalous_naming::Vector{Strin
 end
 
 # ╔═╡ ab8acf22-ab5d-471a-b914-f3a8749bf178
-viz_anomaly_type_confusion_matrix(deploy_oc_svm, anomalous_labels)
+
 
 # ╔═╡ d161fe94-c0cf-46ac-87c3-25c6a27a6b46
-viz_confusion_matrix(cm, ["anomalous", "normal"])
+begin
+	#we visualize the standard confusion matrix using the sci-kit learn libarary.
+	y_pred = deploy_oc_svm.predict(X["test_scaled"])
+	cm = confusion_matrix(y["test"], y_pred)
+	viz_confusion_matrix(cm, ["anomalous", "normal"])
+end
+
+# ╔═╡ 518d24b7-1b0c-408d-9933-11e0660c2cbe
+begin
+	#we visualize a custom confusion matrix for a more detailed look by anomaly type.
+	viz_anomaly_type_confusion_matrix(deploy_oc_svm, anomalous_labels)
+end
 
 # ╔═╡ 0a0cab3a-0231-4d75-8ce6-fde439204082
 #function to generate a grid of anomaly scores based on a trained svm and given resolution.
@@ -1845,23 +1837,17 @@ version = "3.5.0+0"
 # ╠═6eb73e08-3ef0-4aab-910d-28a55501e863
 # ╠═1a935820-68dc-4fa8-85f5-40b25b102175
 # ╟─4805bb61-14fa-4f40-8e5f-adff350575b2
-# ╠═5c921cd0-2961-42e6-9a51-c4822981db55
-# ╠═1477b31a-125c-43d8-9c9e-d756ebae3e67
 # ╠═a1ef76d3-08ac-4e4b-82b7-50136c176df7
 # ╠═420daad4-afa2-4029-acee-29b25d3a0d5a
 # ╠═e3c361ba-bf24-4154-8d24-60c69bc2e884
 # ╠═ca104ced-6fbd-4ced-b21f-37045dd98b26
 # ╠═7083f478-a811-47e2-af0a-643338138add
-# ╠═59aceee1-20b7-462a-b0d7-a5f70983d9b9
-# ╠═fd32cc28-6215-4acf-81e3-39a020542a23
-# ╠═1d2f71c0-3375-49e4-9351-0e0f0ac84616
-# ╠═4f7e5474-8712-425e-b1f1-1e96161f1fdb
-# ╠═562f2305-0fcd-4c6f-aca7-07deb7b74e05
 # ╟─f1be79a4-e36e-480f-a575-70d3ee062a14
 # ╠═6591e930-8952-449a-8418-82a96b20fec9
 # ╠═9396ce45-70f6-485f-9015-b586d0950342
 # ╠═ab8acf22-ab5d-471a-b914-f3a8749bf178
 # ╠═d161fe94-c0cf-46ac-87c3-25c6a27a6b46
+# ╠═518d24b7-1b0c-408d-9933-11e0660c2cbe
 # ╠═0a0cab3a-0231-4d75-8ce6-fde439204082
 # ╠═a1a6e4cf-1a15-4492-88f9-f2e68646dcb5
 # ╠═5c7379cc-cc01-4025-87d7-92162f65468d
