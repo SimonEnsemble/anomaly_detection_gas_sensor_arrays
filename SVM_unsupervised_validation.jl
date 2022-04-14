@@ -1,20 +1,18 @@
 ### A Pluto.jl notebook ###
-# v0.18.1
+# v0.19.0
 
 using Markdown
 using InteractiveUtils
 
-# ╔═╡ 43caff06-f74c-44b1-b8a4-7963a8d3f12d
-push!(LOAD_PATH, "src/")
-
-# ╔═╡ d090131e-6602-4c03-860c-ad3cb6c7844a
-using CairoMakie,CSV, DataFrames, ColorSchemes, Optim, Distributions, PlutoUI, ScikitLearn, Colors, Random, PlutoUI, JLD2, LinearAlgebra
-
 # ╔═╡ 31f71438-ff2f-49f9-a801-3a6489eaf271
 begin
 include("plot_theme.jl")
-#include("simulate_immersion_of_sensor_in_fruit_ripening_room.jl")
+push!(LOAD_PATH, joinpath(pwd(),"src/"))
+using FruitRipeningRoom
 end
+
+# ╔═╡ d090131e-6602-4c03-860c-ad3cb6c7844a
+using CairoMakie,CSV, DataFrames, ColorSchemes, Optim, Distributions, PlutoUI, ScikitLearn, Colors, Random, PlutoUI, JLD2, LinearAlgebra
 
 # ╔═╡ 1784c510-5465-11ec-0dd1-13e5a66e4ce6
 md"# anomaly Detection for gas sensor arrays using one-class SVM with unsupervised validation
@@ -31,6 +29,9 @@ begin
 	@sk_import metrics : recall_score
 	@sk_import metrics.pairwise : polynomial_kernel
 end
+
+# ╔═╡ 570401bc-7227-486f-a1ae-6a37ed1746dc
+setup_gas_comp_distn(1.0, "normal")
 
 # ╔═╡ d5c471c3-26be-46c0-a174-d580d0ed7f7d
 md"!!! example \"\"
@@ -1810,9 +1811,9 @@ version = "3.5.0+0"
 # ╔═╡ Cell order:
 # ╟─1784c510-5465-11ec-0dd1-13e5a66e4ce6
 # ╠═d090131e-6602-4c03-860c-ad3cb6c7844a
-# ╠═43caff06-f74c-44b1-b8a4-7963a8d3f12d
 # ╠═5d920ea0-f04d-475f-b05b-86e7b199d7e0
 # ╠═31f71438-ff2f-49f9-a801-3a6489eaf271
+# ╠═570401bc-7227-486f-a1ae-6a37ed1746dc
 # ╟─d5c471c3-26be-46c0-a174-d580d0ed7f7d
 # ╠═d657ed23-3eb4-49d0-a59c-811e8189c376
 # ╠═91a56f3c-36ca-4799-be4c-1a209b42f162

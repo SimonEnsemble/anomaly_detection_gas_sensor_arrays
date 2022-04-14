@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.18.1
+# v0.19.0
 
 using Markdown
 using InteractiveUtils
@@ -9,9 +9,6 @@ using CairoMakie,CSV, DataFrames, ColorSchemes, Distributions, PlutoUI, Colors, 
 
 # ╔═╡ 2f4ddeea-a40a-428e-a979-9eaf850227dd
 include("plot_theme.jl")
-
-# ╔═╡ 17aa6afd-82d3-407e-a53f-8a83232f0994
-include("src/FruitRipeningRoom.jl")
 
 # ╔═╡ 1784c510-5465-11ec-0dd1-13e5a66e4ce6
 md"# Data Generation for Gas Sensor Arrays in a Fruit Ripening Room
@@ -73,7 +70,7 @@ function sample_gas_composition(gas_comp::GasComp)
 end
 
 # ╔═╡ 4870aa09-0f01-42f9-810a-d468876d7cd7
-randn()
+FruitRipeningRoom.gen_synthetic_gas_compositions("normal", 50, 1.0)
 
 # ╔═╡ 1a7fa5e6-db59-4fd4-99d7-52613ee2e420
 function response(composition::Dict{String, Float64})
@@ -1592,7 +1589,6 @@ version = "3.5.0+0"
 # ╟─1784c510-5465-11ec-0dd1-13e5a66e4ce6
 # ╠═d090131e-6602-4c03-860c-ad3cb6c7844a
 # ╠═2f4ddeea-a40a-428e-a979-9eaf850227dd
-# ╠═17aa6afd-82d3-407e-a53f-8a83232f0994
 # ╠═06409854-f2b6-4356-ab0c-0c7c7a410d9a
 # ╟─d5c471c3-26be-46c0-a174-d580d0ed7f7d
 # ╠═d657ed23-3eb4-49d0-a59c-811e8189c376
