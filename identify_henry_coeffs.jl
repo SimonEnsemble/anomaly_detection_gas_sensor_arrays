@@ -138,8 +138,8 @@ begin
 		henry_data[mof] = Dict()
 		for gas in gases
 			data = isotherm_data(mof, gas)
-			henry_data[mof][gas] = Dict()
-			henry_data[mof][gas]["henry coef [g/(g-bar)]"] = fit_Henry(data[1:2, :])
+			henry_data[mof][gas_to_pretty_name[gas]] = Dict()
+			henry_data[mof][gas_to_pretty_name[gas]]["henry coef [g/(g-bar)]"] = fit_Henry(data[1:2, :])
 		end
 	end
 	henry_data
@@ -169,7 +169,7 @@ function viz_adsorption_data(mof::String; viz_henry::Bool=true, savefig::Bool=tr
 	if viz_henry
 		ps = [0.0, 0.5]
 		for gas in gases
-			H = henry_data[mof][gas]["henry coef [g/(g-bar)]"]
+			H = henry_data[mof][gas_to_pretty_name[gas]]["henry coef [g/(g-bar)]"]
 			ms = H * ps
 			lines!(ps, ms, color=gas_to_color[gas])
 		end
@@ -200,7 +200,7 @@ md"!!! example \"\"
 
 # ╔═╡ eaed2f07-f631-4502-ade3-93fa57b1d978
 function viz_henry_barplot()
-	h_values = [henry_data[mofs[i]][gases[j]]["henry coef [g/(g-bar)]"] 
+	h_values = [henry_data[mofs[i]][gas_to_pretty_name[gases[j]]]["henry coef [g/(g-bar)]"] 
 				for i=1:length(mofs) for j=1:length(gases)]
 	
 	fig = Figure()
@@ -248,7 +248,7 @@ jldsave("henry_coeffs.jld2"; henry_data, gas_to_pretty_name, gases, mofs)
 md"## find null space"
 
 # ╔═╡ 4ef435b9-eee5-43a4-bc2e-20c6b3b2e2be
-H = [henry_data[mof][gas]["henry coef [g/(g-bar)]"] for mof in mofs, gas in gases]
+H = [henry_data[mof][gas_to_pretty_name[gas]]["henry coef [g/(g-bar)]"] for mof in mofs, gas in gases]
 
 # ╔═╡ 294b2945-1d85-427b-9727-3f1a871fcbb8
 f = svd(H, full=true)

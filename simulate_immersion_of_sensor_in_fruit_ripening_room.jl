@@ -1,13 +1,19 @@
 ### A Pluto.jl notebook ###
-# v0.19.0
+# v0.18.1
 
 using Markdown
 using InteractiveUtils
 
-# ╔═╡ d090131e-6602-4c03-860c-ad3cb6c7844a
-using CairoMakie,CSV, DataFrames, ColorSchemes, Distributions, PlutoUI, Colors, JLD2
-
 # ╔═╡ 2f4ddeea-a40a-428e-a979-9eaf850227dd
+begin
+push!(LOAD_PATH, joinpath(pwd(),"src/"))
+using FruitRipeningRoom
+end
+
+# ╔═╡ d090131e-6602-4c03-860c-ad3cb6c7844a
+using CairoMakie,CSV, DataFrames, ColorSchemes, Distributions, PlutoUI, Colors, JLD2, Revise
+
+# ╔═╡ 93136a8b-7c96-4918-8d2f-9499492f4994
 include("plot_theme.jl")
 
 # ╔═╡ 1784c510-5465-11ec-0dd1-13e5a66e4ce6
@@ -52,71 +58,6 @@ md"!!! example \"\"
 ```
 "
 
-# ╔═╡ 1208db5e-7f60-46fd-ba77-b1387c5c7f79
-# units: bar
-mutable struct GasComp
-	f_C₂H₄::Distribution
-	f_CO₂::Distribution
-	f_H₂O::Distribution
-end
-
-# ╔═╡ dec6b686-719b-4f21-a5a7-c41a7c39300c
-function sample_gas_composition(gas_comp::GasComp)
-	composition = Dict{String, Float64}()
-	composition["p C2H4 [bar]"] = rand(gas_comp.f_C₂H₄) 
-	composition["p CO2 [bar]"]  = rand(gas_comp.f_CO₂)
-	composition["p H2O [bar]"]  = rand(gas_comp.f_H₂O)
-	return composition
-end
-
-# ╔═╡ 4870aa09-0f01-42f9-810a-d468876d7cd7
-FruitRipeningRoom.gen_synthetic_gas_compositions("normal", 50, 1.0)
-
-# ╔═╡ 1a7fa5e6-db59-4fd4-99d7-52613ee2e420
-function response(composition::Dict{String, Float64})
-	response = Dict()
-	for mof in mofs
-		response["m $(mof) [g/g]"] = 0.0
-		for gas in gases
-			H_mof_gas = henry_data[mof][gas]["henry coef [g/(g-bar)]"]
-			p_gas     = composition["p $gas [bar]"]
-			response["m $(mof) [g/g]"] += H_mof_gas * p_gas
-		end
-	end
-	return response
-end
-
-# ╔═╡ 630463cd-2475-4ad4-9ea7-ce62a661f441
-function gen_data_point(gas_comp::GasComp, label::String)
-	p = sample_gas_composition(gas_comp)
-	m = response(p)
-	datum = merge(p, m)
-	datum["label"] = label
-	return datum
-end
-
-# ╔═╡ 02657dc8-46e7-4613-96a5-a4e5985fa39e
-p_H₂O_vapor = 3.1690 * 0.01 # bar
-
-# ╔═╡ 3bea0851-20db-4237-bc74-6940039e792b
-normal_gas_comp = GasComp(
-	# C₂H₄ at 150 ppm
-	truncated(
-		Normal(150e-6, 20e-6), 
-		0.0, Inf
-	),
-	# CO₂. 410 ppm to 5000 ppm
-	Uniform(400.0e-6, 5000.0e-6),
-	# H₂O: 85% RH on average
-	truncated(
-		Normal(0.85 * p_H₂O_vapor, 0.005 * p_H₂O_vapor), 
-		0.0, Inf
-	)
-)
-
-# ╔═╡ 941732c8-e31f-40c7-bc2a-50198ddcab5c
-gen_data_point(normal_gas_comp, "normal")
-
 # ╔═╡ 69aff7c7-196a-4fee-9070-3d6b49fdaddf
 md"!!! example \"\" 
 	sample normal gas compositions to which the sensor is exposed in the fruit ripening room.
@@ -126,28 +67,24 @@ number of gas compositions (300): It takes about 3 days for a banana to ripen in
 "
 
 # ╔═╡ 272a7f32-ca99-4132-acdb-2a270173d9f6
-
-function generate_normal_sensor_data(n_gas_compositions::Int)
-	sensor_data = DataFrame(p_1=Float64[], p_2=Float64[], p_3=Float64[], 
-		                    m_1=Float64[], m_2=Float64[],
-		                    label=String[]) # normal/anomaly etc.
-	for i = 1:3
-		rename!(sensor_data, "p_$i" => "p $(gases[i]) [bar]")
-	end
-	for i = 1:2
-		rename!(sensor_data, "m_$i" => "m $(mofs[i]) [g/g]")
-	end
-
-	for g = 1:n_gas_compositions
-		datum = gen_data_point(normal_gas_comp, "normal")
-		push!(sensor_data, datum)
-	end
-	return sensor_data
-end
-
-# ╔═╡ 2b285e2f-4ab2-4670-9575-1410552eefed
 begin
-	sensor_data = generate_normal_sensor_data(300)
+# 300 normal data points
+n_gas_compositions = 300
+
+# QCM sensor error assumed to be normal distribution with std deviation 0.001
+δ = Normal(0, 0.001)
+
+# deviation of distribution of water compositions
+σ_H₂O = 0.005
+
+	
+sensor_data = FruitRipeningRoom.generate_sensor_data(n_gas_compositions,
+														 "normal",
+														 δ,
+														 σ_H₂O,
+														 henry_data)
+
+sensor_data
 end
 
 # ╔═╡ ee190ccc-15e4-416a-a58c-21bc62fde1a5
@@ -202,13 +139,16 @@ n.b. all are independent of each other.
 H₂O = interferent while both CO₂ and C₂H₄ are analytes.
 		"
 
+# ╔═╡ 618f3ed1-63bc-4efc-88db-33e32aced17c
+p_H₂O_vapor = 3.1690 * 0.01 # bar
+
 # ╔═╡ 7b2103a7-2fa6-47fb-9fb4-c0edb3c41c09
 function viz_H2O_compositions(sensor_data::DataFrame)
 	fig = Figure()
 	ax = Axis(fig[1, 1], 
 		      xlabel="p, H₂O [relative humidity]", 
 		      ylabel="# compositions")
-	hist!(sensor_data[:, "p H2O [bar]"] / p_H₂O_vapor)
+	hist!(sensor_data[:, "p H₂O [bar]"] / p_H₂O_vapor)
 	ylims!(0.0, nothing)
 	save("H2O_compositions.pdf", fig)
 	fig
@@ -245,8 +185,8 @@ function viz_C2H4_CO2_composition(sensor_data::DataFrame)
 		label = sensor_data_g[1, "label"]
 		
 		scatter!(ax_main, 
-				 sensor_data_g[:, "p $(gases[1]) [bar]"] * 1e6, 
-				 sensor_data_g[:, "p $(gases[2]) [bar]"] * 1e6,
+				 sensor_data_g[:, "p $(gas_to_pretty_name[gases[1]]) [bar]"] * 1e6, 
+				 sensor_data_g[:, "p $(gas_to_pretty_name[gases[2]]) [bar]"] * 1e6,
 			     marker=label == "normal" ? :circle : :x,
 				 strokewidth=1, 
 				 label=label, 
@@ -255,13 +195,13 @@ function viz_C2H4_CO2_composition(sensor_data::DataFrame)
 		)
 		
 		hist!(ax_top, 
-			 sensor_data_g[:, "p $(gases[1]) [bar]"] * 1e6, 
+			 sensor_data_g[:, "p $(gas_to_pretty_name[gases[1]]) [bar]"] * 1e6, 
 			 label=label,
 			 probability=true,
 			 color=(colors[label], 0.5)
 		)
 		hist!(ax_right, 
-			  sensor_data_g[:, "p $(gases[2]) [bar]"] * 1e6, 
+			  sensor_data_g[:, "p $(gas_to_pretty_name[gases[2]]) [bar]"] * 1e6, 
 			  direction=:x, 
 			  label=label,
 			  probability=true,
@@ -292,8 +232,8 @@ begin
 			# use Henry's law and add contribution from each gas.
 			row["m $(mof) [g/g]"] = 0.0
 			for gas in gases
-				H_mof_gas = henry_data[mof][gas]["henry coef [g/(g-bar)]"]
-				p_gas     = row["p $gas [bar]"]
+				H_mof_gas = henry_data[mof][gas_to_pretty_name[gas]]["henry coef [g/(g-bar)]"]
+				p_gas     = row["p $(gas_to_pretty_name[gas]) [bar]"]
 				row["m $(mof) [g/g]"] += H_mof_gas * p_gas
 			end
 		end
@@ -364,6 +304,7 @@ DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
+Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
 
 [compat]
 CSV = "~0.9.11"
@@ -374,6 +315,7 @@ DataFrames = "~1.2.2"
 Distributions = "~0.25.34"
 JLD2 = "~0.4.17"
 PlutoUI = "~0.7.21"
+Revise = "~3.3.3"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
@@ -491,6 +433,12 @@ deps = ["ChainRulesCore", "LinearAlgebra", "Test"]
 git-tree-sha1 = "bf98fa45a0a4cee295de98d4c1462be26345b9a1"
 uuid = "9e997f8a-9a97-42d5-a9f1-ce6bfc15e2c0"
 version = "0.1.2"
+
+[[deps.CodeTracking]]
+deps = ["InteractiveUtils", "UUIDs"]
+git-tree-sha1 = "9fb640864691a0936f94f89150711c36072b0e8f"
+uuid = "da1fd8a2-8d9e-5ec2-8556-3022fb5608a2"
+version = "1.0.8"
 
 [[deps.CodecZlib]]
 deps = ["TranscodingStreams", "Zlib_jll"]
@@ -664,6 +612,9 @@ deps = ["Compat", "Dates", "Mmap", "Printf", "Test", "UUIDs"]
 git-tree-sha1 = "04d13bfa8ef11720c24e4d840c0033d145537df7"
 uuid = "48062228-2e41-5def-b9a4-89aafe57970f"
 version = "0.9.17"
+
+[[deps.FileWatching]]
+uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
 
 [[deps.FillArrays]]
 deps = ["LinearAlgebra", "Random", "SparseArrays", "Statistics"]
@@ -898,6 +849,12 @@ git-tree-sha1 = "3c837543ddb02250ef42f4738347454f95079d4e"
 uuid = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
 version = "0.21.3"
 
+[[deps.JuliaInterpreter]]
+deps = ["CodeTracking", "InteractiveUtils", "Random", "UUIDs"]
+git-tree-sha1 = "52617c41d2761cc05ed81fe779804d3b7f14fff7"
+uuid = "aa1ae85d-cabe-5617-a682-6adf51b2e16a"
+version = "0.9.13"
+
 [[deps.KernelDensity]]
 deps = ["Distributions", "DocStringExtensions", "FFTW", "Interpolations", "StatsBase"]
 git-tree-sha1 = "591e8dc09ad18386189610acafb970032c519707"
@@ -992,6 +949,12 @@ version = "0.3.7"
 
 [[deps.Logging]]
 uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
+
+[[deps.LoweredCodeUtils]]
+deps = ["JuliaInterpreter"]
+git-tree-sha1 = "6b0440822974cab904c8b14d79743565140567f6"
+uuid = "6f1432cf-f94c-5a45-995e-cdbf5db27b0b"
+version = "2.2.1"
 
 [[deps.MKL_jll]]
 deps = ["Artifacts", "IntelOpenMP_jll", "JLLWrappers", "LazyArtifacts", "Libdl", "Pkg"]
@@ -1272,6 +1235,12 @@ deps = ["UUIDs"]
 git-tree-sha1 = "838a3a4188e2ded87a4f9f184b4b0d78a1e91cb7"
 uuid = "ae029012-a4dd-5104-9daa-d747884805df"
 version = "1.3.0"
+
+[[deps.Revise]]
+deps = ["CodeTracking", "Distributed", "FileWatching", "JuliaInterpreter", "LibGit2", "LoweredCodeUtils", "OrderedCollections", "Pkg", "REPL", "Requires", "UUIDs", "Unicode"]
+git-tree-sha1 = "4d4239e93531ac3e7ca7e339f15978d0b5149d03"
+uuid = "295af30f-e4ad-537b-8983-00126c2a3abe"
+version = "3.3.3"
 
 [[deps.Rmath]]
 deps = ["Random", "Rmath_jll"]
@@ -1588,26 +1557,19 @@ version = "3.5.0+0"
 # ╔═╡ Cell order:
 # ╟─1784c510-5465-11ec-0dd1-13e5a66e4ce6
 # ╠═d090131e-6602-4c03-860c-ad3cb6c7844a
+# ╠═93136a8b-7c96-4918-8d2f-9499492f4994
 # ╠═2f4ddeea-a40a-428e-a979-9eaf850227dd
 # ╠═06409854-f2b6-4356-ab0c-0c7c7a410d9a
 # ╟─d5c471c3-26be-46c0-a174-d580d0ed7f7d
 # ╠═d657ed23-3eb4-49d0-a59c-811e8189c376
 # ╟─438b8614-9fb9-4014-932b-32a09f7f1fa2
 # ╟─d1870035-d14f-431a-a7e7-27cd6a9f3dc0
-# ╠═1208db5e-7f60-46fd-ba77-b1387c5c7f79
-# ╠═dec6b686-719b-4f21-a5a7-c41a7c39300c
-# ╠═4870aa09-0f01-42f9-810a-d468876d7cd7
-# ╠═1a7fa5e6-db59-4fd4-99d7-52613ee2e420
-# ╠═630463cd-2475-4ad4-9ea7-ce62a661f441
-# ╠═02657dc8-46e7-4613-96a5-a4e5985fa39e
-# ╠═3bea0851-20db-4237-bc74-6940039e792b
-# ╠═941732c8-e31f-40c7-bc2a-50198ddcab5c
 # ╟─69aff7c7-196a-4fee-9070-3d6b49fdaddf
 # ╠═272a7f32-ca99-4132-acdb-2a270173d9f6
-# ╠═2b285e2f-4ab2-4670-9575-1410552eefed
 # ╟─ee190ccc-15e4-416a-a58c-21bc62fde1a5
 # ╠═b5aa0a1e-ff40-4b6a-b0dc-4fcc9f73842f
 # ╟─c9c0da01-6a33-4fe6-8822-d28cc95ff884
+# ╠═618f3ed1-63bc-4efc-88db-33e32aced17c
 # ╠═7b2103a7-2fa6-47fb-9fb4-c0edb3c41c09
 # ╠═820e8d39-935b-4078-a45f-7f3cb6cc5614
 # ╟─cf3990ef-4eaa-4f02-ae7b-0836d18081db
