@@ -1,8 +1,8 @@
 module FruitRipeningRoom
 
-using Distributions, DataFrames
+using Distributions, DataFrames, JLD2
 
-export GasCompDistribution, setup_gas_comp_distn, gen_synthetic_gas_compositions, generate_sensor_data
+export GasCompDistribution, setup_gas_comp_distn, gen_gas_comps, sensor_response!
 
 #=
     DEFINE DISTRIBUTIONS OF GAS COMPOSITIONS IN THE FRUIT RIPENING ROOM
@@ -21,6 +21,7 @@ p_H₂O_vapor = 3.1690 * 0.01 # bar
 viable_labels = ["normal", "CO₂ buildup", "C₂H₄ buildup", "C₂H₄ off", "CO₂ & C₂H₄ buildup", "low humidity"]
 gases = ["C₂H₄", "CO₂", "H₂O"]
 mofs = ["ZIF-71", "ZIF-8"]
+henry_data = load("henry_coeffs.jld2")["henry_data"]
 
 function setup_gas_comp_distn(σ_H₂O::Float64, label::String)
     if ! (label in viable_labels)
@@ -60,13 +61,15 @@ function setup_gas_comp_distn(σ_H₂O::Float64, label::String)
     return gas_comp_distn
 end
 
-function gen_synthetic_gas_compositions(label::String, n_compositions::Int, σ_H₂O::Float64)
+function gen_gas_comps(n_compositions::Int, label::String, σ_H₂O::Float64)
     gas_comp_distn = setup_gas_comp_distn(σ_H₂O, label)
+
     data = DataFrame("p C₂H₄ [bar]" => zeros(n_compositions), 
-                     "p CO₂ [bar]" => zeros(n_compositions),
-                     "p H₂O [bar]" => zeros(n_compositions),
+                     "p CO₂ [bar]"  => zeros(n_compositions),
+                     "p H₂O [bar]"  => zeros(n_compositions),
                      "label" => [label for _ = 1:n_compositions]
                     )
+
     for i = 1:n_compositions
         data[i, "p C₂H₄ [bar]"] = rand(gas_comp_distn.f_C₂H₄)
         data[i, "p CO₂ [bar]"]  = rand(gas_comp_distn.f_CO₂)
@@ -76,22 +79,28 @@ function gen_synthetic_gas_compositions(label::String, n_compositions::Int, σ_H
     return data
 end
 
-#=
-function response(composition::Dict{String, Float64})
-	response = Dict()
-	for mof in mofs
-		response["m $(mof) [g/g]"] = 0.0
-		for gas in gases
-			H_mof_gas = henry_data[mof][gas]["henry coef [g/(g-bar)]"]
-			p_gas     = composition["p $gas [bar]"]
-			response["m $(mof) [g/g]"] += H_mof_gas * p_gas
-		end
+# add columns for sensor response
+function sensor_response!(data::DataFrame, noise::Distribution)
+    n_compositions = nrow(data)
+    for mof in mofs
+		data[:, "m $mof [g/g]"] = zeros(n_compositions)
+        for g = 1:n_compositions
+            # add up contributions from the gases
+            for gas in gases
+                H_mof_gas = henry_data[mof][gas]["henry coef [g/(g-bar)]"]
+                p_gas     = data[g, "p $gas [bar]"]
+                data[g, "m $mof [g/g]"] +=  H_mof_gas * p_gas
+            end
+            
+            # add noise
+            data[g, "m $mof [g/g]"] += rand(noise)
+        end
 	end
-	return response
+	return data
 end
 
 
-
+#=
 function generate_normal_sensor_data(n_gas_compositions::Int, δ::Normal{Float64}, σ_H₂O::Float64, henry_data::Dict)
 	sensor_data = gen_synthetic_gas_compositions("normal", n_gas_compositions, σ_H₂O)
     for mof in mofs
@@ -110,7 +119,6 @@ function generate_normal_sensor_data(n_gas_compositions::Int, δ::Normal{Float64
 
 	return sensor_data
 end
-=#
 
 function generate_sensor_data(n_gas_compositions::Int, label::String, δ::Normal{Float64}, σ_H₂O::Float64, henry_data::Dict)
 	sensor_data = gen_synthetic_gas_compositions(label, n_gas_compositions, σ_H₂O)
@@ -130,5 +138,5 @@ function generate_sensor_data(n_gas_compositions::Int, label::String, δ::Normal
 
 	return sensor_data
 end
-
+=#
 end
