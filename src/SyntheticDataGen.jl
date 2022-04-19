@@ -1,4 +1,4 @@
-module FruitRipeningRoom
+module SyntheticDataGen
 
 using Distributions, DataFrames, JLD2
 
