@@ -9,4 +9,5 @@ println(gas_comp)
 
 data = gen_gas_comps(100, "normal", 0.1)
 sensor_response!(data, noise)
+data = gen_data(20, 5, 0.1, 0.01)
 println(data)

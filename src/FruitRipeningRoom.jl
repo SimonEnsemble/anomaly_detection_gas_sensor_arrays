@@ -2,7 +2,7 @@ module FruitRipeningRoom
 
 using Distributions, DataFrames, JLD2
 
-export GasCompDistribution, setup_gas_comp_distn, gen_gas_comps, sensor_response!
+export GasCompDistribution, setup_gas_comp_distn, gen_gas_comps, sensor_response!, gen_data
 
 #=
     DEFINE DISTRIBUTIONS OF GAS COMPOSITIONS IN THE FRUIT RIPENING ROOM
@@ -18,7 +18,8 @@ end
 
 # vapor pressure of water
 p_H₂O_vapor = 3.1690 * 0.01 # bar
-viable_labels = ["normal", "CO₂ buildup", "C₂H₄ buildup", "C₂H₄ off", "CO₂ & C₂H₄ buildup", "low humidity"]
+anomaly_labels = ["CO₂ buildup", "C₂H₄ buildup", "C₂H₄ off", "CO₂ & C₂H₄ buildup", "low humidity"]
+viable_labels = vcat(["normal"], anomaly_labels)
 gases = ["C₂H₄", "CO₂", "H₂O"]
 mofs = ["ZIF-71", "ZIF-8"]
 henry_data = load("henry_coeffs.jld2")["henry_data"]
@@ -99,44 +100,16 @@ function sensor_response!(data::DataFrame, noise::Distribution)
 	return data
 end
 
-
-#=
-function generate_normal_sensor_data(n_gas_compositions::Int, δ::Normal{Float64}, σ_H₂O::Float64, henry_data::Dict)
-	sensor_data = gen_synthetic_gas_compositions("normal", n_gas_compositions, σ_H₂O)
-    for mof in mofs
-		sensor_data[!, "m $mof [g/g]"] = zeros(n_gas_compositions)
-
-        for g = 1:n_gas_compositions
-            for gas in gases
-                H_mof_gas = henry_data[mof][gas]["henry coef [g/(g-bar)]"]
-                p_gas = sensor_data[g, "p $gas [bar]"]
-                sensor_data[g, "m $mof [g/g]"] +=  H_mof_gas * p_gas
-            end
-
-            sensor_data[g, "m $mof [g/g]"] += rand(δ)
-        end
-	end
-
-	return sensor_data
+function gen_data(n_normal::Int, n_anomaly::Int, σ_H₂O::Float64, σ_m::Float64)
+    noise = Normal(0.0, σ_m)
+    data = gen_gas_comps(n_normal, "normal", σ_H₂O)
+    for label in anomaly_labels
+        append!(data, 
+            gen_gas_comps(n_anomaly, label, σ_H₂O)
+        )    
+    end
+    sensor_response!(data, noise)
+    return data
 end
 
-function generate_sensor_data(n_gas_compositions::Int, label::String, δ::Normal{Float64}, σ_H₂O::Float64, henry_data::Dict)
-	sensor_data = gen_synthetic_gas_compositions(label, n_gas_compositions, σ_H₂O)
-    for mof in mofs
-		sensor_data[!, "m $mof [g/g]"] = zeros(n_gas_compositions)
-
-        for g = 1:n_gas_compositions
-            for gas in gases
-                H_mof_gas = henry_data[mof][gas]["henry coef [g/(g-bar)]"]
-                p_gas = sensor_data[g, "p $gas [bar]"]
-                sensor_data[g, "m $mof [g/g]"] +=  H_mof_gas * p_gas
-            end
-
-            sensor_data[g, "m $mof [g/g]"] += rand(δ)
-        end
-	end
-
-	return sensor_data
-end
-=#
 end
