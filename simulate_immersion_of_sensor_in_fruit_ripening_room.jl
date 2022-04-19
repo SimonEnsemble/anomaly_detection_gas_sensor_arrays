@@ -22,8 +22,8 @@ md"# Data Generation for Gas Sensor Arrays in a Fruit Ripening Room
 
 # ╔═╡ 06409854-f2b6-4356-ab0c-0c7c7a410d9a
 colors = Dict(zip(
-	["normal", "CO₂ buildup", "C₂H₄ buildup", "C₂H₄ off", "CO₂ & C₂H₄ buildup"],
-	ColorSchemes.Dark2_5)
+	["normal", "CO₂ buildup", "C₂H₄ buildup", "C₂H₄ off", "CO₂ & C₂H₄ buildup", "low humidity"],
+	ColorSchemes.Dark2_6)
 )
 
 # ╔═╡ d5c471c3-26be-46c0-a174-d580d0ed7f7d
@@ -71,8 +71,8 @@ begin
 # 300 normal data points
 n_gas_compositions = 300
 
-# QCM sensor error assumed to be normal distribution with std deviation 0.001
-δ = Normal(0, 0.001)
+# QCM sensor error assumed to be normal distribution with std deviation 0.0001
+δ = Normal(0, 0.0001)
 
 # deviation of distribution of water compositions
 σ_H₂O = 0.005
@@ -91,44 +91,72 @@ end
 md"!!! example \"\" 
 	simulate/sample anomalous compositions"
 
-# ╔═╡ b5aa0a1e-ff40-4b6a-b0dc-4fcc9f73842f
+# ╔═╡ f3b66d47-977e-4649-b197-7fa6684c4dd2
 begin
-	num_anomalous_points = 10 # each
-	# ["C₂H₄ off", "C₂H₄ buildup", "CO₂ buildup"]
-	for i = 1:num_anomalous_points
-		# anomaly = "C₂H₄ off"
-		anomalous_gas_comp = deepcopy(normal_gas_comp)
-		anomalous_gas_comp.f_C₂H₄ = Uniform(0.0e-6, 10.0e-6)
-		datum = gen_data_point(anomalous_gas_comp, "C₂H₄ off")
-		push!(sensor_data, datum)
+	# 10 anomalous points of each type
+	num_anomalous_points = 10
 
-		# anomaly = "C₂H₄ buildup"
-		anomalous_gas_comp = deepcopy(normal_gas_comp)
-		anomalous_gas_comp.f_C₂H₄ = Uniform(300e-6, 2000e-6)
-		datum = gen_data_point(anomalous_gas_comp, "C₂H₄ buildup")
-		push!(sensor_data, datum)
-		
-		# anomaly = "CO₂ buildup"
-		anomalous_gas_comp = deepcopy(normal_gas_comp)
-		anomalous_gas_comp.f_CO₂ = Uniform(7500e-6, 20000e-6)
-		datum = gen_data_point(anomalous_gas_comp, "CO₂ buildup")
-		push!(sensor_data, datum)
+	# ["C₂H₄ off", "C₂H₄ buildup", "CO₂ buildup", "CO₂ & C₂H₄ buildup", "low humidity"]
 
-		# anomaly = "CO₂ & C₂H₄ buildup"
-		anomalous_gas_comp = deepcopy(normal_gas_comp)
-		anomalous_gas_comp.f_CO₂ = Uniform(7500e-6, 20000e-6)
-		anomalous_gas_comp.f_C₂H₄ = Uniform(300e-6, 1000e-6)
-		datum = gen_data_point(anomalous_gas_comp, "CO₂ & C₂H₄ buildup")
-		push!(sensor_data, datum)
-
-		# # anomaly = "low humidity"
-		# anomalous_gas_comp = deepcopy(normal_gas_comp)
-		# anomalous_gas_comp.f_H₂O = Uniform(0.7 * p_H₂O_vapor, 0.8 * p_H₂O_vapor)
-		# datum = gen_data_point(anomalous_gas_comp, "low RH")
-		# push!(sensor_data, datum)
+	# anomaly = "C₂H₄ off"
+	C₂H₄_off_sensor_data = FruitRipeningRoom.generate_sensor_data(num_anomalous_points,
+										   "C₂H₄ off",
+										   δ,
+										   σ_H₂O,
+										   henry_data)
+	
+	for row in eachrow(C₂H₄_off_sensor_data)
+		push!(sensor_data, row)
 	end
-	sensor_data
+
+	# anomaly = "C₂H₄ buildup"
+	C₂H₄_buildup_sensor_data = FruitRipeningRoom.generate_sensor_data(num_anomalous_points,
+										   "C₂H₄ buildup",
+										   δ,
+										   σ_H₂O,
+										   henry_data)
+	
+	for row in eachrow(C₂H₄_buildup_sensor_data)
+		push!(sensor_data, row)
+	end
+	
+	# anomaly = "CO₂ buildup"
+	CO₂_buildup_sensor_data = FruitRipeningRoom.generate_sensor_data(num_anomalous_points,
+										   "CO₂ buildup",
+										   δ,
+										   σ_H₂O,
+										   henry_data)
+	
+	for row in eachrow(CO₂_buildup_sensor_data)
+		push!(sensor_data, row)
+	end
+
+	# anomaly = "CO₂ & C₂H₄ buildup"
+	CO₂_C₂H₄_buildup_sensor_data = FruitRipeningRoom.generate_sensor_data(num_anomalous_points,
+										   "CO₂ & C₂H₄ buildup",
+										   δ,
+										   σ_H₂O,
+										   henry_data)
+	
+	for row in eachrow(CO₂_C₂H₄_buildup_sensor_data)
+		push!(sensor_data, row)
+	end
+
+	# anomaly = "low humidity"
+	low_humidity_sensor_data = FruitRipeningRoom.generate_sensor_data(num_anomalous_points,
+										   "low humidity",
+										   δ,
+										   σ_H₂O,
+										   henry_data)
+	
+	for row in eachrow(low_humidity_sensor_data)
+		push!(sensor_data, row)
+	end
+
 end
+
+# ╔═╡ 7bdf051f-94e9-43e5-b0d6-823d2fb70559
+sensor_data
 
 # ╔═╡ c9c0da01-6a33-4fe6-8822-d28cc95ff884
 md"!!! example \"\" 
@@ -1567,7 +1595,8 @@ version = "3.5.0+0"
 # ╟─69aff7c7-196a-4fee-9070-3d6b49fdaddf
 # ╠═272a7f32-ca99-4132-acdb-2a270173d9f6
 # ╟─ee190ccc-15e4-416a-a58c-21bc62fde1a5
-# ╠═b5aa0a1e-ff40-4b6a-b0dc-4fcc9f73842f
+# ╠═f3b66d47-977e-4649-b197-7fa6684c4dd2
+# ╠═7bdf051f-94e9-43e5-b0d6-823d2fb70559
 # ╟─c9c0da01-6a33-4fe6-8822-d28cc95ff884
 # ╠═618f3ed1-63bc-4efc-88db-33e32aced17c
 # ╠═7b2103a7-2fa6-47fb-9fb4-c0edb3c41c09

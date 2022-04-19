@@ -6,13 +6,15 @@ using InteractiveUtils
 
 # ╔═╡ 31f71438-ff2f-49f9-a801-3a6489eaf271
 begin
-include("plot_theme.jl")
 push!(LOAD_PATH, joinpath(pwd(),"src/"))
 using FruitRipeningRoom
 end
 
 # ╔═╡ d090131e-6602-4c03-860c-ad3cb6c7844a
 using CairoMakie,CSV, DataFrames, ColorSchemes, Optim, Distributions, PlutoUI, ScikitLearn, Colors, Random, PlutoUI, JLD2, LinearAlgebra
+
+# ╔═╡ dd237501-252c-46aa-a3d7-381e0eaeaba8
+include("plot_theme.jl")
 
 # ╔═╡ 1784c510-5465-11ec-0dd1-13e5a66e4ce6
 md"# anomaly Detection for gas sensor arrays using one-class SVM with unsupervised validation
@@ -1812,6 +1814,7 @@ version = "3.5.0+0"
 # ╟─1784c510-5465-11ec-0dd1-13e5a66e4ce6
 # ╠═d090131e-6602-4c03-860c-ad3cb6c7844a
 # ╠═5d920ea0-f04d-475f-b05b-86e7b199d7e0
+# ╠═dd237501-252c-46aa-a3d7-381e0eaeaba8
 # ╠═31f71438-ff2f-49f9-a801-3a6489eaf271
 # ╠═570401bc-7227-486f-a1ae-6a37ed1746dc
 # ╟─d5c471c3-26be-46c0-a174-d580d0ed7f7d

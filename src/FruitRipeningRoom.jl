@@ -2,7 +2,7 @@ module FruitRipeningRoom
 
 using Distributions, DataFrames
 
-export GasCompDistribution, setup_gas_comp_distn, gen_synthetic_gas_compositions, generate_normal_sensor_data
+export GasCompDistribution, setup_gas_comp_distn, gen_synthetic_gas_compositions, generate_sensor_data
 
 #=
     DEFINE DISTRIBUTIONS OF GAS COMPOSITIONS IN THE FRUIT RIPENING ROOM
@@ -18,7 +18,7 @@ end
 
 # vapor pressure of water
 p_H₂O_vapor = 3.1690 * 0.01 # bar
-viable_labels = ["normal", "CO₂ buildup", "C₂H₄ buildup", "C₂H₄ off", "CO₂ & C₂H₄ buildup"]
+viable_labels = ["normal", "CO₂ buildup", "C₂H₄ buildup", "C₂H₄ off", "CO₂ & C₂H₄ buildup", "low humidity"]
 gases = ["C₂H₄", "CO₂", "H₂O"]
 mofs = ["ZIF-71", "ZIF-8"]
 
@@ -53,6 +53,8 @@ function setup_gas_comp_distn(σ_H₂O::Float64, label::String)
     elseif label == "CO₂ & C₂H₄ buildup"
 		gas_comp_distn.f_CO₂ = Uniform(7500e-6, 20000e-6)
 		gas_comp_distn.f_C₂H₄ = Uniform(300e-6, 1000e-6)
+    elseif label == "low humidity"
+        gas_comp_distn.f_H₂O = Uniform(0.7*p_H₂O_vapor, 0.8*p_H₂O_vapor)
     end
 
     return gas_comp_distn
@@ -87,7 +89,7 @@ function response(composition::Dict{String, Float64})
 	end
 	return response
 end
-=#
+
 
 
 function generate_normal_sensor_data(n_gas_compositions::Int, δ::Normal{Float64}, σ_H₂O::Float64, henry_data::Dict)
@@ -108,6 +110,7 @@ function generate_normal_sensor_data(n_gas_compositions::Int, δ::Normal{Float64
 
 	return sensor_data
 end
+=#
 
 function generate_sensor_data(n_gas_compositions::Int, label::String, δ::Normal{Float64}, σ_H₂O::Float64, henry_data::Dict)
 	sensor_data = gen_synthetic_gas_compositions(label, n_gas_compositions, σ_H₂O)
