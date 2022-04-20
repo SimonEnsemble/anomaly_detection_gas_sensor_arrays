@@ -1,14 +1,8 @@
 ### A Pluto.jl notebook ###
-# v0.18.1
+# v0.19.0
 
 using Markdown
 using InteractiveUtils
-
-# ╔═╡ 2f4ddeea-a40a-428e-a979-9eaf850227dd
-begin
-push!(LOAD_PATH, joinpath(pwd(),"src/"))
-using FruitRipeningRoom
-end
 
 # ╔═╡ d090131e-6602-4c03-860c-ad3cb6c7844a
 using CairoMakie,CSV, DataFrames, ColorSchemes, Distributions, PlutoUI, Colors, JLD2, Revise
@@ -16,159 +10,47 @@ using CairoMakie,CSV, DataFrames, ColorSchemes, Distributions, PlutoUI, Colors, 
 # ╔═╡ 93136a8b-7c96-4918-8d2f-9499492f4994
 include("plot_theme.jl")
 
+# ╔═╡ a9a9a532-affd-455e-b076-651ed6b1f177
+SyntheticDataGen = include("src/SyntheticDataGen.jl")
+
 # ╔═╡ 1784c510-5465-11ec-0dd1-13e5a66e4ce6
 md"# Data Generation for Gas Sensor Arrays in a Fruit Ripening Room
 "
 
-# ╔═╡ 06409854-f2b6-4356-ab0c-0c7c7a410d9a
-colors = Dict(zip(
-	["normal", "CO₂ buildup", "C₂H₄ buildup", "C₂H₄ off", "CO₂ & C₂H₄ buildup", "low humidity"],
-	ColorSchemes.Dark2_6)
-)
+# ╔═╡ 61c8f5b2-9751-477d-b512-2fefe77ac173
+σ_H₂O = 0.01
 
-# ╔═╡ d5c471c3-26be-46c0-a174-d580d0ed7f7d
-md"!!! example \"\"
-	declare utility data structures to be used in data processing such as lists of names of gases, mofs, filename for the CSV file and import henry coefficients.
-"
-
-# ╔═╡ d657ed23-3eb4-49d0-a59c-811e8189c376
-begin
-	gases              = load("henry_coeffs.jld2")["gases"]
-	mofs               = load("henry_coeffs.jld2")["mofs"]
-	gas_to_pretty_name = load("henry_coeffs.jld2")["gas_to_pretty_name"]
-	henry_data         = load("henry_coeffs.jld2")["henry_data"]
-	@info gases, mofs
-end
-
-# ╔═╡ 438b8614-9fb9-4014-932b-32a09f7f1fa2
-md"!!! example \"\"
-	store data from simulated gas exposure experiments here.
-"
-
-# ╔═╡ d1870035-d14f-431a-a7e7-27cd6a9f3dc0
-md"!!! example \"\"
-	specify distribution of gas compositions in fruit ripening room under normal conditions.
-
-```math
-\begin{align}
-	p_{H2O} &\sim \mathcal{N}(\mu_{H2O}, \sigma_{H2O}^2) \\
-	p_{C2H4} &\sim \mathcal{N}(\mu_{C2H4}, \sigma_{C2H4}^2) \\
-	p_{CO2} & \sim U(p_{CO2,min}, p_{CO2, max})
-\end{align}
-```
-"
-
-# ╔═╡ 69aff7c7-196a-4fee-9070-3d6b49fdaddf
-md"!!! example \"\" 
-	sample normal gas compositions to which the sensor is exposed in the fruit ripening room.
-
-number of gas compositions (300): It takes about 3 days for a banana to ripen in a fruit ripening room. Assuming 20 ripening sessions over the course of 2 months and the sensor is collecting data 5 times per day. 20 x 5 x 3 = 300 data points.
-
-"
-
-# ╔═╡ 272a7f32-ca99-4132-acdb-2a270173d9f6
-begin
-# 300 normal data points
-n_gas_compositions = 300
-
-# QCM sensor error assumed to be normal distribution with std deviation 0.0001
-δ = Normal(0, 0.0001)
-
-# deviation of distribution of water compositions
-σ_H₂O = 0.005
-
-	
-sensor_data = FruitRipeningRoom.generate_sensor_data(n_gas_compositions,
-														 "normal",
-														 δ,
-														 σ_H₂O,
-														 henry_data)
-
-sensor_data
-end
-
-# ╔═╡ ee190ccc-15e4-416a-a58c-21bc62fde1a5
-md"!!! example \"\" 
-	simulate/sample anomalous compositions"
-
-# ╔═╡ f3b66d47-977e-4649-b197-7fa6684c4dd2
-begin
-	# 10 anomalous points of each type
-	num_anomalous_points = 10
-
-	# ["C₂H₄ off", "C₂H₄ buildup", "CO₂ buildup", "CO₂ & C₂H₄ buildup", "low humidity"]
-
-	# anomaly = "C₂H₄ off"
-	C₂H₄_off_sensor_data = FruitRipeningRoom.generate_sensor_data(num_anomalous_points,
-										   "C₂H₄ off",
-										   δ,
-										   σ_H₂O,
-										   henry_data)
-	
-	for row in eachrow(C₂H₄_off_sensor_data)
-		push!(sensor_data, row)
-	end
-
-	# anomaly = "C₂H₄ buildup"
-	C₂H₄_buildup_sensor_data = FruitRipeningRoom.generate_sensor_data(num_anomalous_points,
-										   "C₂H₄ buildup",
-										   δ,
-										   σ_H₂O,
-										   henry_data)
-	
-	for row in eachrow(C₂H₄_buildup_sensor_data)
-		push!(sensor_data, row)
-	end
-	
-	# anomaly = "CO₂ buildup"
-	CO₂_buildup_sensor_data = FruitRipeningRoom.generate_sensor_data(num_anomalous_points,
-										   "CO₂ buildup",
-										   δ,
-										   σ_H₂O,
-										   henry_data)
-	
-	for row in eachrow(CO₂_buildup_sensor_data)
-		push!(sensor_data, row)
-	end
-
-	# anomaly = "CO₂ & C₂H₄ buildup"
-	CO₂_C₂H₄_buildup_sensor_data = FruitRipeningRoom.generate_sensor_data(num_anomalous_points,
-										   "CO₂ & C₂H₄ buildup",
-										   δ,
-										   σ_H₂O,
-										   henry_data)
-	
-	for row in eachrow(CO₂_C₂H₄_buildup_sensor_data)
-		push!(sensor_data, row)
-	end
-
-	# anomaly = "low humidity"
-	low_humidity_sensor_data = FruitRipeningRoom.generate_sensor_data(num_anomalous_points,
-										   "low humidity",
-										   δ,
-										   σ_H₂O,
-										   henry_data)
-	
-	for row in eachrow(low_humidity_sensor_data)
-		push!(sensor_data, row)
-	end
-
-end
+# ╔═╡ 52aa312b-9bf1-4875-8cc8-7ff66854eb7a
+gc = SyntheticDataGen.setup_gas_comp_distn(σ_H₂O, "normal")
 
 # ╔═╡ 7bdf051f-94e9-43e5-b0d6-823d2fb70559
-sensor_data
+begin
+	
+end
 
-# ╔═╡ c9c0da01-6a33-4fe6-8822-d28cc95ff884
-md"!!! example \"\" 
-	viz dist'ns of gas compositions in the fruit ripening room.
-
-n.b. all are independent of each other.
-
-H₂O = interferent while both CO₂ and C₂H₄ are analytes.
-		"
-
-# ╔═╡ 618f3ed1-63bc-4efc-88db-33e32aced17c
-p_H₂O_vapor = 3.1690 * 0.01 # bar
+# ╔═╡ 3822fd28-2eac-44ac-9efa-acb74996556e
+begin
+	fig = Figure(resolution=(600, 600))
+	# create panels
+	ax  = Axis(fig[1, 1],
+				xlabel="p, C₂H₄ [ppm]",
+				ylabel="p, CO₂ [ppm]"
+	)
+	for label in SyntheticDataGen.viable_labels
+		gc = SyntheticDataGen.setup_gas_comp_distn(σ_H₂O, label)
+		p_C₂H₄s = range(mean(gc.f_C₂H₄) - 2 * std(gc.f_C₂H₄), 
+			            mean(gc.f_C₂H₄) + 2 * std(gc.f_C₂H₄), length=100)
+		p_CO₂s  = range(mean(gc.f_CO₂) - 2 * std(gc.f_CO₂), 
+			            mean(gc.f_CO₂) + 2 * std(gc.f_CO₂), length=100)
+		
+		pdfs = [pdf(gc.f_C₂H₄, p_C₂H₄) * pdf(gc.f_CO₂, p_CO₂)
+		        for p_C₂H₄ in p_C₂H₄s, p_CO₂ in p_CO₂s]
+		contour!(ax, p_C₂H₄s, p_CO₂s, pdfs, 
+			levels=[0.95 * maximum(pdfs)], color=SyntheticDataGen.label_to_color[label], label=label)
+	end
+	axislegend()
+	fig
+end
 
 # ╔═╡ 7b2103a7-2fa6-47fb-9fb4-c0edb3c41c09
 function viz_H2O_compositions(sensor_data::DataFrame)
@@ -246,81 +128,6 @@ function viz_C2H4_CO2_composition(sensor_data::DataFrame)
 	fig
 end
 
-# ╔═╡ 2811f5ad-d7b4-4ff2-8d67-8b4da9950832
-viz_C2H4_CO2_composition(sensor_data)
-
-# ╔═╡ 5620c09f-65b0-4161-bece-593fc5c7681a
-md"!!! example \"\" 
-	predict response of sensor array to the gas composition via Henry's law"
-
-# ╔═╡ c8d753c5-c53e-4073-b3f2-31b72f9c6b7e
-begin
-	for row in eachrow(sensor_data)
-		for mof in mofs
-			# use Henry's law and add contribution from each gas.
-			row["m $(mof) [g/g]"] = 0.0
-			for gas in gases
-				H_mof_gas = henry_data[mof][gas_to_pretty_name[gas]]["henry coef [g/(g-bar)]"]
-				p_gas     = row["p $(gas_to_pretty_name[gas]) [bar]"]
-				row["m $(mof) [g/g]"] += H_mof_gas * p_gas
-			end
-		end
-	end
-	sensor_data
-end
-
-# ╔═╡ ecf86f67-114e-482e-9429-1dc6fdb62c7c
-md"!!! example \"\" 
-	visualization of sensor array responses"
-
-# ╔═╡ ad9e96d5-7668-4e5a-950d-e5a6bfd29db7
-begin
-	fig_r = Figure(resolution=(700, 700))
-	
-	ax_r = Axis(fig_r[1, 1], 
-		        xlabel="m, " * mofs[1] * " [g/g]",
-		        ylabel="m, " * mofs[2] * " [g/g]", 
-				aspect=DataAspect(), # TODO make sure this is right
-		        title="sensor array responses")
-
-	for sensor_data_g in groupby(sensor_data, :label)
-		label = sensor_data_g[1, "label"]
-		scatter!(sensor_data_g[:, "m $(mofs[1]) [g/g]"], 
-			     sensor_data_g[:, "m $(mofs[2]) [g/g]"], 
-			     strokewidth=1,
-				 markersize=15,
-			     marker=label == "normal" ? :circle : :x,
-			     color=(:white, 0.0), strokecolor=colors[label],
-				 label=label)
-	end
-	
-	axislegend(position=:rb)
-	save("responses.pdf", fig_r)
-	fig_r
-end
-
-# ╔═╡ 4ddcf3a7-228f-4e5c-bdf2-7715d96c9c73
-md"!!! example \"\"
-	create a function to generate sensor response data with controlled error. 
-"
-
-# ╔═╡ 9f0ea3da-32b0-4d38-b971-043d3067904d
-function generate_error_test_data(num_compositions::Int, σs::Float64)
-
-	
-end
-
-# ╔═╡ 13f4c61a-2e80-46c3-9ee1-657ad7b92ea1
-md"!!! example \"\"
-	export the simulated gas exposure experiment data set. 
-"
-
-# ╔═╡ 5b263732-2ff7-456a-978f-90d7fb43411e
-jldsave("sensor_data.jld2"; gas_to_pretty_name, gases, mofs, sensor_data, colors)
-
-# ╔═╡ 7df3de82-d361-417f-93fc-11428558c546
-
-
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
@@ -350,8 +157,9 @@ Revise = "~3.3.3"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.7.2"
+julia_version = "1.8.0-DEV.1390"
 manifest_format = "2.0"
+project_hash = "474a3b403e5b2b1206716da24e35941b8fc79587"
 
 [[deps.AbstractFFTs]]
 deps = ["ChainRulesCore", "LinearAlgebra"]
@@ -384,6 +192,7 @@ version = "0.4.1"
 
 [[deps.ArgTools]]
 uuid = "0dad84c5-d112-42e6-8d28-ef12dabb789f"
+version = "1.1.1"
 
 [[deps.ArrayInterface]]
 deps = ["Compat", "IfElse", "LinearAlgebra", "Requires", "SparseArrays", "Static"]
@@ -513,6 +322,7 @@ version = "3.42.0"
 [[deps.CompilerSupportLibraries_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "e66e0078-7015-5450-92f7-15fbd957f2ae"
+version = "0.5.0+0"
 
 [[deps.Contour]]
 deps = ["StaticArrays"]
@@ -578,8 +388,9 @@ uuid = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
 version = "0.8.6"
 
 [[deps.Downloads]]
-deps = ["ArgTools", "LibCURL", "NetworkOptions"]
+deps = ["ArgTools", "FileWatching", "LibCURL", "NetworkOptions"]
 uuid = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
+version = "1.6.0"
 
 [[deps.DualNumbers]]
 deps = ["Calculus", "NaNMath", "SpecialFunctions"]
@@ -913,10 +724,12 @@ uuid = "4af54fe1-eca0-43a8-85a7-787d91b784e3"
 [[deps.LibCURL]]
 deps = ["LibCURL_jll", "MozillaCACerts_jll"]
 uuid = "b27032c2-a3e7-50c8-80cd-2d36dbcbfd21"
+version = "0.6.3"
 
 [[deps.LibCURL_jll]]
 deps = ["Artifacts", "LibSSH2_jll", "Libdl", "MbedTLS_jll", "Zlib_jll", "nghttp2_jll"]
 uuid = "deac9b47-8bc7-5906-a0fe-35ac56dc84c0"
+version = "7.73.0+4"
 
 [[deps.LibGit2]]
 deps = ["Base64", "NetworkOptions", "Printf", "SHA"]
@@ -925,6 +738,7 @@ uuid = "76f85450-5226-5b5a-8eaa-529ad045b433"
 [[deps.LibSSH2_jll]]
 deps = ["Artifacts", "Libdl", "MbedTLS_jll"]
 uuid = "29816b5a-b9ab-546f-933c-edad1886dfa8"
+version = "1.9.1+2"
 
 [[deps.Libdl]]
 uuid = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
@@ -1031,6 +845,7 @@ version = "0.2.1"
 [[deps.MbedTLS_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "c8ffd9c3-330d-5841-b78e-0817d7145fa1"
+version = "2.24.0+2"
 
 [[deps.Missings]]
 deps = ["DataAPI"]
@@ -1049,6 +864,7 @@ version = "0.3.3"
 
 [[deps.MozillaCACerts_jll]]
 uuid = "14a3606d-f60d-562e-9121-12d972cd8159"
+version = "2020.7.22"
 
 [[deps.NaNMath]]
 git-tree-sha1 = "b086b7ea07f8e38cf122f5016af580881ac914fe"
@@ -1063,6 +879,7 @@ version = "1.0.2"
 
 [[deps.NetworkOptions]]
 uuid = "ca575930-c2e3-43a9-ace4-1e988b2c1908"
+version = "1.2.0"
 
 [[deps.Observables]]
 git-tree-sha1 = "fe29afdef3d0c4a8286128d4e45cc50621b1e43d"
@@ -1084,6 +901,7 @@ version = "1.3.5+1"
 [[deps.OpenBLAS_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Libdl"]
 uuid = "4536629a-c528-5b80-bd46-f80d51c5b363"
+version = "0.3.17+2"
 
 [[deps.OpenEXR]]
 deps = ["Colors", "FileIO", "OpenEXR_jll"]
@@ -1100,6 +918,7 @@ version = "3.1.1+0"
 [[deps.OpenLibm_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "05823500-19ac-5b8b-9628-191a04bc5112"
+version = "0.8.1+0"
 
 [[deps.OpenSSL_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1175,6 +994,7 @@ version = "0.40.1+0"
 [[deps.Pkg]]
 deps = ["Artifacts", "Dates", "Downloads", "LibGit2", "Libdl", "Logging", "Markdown", "Printf", "REPL", "Random", "SHA", "Serialization", "TOML", "Tar", "UUIDs", "p7zip_jll"]
 uuid = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
+version = "1.8.0"
 
 [[deps.PkgVersion]]
 deps = ["Pkg"]
@@ -1284,6 +1104,7 @@ version = "0.3.0+0"
 
 [[deps.SHA]]
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
+version = "0.7.0"
 
 [[deps.SIMD]]
 git-tree-sha1 = "7dbc15af7ed5f751a82bf3ed37757adf76c32402"
@@ -1399,6 +1220,7 @@ uuid = "4607b0f0-06f3-5cda-b6b1-a6196a1729e9"
 [[deps.TOML]]
 deps = ["Dates"]
 uuid = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
+version = "1.0.0"
 
 [[deps.TableTraits]]
 deps = ["IteratorInterfaceExtensions"]
@@ -1415,6 +1237,7 @@ version = "1.7.0"
 [[deps.Tar]]
 deps = ["ArgTools", "SHA"]
 uuid = "a4e569a6-e804-4fa4-b0f3-eef7a1d5b13e"
+version = "1.10.0"
 
 [[deps.TensorCore]]
 deps = ["LinearAlgebra"]
@@ -1526,6 +1349,7 @@ version = "1.4.0+3"
 [[deps.Zlib_jll]]
 deps = ["Libdl"]
 uuid = "83775a58-1f1d-513f-b197-d71354ab007a"
+version = "1.2.12+1"
 
 [[deps.isoband_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1542,6 +1366,7 @@ version = "0.15.1+0"
 [[deps.libblastrampoline_jll]]
 deps = ["Artifacts", "Libdl", "OpenBLAS_jll"]
 uuid = "8e850b90-86db-534c-a0d3-1478176c7d93"
+version = "4.0.0+0"
 
 [[deps.libfdk_aac_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1564,10 +1389,12 @@ version = "1.3.7+1"
 [[deps.nghttp2_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "8e850ede-7688-5339-a07c-302acd2aaf8d"
+version = "1.41.0+1"
 
 [[deps.p7zip_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
+version = "16.2.1+1"
 
 [[deps.x264_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1586,32 +1413,14 @@ version = "3.5.0+0"
 # ╟─1784c510-5465-11ec-0dd1-13e5a66e4ce6
 # ╠═d090131e-6602-4c03-860c-ad3cb6c7844a
 # ╠═93136a8b-7c96-4918-8d2f-9499492f4994
-# ╠═2f4ddeea-a40a-428e-a979-9eaf850227dd
-# ╠═06409854-f2b6-4356-ab0c-0c7c7a410d9a
-# ╟─d5c471c3-26be-46c0-a174-d580d0ed7f7d
-# ╠═d657ed23-3eb4-49d0-a59c-811e8189c376
-# ╟─438b8614-9fb9-4014-932b-32a09f7f1fa2
-# ╟─d1870035-d14f-431a-a7e7-27cd6a9f3dc0
-# ╟─69aff7c7-196a-4fee-9070-3d6b49fdaddf
-# ╠═272a7f32-ca99-4132-acdb-2a270173d9f6
-# ╟─ee190ccc-15e4-416a-a58c-21bc62fde1a5
-# ╠═f3b66d47-977e-4649-b197-7fa6684c4dd2
+# ╠═a9a9a532-affd-455e-b076-651ed6b1f177
+# ╠═61c8f5b2-9751-477d-b512-2fefe77ac173
+# ╠═52aa312b-9bf1-4875-8cc8-7ff66854eb7a
 # ╠═7bdf051f-94e9-43e5-b0d6-823d2fb70559
-# ╟─c9c0da01-6a33-4fe6-8822-d28cc95ff884
-# ╠═618f3ed1-63bc-4efc-88db-33e32aced17c
+# ╠═3822fd28-2eac-44ac-9efa-acb74996556e
 # ╠═7b2103a7-2fa6-47fb-9fb4-c0edb3c41c09
 # ╠═820e8d39-935b-4078-a45f-7f3cb6cc5614
 # ╟─cf3990ef-4eaa-4f02-ae7b-0836d18081db
 # ╠═e97d395d-c3ab-4d51-ac52-49eb28659f65
-# ╠═2811f5ad-d7b4-4ff2-8d67-8b4da9950832
-# ╟─5620c09f-65b0-4161-bece-593fc5c7681a
-# ╠═c8d753c5-c53e-4073-b3f2-31b72f9c6b7e
-# ╟─ecf86f67-114e-482e-9429-1dc6fdb62c7c
-# ╠═ad9e96d5-7668-4e5a-950d-e5a6bfd29db7
-# ╟─4ddcf3a7-228f-4e5c-bdf2-7715d96c9c73
-# ╠═9f0ea3da-32b0-4d38-b971-043d3067904d
-# ╠═13f4c61a-2e80-46c3-9ee1-657ad7b92ea1
-# ╠═5b263732-2ff7-456a-978f-90d7fb43411e
-# ╠═7df3de82-d361-417f-93fc-11428558c546
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
