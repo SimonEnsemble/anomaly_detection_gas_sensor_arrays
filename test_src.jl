@@ -1,5 +1,5 @@
 push!(LOAD_PATH, joinpath(pwd(), "src"))
-using FruitRipeningRoom, Distributions
+using SyntheticDataGen, Distributions
 
 noise = Normal(0, 0.01)
 

@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.18.1
+# v0.19.0
 
 using Markdown
 using InteractiveUtils
@@ -9,6 +9,9 @@ push!(LOAD_PATH, "src/")
 
 # ╔═╡ d090131e-6602-4c03-860c-ad3cb6c7844a
 using CairoMakie,CSV, DataFrames, ColorSchemes, Optim, Distributions, PlutoUI, ScikitLearn, Colors, Random, PlutoUI, JLD2
+
+# ╔═╡ 0a6fe423-c3be-4a75-aa27-dfb84fde7fef
+SyntheticDataGen = include("src/SyntheticDataGen.jl")
 
 # ╔═╡ 31f71438-ff2f-49f9-a801-3a6489eaf271
 begin
@@ -502,7 +505,7 @@ ScikitLearn = "~0.6.4"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.7.2"
+julia_version = "1.7.1"
 manifest_format = "2.0"
 
 [[deps.AbstractFFTs]]
@@ -1804,6 +1807,7 @@ version = "3.5.0+0"
 # ╟─1784c510-5465-11ec-0dd1-13e5a66e4ce6
 # ╠═d090131e-6602-4c03-860c-ad3cb6c7844a
 # ╠═43caff06-f74c-44b1-b8a4-7963a8d3f12d
+# ╠═0a6fe423-c3be-4a75-aa27-dfb84fde7fef
 # ╠═5d920ea0-f04d-475f-b05b-86e7b199d7e0
 # ╠═31f71438-ff2f-49f9-a801-3a6489eaf271
 # ╟─d5c471c3-26be-46c0-a174-d580d0ed7f7d
