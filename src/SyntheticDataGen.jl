@@ -2,7 +2,7 @@ module SyntheticDataGen
 
 using Distributions, DataFrames, JLD2
 
-export GasCompDistribution, setup_gas_comp_distn, gen_gas_comps, sensor_response!, gen_data
+export GasCompDistribution, setup_gas_comp_distn, gen_gas_comps, sensor_response!, gen_data, ColorSchemes
 
 #=
     DEFINE DISTRIBUTIONS OF GAS COMPOSITIONS IN THE FRUIT RIPENING ROOM
