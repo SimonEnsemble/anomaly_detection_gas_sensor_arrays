@@ -4,20 +4,17 @@
 using Markdown
 using InteractiveUtils
 
-# ╔═╡ 43caff06-f74c-44b1-b8a4-7963a8d3f12d
-push!(LOAD_PATH, "src/")
-
 # ╔═╡ d090131e-6602-4c03-860c-ad3cb6c7844a
 using CairoMakie,CSV, DataFrames, ColorSchemes, Optim, Distributions, PlutoUI, ScikitLearn, Colors, Random, PlutoUI, JLD2
 
 # ╔═╡ 0a6fe423-c3be-4a75-aa27-dfb84fde7fef
 SyntheticDataGen = include("src/SyntheticDataGen.jl")
 
+# ╔═╡ 3e7c36ca-8345-40fb-b199-34fe49dea73e
+AnomalyDetection = include("src/AnomalyDetection.jl")
+
 # ╔═╡ 31f71438-ff2f-49f9-a801-3a6489eaf271
-begin
 include("plot_theme.jl")
-#include("simulate_immersion_of_sensor_in_fruit_ripening_room.jl")
-end
 
 # ╔═╡ 1784c510-5465-11ec-0dd1-13e5a66e4ce6
 md"# anomaly Detection for gas sensor arrays using one-class SVM
@@ -25,47 +22,141 @@ md"# anomaly Detection for gas sensor arrays using one-class SVM
 
 # ╔═╡ 5d920ea0-f04d-475f-b05b-86e7b199d7e0
 begin
-	@sk_import svm : OneClassSVM
 	@sk_import preprocessing : StandardScaler
 	@sk_import metrics : confusion_matrix
-	@sk_import model_selection: train_test_split
 	@sk_import metrics : precision_score
-	@sk_import metrics : accuracy_score
+	@sk_import metrics : f1_score
 	@sk_import metrics : recall_score
-	@sk_import metrics.pairwise : polynomial_kernel
 end
+
+# ╔═╡ 738a227e-9665-4fe1-b3b5-d12c93c9300d
+begin
+	gases = SyntheticDataGen.gases
+	mofs  = SyntheticDataGen.mofs
+
+	σ_H₂O = 0.01
+	σ_m   = 0.01
+end
+
+# ╔═╡ b2a5df8c-bbc6-487a-8ac5-9c55f78d259f
+data_train = SyntheticDataGen.gen_data(150, 0, σ_H₂O, σ_m)
+
+# ╔═╡ fadb73a0-08b1-4fa5-a7f3-a07f280c7e30
+X_train, y_train = AnomalyDetection.data_to_Xy(data_train)
+
+# ╔═╡ 791cde8d-f092-4c96-a6db-c63894b4e7bd
+scaler = StandardScaler().fit(X_train)
+
+# ╔═╡ a88989ad-8ac5-410c-9fd7-da7c2ff85036
+X_train_scaled = scaler.transform(X_train)
+
+# ╔═╡ 80a087e4-85fa-422a-9946-9d608af63ba0
+begin
+	# TODO implement this unsupervised procedure
+	ν_opt = 0.01
+	γ_opt = 1.0
+end
+
+# ╔═╡ 221ca0f5-69a8-4b19-bbb6-3ae520625df6
+svm = AnomalyDetection.train_anomaly_detector(X_train_scaled, ν_opt, γ_opt)
+
+# ╔═╡ 82d8dcb1-5b76-47d3-bc6e-19e67ee95d0b
+data_test = SyntheticDataGen.gen_data(150, 10, σ_H₂O, σ_m)
+
+# ╔═╡ 9046f0d9-d054-4f15-9e09-5edc419f9440
+X_test, y_test = AnomalyDetection.data_to_Xy(data_test)
+
+# ╔═╡ 476cbc96-5556-402c-a8e4-0697ade9a16a
+X_test_scaled = scaler.transform(X_test)
+
+# ╔═╡ 67257cbd-224d-4dcf-b414-1c67352a5c66
+y_pred = svm.predict(X_test_scaled)
+
+# ╔═╡ 45575909-d7d2-46b7-b689-7382008636b1
+function viz_cm(svm, data_test::DataFrame, scaler)
+	all_labels = SyntheticDataGen.viable_labels
+	n_labels = length(all_labels)
+
+	# confusion matrix. each row pertains to a label.
+	# col 1 = -1 predicted anomaly, col 2 = 1 predicted normal.
+	cm = zeros(Int, 2, n_labels)
+
+	for (l, label) in enumerate(all_labels)
+		# get all test data with this label
+		data_test_l = filter(row -> row["label"] == label, data_test)
+		# get feature matrix
+		X_test_l, y_test_l = AnomalyDetection.data_to_Xy(data_test_l)
+		# scale
+		X_test_l_scaled = scaler.transform(X_test_l)
+		# make predictions for this subset of test data
+		y_pred_l = svm.predict(X_test_l_scaled)
+		
+		# how many are predicted as anomaly?
+		cm[1, l] = sum(y_pred_l .== -1)
+		# how many predicted as normal?
+		cm[2, l] = sum(y_pred_l .== 1)
+	end
+	@assert sum(cm) == nrow(data_test)
+
+	fig = Figure()
+	ax = Axis(fig[1, 1],
+		  xticks=([1, 2], ["anomalous", "normal"]),
+		  yticks=([i for i=1:n_labels], all_labels),
+		  xticklabelrotation=45.0,
+		  ylabel="truth",
+		  xlabel="prediction"
+    )
+
+	@assert SyntheticDataGen.viable_labels[1] == "normal"
+	# anomalies
+	heatmap!(1:2, 2:6, cm[:, 2:end], 
+			      colormap=ColorSchemes.amp, colorrange=(0, maximum(cm[:, 2:end])))
+	# normal data
+	heatmap!(1:2, 1:1, reshape(cm[:, 1], (2, 1)), 
+			      colormap=ColorSchemes.algae, colorrange=(0, maximum(cm[:, 1])))
+    for i = 1:2
+        for j = 1:length(all_labels)
+            text!("$(cm[i, j])",
+                  position=(i, j), align=(:center, :center), color=:black)
+        end
+    end
+    # Colorbar(fig[1, 2], hm, label="# data points")
+    fig
+end
+
+# ╔═╡ 26084b98-85da-468a-b593-dfc0f29a9e1c
+x = rand(3, 4)
+
+# ╔═╡ 746db933-b488-4e25-944f-8a62f22b4574
+x[:, 1]
+
+# ╔═╡ ee8029cf-c6a6-439f-b190-cb297e0ddb70
+viz_cm(svm, data_test, scaler)
 
 # ╔═╡ d5c471c3-26be-46c0-a174-d580d0ed7f7d
 md"!!! example \"\"
 	Declare utility data structures to be used in data processing such as lists of names of gases, mofs, filename for the CSV file and import henry coefficients and sk learn libraries.
 "
 
-# ╔═╡ 91a56f3c-36ca-4799-be4c-1a209b42f162
-begin
-	# load data and shuffle it.
-	data = load("sensor_data.jld2")["sensor_data"]
-	data = data[shuffle(1:nrow(data)), :]
-end
-
 # ╔═╡ d657ed23-3eb4-49d0-a59c-811e8189c376
-begin
-	gases              = load("sensor_data.jld2")["gases"]
-	mofs               = load("sensor_data.jld2")["mofs"]
-	gas_to_pretty_name = load("sensor_data.jld2")["gas_to_pretty_name"]
-	colors             = load("sensor_data.jld2")["colors"]
-	colors["anomaly"] = "red"
+# begin
+# 	gases              = SyntheticDataGen.gases
+# 	mofs               = SyntheticDataGen.mofs
+# 	gas_to_pretty_name = load("sensor_data.jld2")["gas_to_pretty_name"]
+# 	colors             = load("sensor_data.jld2")["colors"]
+# 	colors["anomaly"] = "red"
 
-	anomalous_labels = filter(x -> x != "normal", unique(data[:, "label"]))
+# 	anomalous_labels = filter(x -> x != "normal", unique(data[:, "label"]))
 	
-	# https://scikit-learn.org/stable/modules/generated/sklearn.svm.OneClassSVM.html#sklearn.svm.OneClassSVM
-	# Returns -1 for outliers and 1 for inliers.
-	label_to_int = Dict(zip(anomalous_labels, [-1 for i = 1:length(anomalous_labels)]))
-	label_to_int["normal"] = 1
-	label_to_int["anomalous"] = -1
+# 	# https://scikit-learn.org/stable/modules/generated/sklearn.svm.OneClassSVM.html#sklearn.svm.OneClassSVM
+# 	# Returns -1 for outliers and 1 for inliers.
+# 	label_to_int = Dict(zip(anomalous_labels, [-1 for i = 1:length(anomalous_labels)]))
+# 	label_to_int["normal"] = 1
+# 	label_to_int["anomalous"] = -1
 	
-	color_map = RGBAf.(reverse(ColorSchemes.diverging_gwr_55_95_c38_n256), 0.5)
-	nothing
-end
+# 	color_map = RGBAf.(reverse(ColorSchemes.diverging_gwr_55_95_c38_n256), 0.5)
+# 	nothing
+# end
 
 # ╔═╡ a9c93bf0-b75f-421c-a289-2ae3b53b369a
 md"!!! example \"\" 
@@ -75,64 +166,8 @@ md"!!! example \"\"
 # ╔═╡ ff63e947-5e5b-4964-8cef-9b618b32b4f7
 md"normal data: assign to test/train/validation split."
 
-# ╔═╡ c1db156a-fa26-4e57-b8ce-3f9e362d0c14
-data[:, "split"] .= "TBD";
-
-# ╔═╡ 7dc59766-97c8-49d8-8b52-be54cec1902d
-function split_normal!(data::DataFrame)
-	# get ids of normal data
-	ids = filter(i -> data[i, "label"] == "normal", 1:nrow(data))
-
-	# 70% train, 0.5 * 30% valid, 0.5 * 30% test
-	ids_train, ids_valid_test = train_test_split(ids, test_size=0.3)
-	ids_valid, ids_test = train_test_split(ids_valid_test, test_size=0.5)
-
-	# assign outcome of split
-	data[ids_train, "split"] .= "train"
-	data[ids_valid, "split"] .= "valid"
-	data[ids_test , "split"] .= "test"
-
-	@assert all(data[ids, "label"] .== "normal")
-end
-
-# ╔═╡ 24483c59-798f-4452-aef1-b77fcb7f9d2d
-split_normal!(data)
-
 # ╔═╡ 470cbac8-9fef-4b0b-8998-db25267424ea
 md"anomalous data: assign 50% of each category to valid, 50% to test."
-
-# ╔═╡ 6efa96c5-f593-4395-a2f1-692ce2ba9e6f
-function split_anomalous!(data::DataFrame, anomaly_label::String)
-	# get ids of this anomalous data
-	ids = filter(i -> data[i, "label"] == anomaly_label, 1:nrow(data))
-
-	# 50/50 split
-	ids_valid, ids_test = train_test_split(ids, test_size=0.5)
-
-	# assign outcome of split
-	data[ids_valid, "split"] .= "valid"
-	data[ids_test , "split"] .= "test"
-end
-
-# ╔═╡ 328fd6b5-8be9-4971-9a6d-6fe6921f020c
-for anomaly_label in anomalous_labels
-	split_anomalous!(data, anomaly_label)
-end
-
-# ╔═╡ ae6535ba-1a6d-4898-b88e-08076e53cbdd
-@assert all(data[:, "split"] .!= "TBD")
-
-# ╔═╡ 90f821c6-5156-44ec-ad01-3b6f2fb39ce5
-with_terminal() do
-	for data_l in groupby(data, "label")
-		println("label = ", data_l[1, "label"])
-		println("\t# data = ", nrow(data_l))
-		for data_s in groupby(data_l, "split")
-			println("\t\t", data_s[1, "split"], ": ", nrow(data_s))
-		end
-	end
-	@assert sum(data[:, "split"] .== "TBD") == 0 # all assigned a split
-end
 
 # ╔═╡ 7f70bf3a-222e-4996-a781-6c4c4690e2be
 data[:, "label"]
@@ -142,171 +177,20 @@ md"!!! example \"\"
 	get data ready for scikitlearn (`X`, `y` matrices/vectors) and input scalers
 "
 
-# ╔═╡ a769c929-6b30-4a00-bb05-b50f6a3ac91a
-function data_to_Xy(data::DataFrame)
-	# X: (n_samples, n_features)
-	X = Matrix(data[:, "m " .* mofs .* " [g/g]"])
-	# y: anomolous or normal
-	y = map(i -> label_to_int[data[i, "label"]], 1:nrow(data))
-	return X, y
-end
-
-# ╔═╡ f16df374-b712-4ed7-894a-76bf9b1e6027
-begin
-	X = Dict()
-	y = Dict()
-	for split in ["train", "valid", "test"]
-		data_split = filter(row -> row["split"] == split, data)
-		X[split], y[split] = data_to_Xy(data_split)
-	end
-	X, y
-end
-
 # ╔═╡ af2a17f8-069d-4e8c-a89b-b17fbe0eeacb
 md"scale inputs ($z$-score standardization)."
-
-# ╔═╡ 23aeb959-c578-405f-90d2-afb158406a4c
-begin
-	scaler = StandardScaler().fit(X["train"])
-	for split in ["train", "test", "valid"]
-		X[split * "_scaled"] = scaler.transform(X[split])
-	end
-	X
-end
 
 # ╔═╡ c34be089-ff98-404c-85e6-6b605d2cfe1c
 md"!!! example \"\" 
 	Create functions to generate trained support vector machines for select kernels"
 
-# ╔═╡ af735015-999a-428c-bcec-defdad3caca6
-function train_anomaly_detector(X::Matrix, ν::Float64, γ::Float64, kernel::String)
-	oc_svm = OneClassSVM(kernel=kernel, nu=ν, degree=2, gamma=γ, coef0=0.001)
-	return oc_svm.fit(X)
-end
-
 # ╔═╡ 6eb73e08-3ef0-4aab-910d-28a55501e863
 md"!!! example \"\" 
 	From here start validation process"
 
-# ╔═╡ 1a935820-68dc-4fa8-85f5-40b25b102175
-begin
-	kernel = "poly"
-	# defines hyper-parameter grid
-	if kernel == "rbf"
-		νs = range(0.001, 0.05, length=30)
-		γs = range(0.1, 0.5, length=30)
-	else
-		νs = range(0.01, 0.1, length=30)
-		#γs = 10.0 .^ range(-2, -1, length=25)
-		γs = range(0.005, 0.2, length=30)
-	end
-end
-
-# ╔═╡ d415aba4-1957-4fdb-8980-79c32575c568
-begin
-	@assert label_to_int["anomalous"] == -1 # anomaly considered "positive" below
-	
-	function performance_metric(y_true, y_pred)
-		# anomalies (-1) are considered "positives"
-		pr = precision_score(-y_true, -y_pred)
-		re =    recall_score(-y_true, -y_pred)
-		return re * pr
-		#return accuracy_score(y_true, y_pred)
-	end
-end
-
-# ╔═╡ 799b48d9-2c85-4cce-a215-12d58dee690d
-#step 2, create a function that generates a matrix of svm's given the ν and γ ranges and desired resolution.
-
-# ╔═╡ a3b3b771-4097-4f24-97f6-8819182fe5f4
-function validation_run(νs, γs)
-	val_scores = zeros(length(νs), length(γs))
-	for (i, ν) in enumerate(νs)
-		for (j, γ) in enumerate(γs)
-			# train SVM
-			oc_svm = train_anomaly_detector(X["train_scaled"], ν, γ, kernel)
-			# get predictions for validation data
-			y_pred = oc_svm.predict(X["valid_scaled"])
-			# store validation score
-			val_scores[i, j] = performance_metric(y["valid"], y_pred)
-		end
-	end
-	return val_scores
-end
-
-# ╔═╡ 52899efc-9df7-4552-b47b-fb50e8297116
-function viz_validation_results(νs, γs, val_scores)
-	cmap = ColorSchemes.linear_green_5_95_c69_n256
-
-	fig = Figure()
-
-	ax = Axis(fig[1, 1], 
-			  xlabel="γ",
-			  ylabel="ν",
-		      aspect=length(γs) / length(νs),
-			  # xticks=(1:5:length(γs), ["$(round(γs[i], digits=2))" for i=1:5:length(γs)]),
-		   #    yticks=(1:5:length(νs), reverse(["$(round(νs[i], digits=3))" for i=1:5:length(νs)])),
-		  	  xticks=(1:length(γs), 
-				  ["$(round(γ, digits=2))" for γ in γs]),
-		      yticks=(1:length(νs), 
-				  reverse(["$(round(ν, digits=5))" for ν in νs])),
-		      xticklabelrotation=π/2
-	)
-
-	hm = heatmap!(reverse(val_scores, dims=1)', colormap=cmap)
-
-	cb = Colorbar(fig[1, 2], hm, label="validation score")
-			 # # limits = (minimum(test_results_grid), maximum(test_results_grid)), 
-			 # colormap = h_map_colors, 
-			 # ticks = minimum(test_results_grid):5:maximum(test_results_grid),
-			 # label = "Accuracy Score")
-
-	return fig
-end
-
-# ╔═╡ 6a22f740-46ae-46b7-8962-b02028b3bf90
-val_scores = validation_run(νs, γs)
-
-# ╔═╡ 4f4ab2f4-7e29-4902-a4dd-28e61fab6cb9
-viz_validation_results(νs, γs, val_scores)
-
-# ╔═╡ 4404685d-25fa-44c1-ab90-a31b514aa760
-id_opt_ν, id_opt_γ = argmax(val_scores).I
-
-# ╔═╡ c694a907-6085-462b-b766-d2814b3b6ee1
-ν_opt = νs[id_opt_ν]
-
-# ╔═╡ 6957c2ce-74dd-4049-ab05-38a0c2eb41a1
-γ_opt = γs[id_opt_γ]
-
-# ╔═╡ 8aed07f0-232a-4567-bda2-154ab1b1993a
-with_terminal() do
-	println("opt ν = ", ν_opt)
-	println("opt γ = ", γ_opt)
-end
-
-# ╔═╡ 7083f478-a811-47e2-af0a-643338138add
-deploy_oc_svm = train_anomaly_detector(X["train_scaled"], ν_opt, γ_opt, kernel)
-#deploy_oc_svm = train_anomaly_detector(X["train_scaled"], 0.02, 0.040, kernel)
-
-# ╔═╡ 59aceee1-20b7-462a-b0d7-a5f70983d9b9
-y_pred = deploy_oc_svm.predict(X["test_scaled"])
-#y_pred = deploy_oc_svm.predict(X["train_scaled"])
-
-# ╔═╡ fd32cc28-6215-4acf-81e3-39a020542a23
-
-
 # ╔═╡ 1d2f71c0-3375-49e4-9351-0e0f0ac84616
 cm = confusion_matrix(y["test"], y_pred)
 #cm = confusion_matrix(y["train"], y_pred)
-
-# ╔═╡ 4f7e5474-8712-425e-b1f1-1e96161f1fdb
-sum(y_pred .== y["test"])
-#sum(y_pred .== y["train"])
-
-# ╔═╡ 562f2305-0fcd-4c6f-aca7-07deb7b74e05
-sum(y_pred .!= y["test"])
-#sum(y_pred .!= y["train"])
 
 # ╔═╡ f1be79a4-e36e-480f-a575-70d3ee062a14
 md"!!! example \"\" 
@@ -505,8 +389,9 @@ ScikitLearn = "~0.6.4"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.7.1"
+julia_version = "1.8.0-DEV.1390"
 manifest_format = "2.0"
+project_hash = "e3a93446e3436a508fd4518d92c688c57d601e03"
 
 [[deps.AbstractFFTs]]
 deps = ["ChainRulesCore", "LinearAlgebra"]
@@ -539,6 +424,7 @@ version = "0.4.1"
 
 [[deps.ArgTools]]
 uuid = "0dad84c5-d112-42e6-8d28-ef12dabb789f"
+version = "1.1.1"
 
 [[deps.ArrayInterface]]
 deps = ["Compat", "IfElse", "LinearAlgebra", "Requires", "SparseArrays", "Static"]
@@ -668,6 +554,7 @@ version = "3.42.0"
 [[deps.CompilerSupportLibraries_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "e66e0078-7015-5450-92f7-15fbd957f2ae"
+version = "0.5.0+0"
 
 [[deps.Conda]]
 deps = ["Downloads", "JSON", "VersionParsing"]
@@ -751,8 +638,9 @@ uuid = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
 version = "0.8.6"
 
 [[deps.Downloads]]
-deps = ["ArgTools", "LibCURL", "NetworkOptions"]
+deps = ["ArgTools", "FileWatching", "LibCURL", "NetworkOptions"]
 uuid = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
+version = "1.6.0"
 
 [[deps.DualNumbers]]
 deps = ["Calculus", "NaNMath", "SpecialFunctions"]
@@ -812,6 +700,9 @@ deps = ["Compat", "Dates", "Mmap", "Printf", "Test", "UUIDs"]
 git-tree-sha1 = "04d13bfa8ef11720c24e4d840c0033d145537df7"
 uuid = "48062228-2e41-5def-b9a4-89aafe57970f"
 version = "0.9.17"
+
+[[deps.FileWatching]]
+uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
 
 [[deps.FillArrays]]
 deps = ["LinearAlgebra", "Random", "SparseArrays", "Statistics"]
@@ -1088,10 +979,12 @@ uuid = "4af54fe1-eca0-43a8-85a7-787d91b784e3"
 [[deps.LibCURL]]
 deps = ["LibCURL_jll", "MozillaCACerts_jll"]
 uuid = "b27032c2-a3e7-50c8-80cd-2d36dbcbfd21"
+version = "0.6.3"
 
 [[deps.LibCURL_jll]]
 deps = ["Artifacts", "LibSSH2_jll", "Libdl", "MbedTLS_jll", "Zlib_jll", "nghttp2_jll"]
 uuid = "deac9b47-8bc7-5906-a0fe-35ac56dc84c0"
+version = "7.73.0+4"
 
 [[deps.LibGit2]]
 deps = ["Base64", "NetworkOptions", "Printf", "SHA"]
@@ -1100,6 +993,7 @@ uuid = "76f85450-5226-5b5a-8eaa-529ad045b433"
 [[deps.LibSSH2_jll]]
 deps = ["Artifacts", "Libdl", "MbedTLS_jll"]
 uuid = "29816b5a-b9ab-546f-933c-edad1886dfa8"
+version = "1.9.1+2"
 
 [[deps.Libdl]]
 uuid = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
@@ -1206,6 +1100,7 @@ version = "0.2.1"
 [[deps.MbedTLS_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "c8ffd9c3-330d-5841-b78e-0817d7145fa1"
+version = "2.24.0+2"
 
 [[deps.Missings]]
 deps = ["DataAPI"]
@@ -1224,6 +1119,7 @@ version = "0.3.3"
 
 [[deps.MozillaCACerts_jll]]
 uuid = "14a3606d-f60d-562e-9121-12d972cd8159"
+version = "2020.7.22"
 
 [[deps.NLSolversBase]]
 deps = ["DiffResults", "Distributed", "FiniteDiff", "ForwardDiff"]
@@ -1244,6 +1140,7 @@ version = "1.0.2"
 
 [[deps.NetworkOptions]]
 uuid = "ca575930-c2e3-43a9-ace4-1e988b2c1908"
+version = "1.2.0"
 
 [[deps.Observables]]
 git-tree-sha1 = "fe29afdef3d0c4a8286128d4e45cc50621b1e43d"
@@ -1265,6 +1162,7 @@ version = "1.3.5+1"
 [[deps.OpenBLAS_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Libdl"]
 uuid = "4536629a-c528-5b80-bd46-f80d51c5b363"
+version = "0.3.17+2"
 
 [[deps.OpenEXR]]
 deps = ["Colors", "FileIO", "OpenEXR_jll"]
@@ -1281,6 +1179,7 @@ version = "3.1.1+0"
 [[deps.OpenLibm_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "05823500-19ac-5b8b-9628-191a04bc5112"
+version = "0.8.1+0"
 
 [[deps.OpenSSL_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1368,6 +1267,7 @@ version = "0.40.1+0"
 [[deps.Pkg]]
 deps = ["Artifacts", "Dates", "Downloads", "LibGit2", "Libdl", "Logging", "Markdown", "Printf", "REPL", "Random", "SHA", "Serialization", "TOML", "Tar", "UUIDs", "p7zip_jll"]
 uuid = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
+version = "1.8.0"
 
 [[deps.PkgVersion]]
 deps = ["Pkg"]
@@ -1483,6 +1383,7 @@ version = "0.3.0+0"
 
 [[deps.SHA]]
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
+version = "0.7.0"
 
 [[deps.SIMD]]
 git-tree-sha1 = "7dbc15af7ed5f751a82bf3ed37757adf76c32402"
@@ -1610,6 +1511,7 @@ uuid = "4607b0f0-06f3-5cda-b6b1-a6196a1729e9"
 [[deps.TOML]]
 deps = ["Dates"]
 uuid = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
+version = "1.0.0"
 
 [[deps.TableTraits]]
 deps = ["IteratorInterfaceExtensions"]
@@ -1626,6 +1528,7 @@ version = "1.7.0"
 [[deps.Tar]]
 deps = ["ArgTools", "SHA"]
 uuid = "a4e569a6-e804-4fa4-b0f3-eef7a1d5b13e"
+version = "1.10.0"
 
 [[deps.TensorCore]]
 deps = ["LinearAlgebra"]
@@ -1747,6 +1650,7 @@ version = "1.4.0+3"
 [[deps.Zlib_jll]]
 deps = ["Libdl"]
 uuid = "83775a58-1f1d-513f-b197-d71354ab007a"
+version = "1.2.12+1"
 
 [[deps.isoband_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1763,6 +1667,7 @@ version = "0.15.1+0"
 [[deps.libblastrampoline_jll]]
 deps = ["Artifacts", "Libdl", "OpenBLAS_jll"]
 uuid = "8e850b90-86db-534c-a0d3-1478176c7d93"
+version = "4.0.0+0"
 
 [[deps.libfdk_aac_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1785,10 +1690,12 @@ version = "1.3.7+1"
 [[deps.nghttp2_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "8e850ede-7688-5339-a07c-302acd2aaf8d"
+version = "1.41.0+1"
 
 [[deps.p7zip_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
+version = "16.2.1+1"
 
 [[deps.x264_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1806,49 +1713,36 @@ version = "3.5.0+0"
 # ╔═╡ Cell order:
 # ╟─1784c510-5465-11ec-0dd1-13e5a66e4ce6
 # ╠═d090131e-6602-4c03-860c-ad3cb6c7844a
-# ╠═43caff06-f74c-44b1-b8a4-7963a8d3f12d
 # ╠═0a6fe423-c3be-4a75-aa27-dfb84fde7fef
+# ╠═3e7c36ca-8345-40fb-b199-34fe49dea73e
 # ╠═5d920ea0-f04d-475f-b05b-86e7b199d7e0
 # ╠═31f71438-ff2f-49f9-a801-3a6489eaf271
+# ╠═738a227e-9665-4fe1-b3b5-d12c93c9300d
+# ╠═b2a5df8c-bbc6-487a-8ac5-9c55f78d259f
+# ╠═fadb73a0-08b1-4fa5-a7f3-a07f280c7e30
+# ╠═791cde8d-f092-4c96-a6db-c63894b4e7bd
+# ╠═a88989ad-8ac5-410c-9fd7-da7c2ff85036
+# ╠═80a087e4-85fa-422a-9946-9d608af63ba0
+# ╠═221ca0f5-69a8-4b19-bbb6-3ae520625df6
+# ╠═82d8dcb1-5b76-47d3-bc6e-19e67ee95d0b
+# ╠═9046f0d9-d054-4f15-9e09-5edc419f9440
+# ╠═476cbc96-5556-402c-a8e4-0697ade9a16a
+# ╠═67257cbd-224d-4dcf-b414-1c67352a5c66
+# ╠═45575909-d7d2-46b7-b689-7382008636b1
+# ╠═26084b98-85da-468a-b593-dfc0f29a9e1c
+# ╠═746db933-b488-4e25-944f-8a62f22b4574
+# ╠═ee8029cf-c6a6-439f-b190-cb297e0ddb70
 # ╟─d5c471c3-26be-46c0-a174-d580d0ed7f7d
 # ╠═d657ed23-3eb4-49d0-a59c-811e8189c376
-# ╠═91a56f3c-36ca-4799-be4c-1a209b42f162
 # ╟─a9c93bf0-b75f-421c-a289-2ae3b53b369a
 # ╟─ff63e947-5e5b-4964-8cef-9b618b32b4f7
-# ╠═c1db156a-fa26-4e57-b8ce-3f9e362d0c14
-# ╠═7dc59766-97c8-49d8-8b52-be54cec1902d
-# ╠═24483c59-798f-4452-aef1-b77fcb7f9d2d
 # ╟─470cbac8-9fef-4b0b-8998-db25267424ea
-# ╠═6efa96c5-f593-4395-a2f1-692ce2ba9e6f
-# ╠═328fd6b5-8be9-4971-9a6d-6fe6921f020c
-# ╠═ae6535ba-1a6d-4898-b88e-08076e53cbdd
-# ╠═90f821c6-5156-44ec-ad01-3b6f2fb39ce5
 # ╠═7f70bf3a-222e-4996-a781-6c4c4690e2be
 # ╟─4a986818-d848-4938-9a96-15a455403e4d
-# ╠═a769c929-6b30-4a00-bb05-b50f6a3ac91a
-# ╠═f16df374-b712-4ed7-894a-76bf9b1e6027
 # ╟─af2a17f8-069d-4e8c-a89b-b17fbe0eeacb
-# ╠═23aeb959-c578-405f-90d2-afb158406a4c
 # ╟─c34be089-ff98-404c-85e6-6b605d2cfe1c
-# ╠═af735015-999a-428c-bcec-defdad3caca6
 # ╟─6eb73e08-3ef0-4aab-910d-28a55501e863
-# ╠═1a935820-68dc-4fa8-85f5-40b25b102175
-# ╠═d415aba4-1957-4fdb-8980-79c32575c568
-# ╠═799b48d9-2c85-4cce-a215-12d58dee690d
-# ╠═a3b3b771-4097-4f24-97f6-8819182fe5f4
-# ╠═52899efc-9df7-4552-b47b-fb50e8297116
-# ╠═6a22f740-46ae-46b7-8962-b02028b3bf90
-# ╠═4f4ab2f4-7e29-4902-a4dd-28e61fab6cb9
-# ╠═4404685d-25fa-44c1-ab90-a31b514aa760
-# ╠═c694a907-6085-462b-b766-d2814b3b6ee1
-# ╠═6957c2ce-74dd-4049-ab05-38a0c2eb41a1
-# ╠═8aed07f0-232a-4567-bda2-154ab1b1993a
-# ╠═7083f478-a811-47e2-af0a-643338138add
-# ╠═59aceee1-20b7-462a-b0d7-a5f70983d9b9
-# ╠═fd32cc28-6215-4acf-81e3-39a020542a23
 # ╠═1d2f71c0-3375-49e4-9351-0e0f0ac84616
-# ╠═4f7e5474-8712-425e-b1f1-1e96161f1fdb
-# ╠═562f2305-0fcd-4c6f-aca7-07deb7b74e05
 # ╟─f1be79a4-e36e-480f-a575-70d3ee062a14
 # ╠═6591e930-8952-449a-8418-82a96b20fec9
 # ╠═9396ce45-70f6-485f-9015-b586d0950342

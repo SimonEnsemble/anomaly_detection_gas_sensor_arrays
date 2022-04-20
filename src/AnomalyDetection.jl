@@ -1,5 +1,7 @@
 module AnomalyDetection
 
+using ScikitLearn, DataFrames
+
 @sk_import svm : OneClassSVM
 @sk_import preprocessing : StandardScaler
 @sk_import metrics : confusion_matrix
