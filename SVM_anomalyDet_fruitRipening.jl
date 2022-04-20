@@ -35,7 +35,7 @@ begin
 	mofs  = SyntheticDataGen.mofs
 
 	σ_H₂O = 0.01
-	σ_m   = 0.01
+	σ_m   = 0.0001
 end
 
 # ╔═╡ b2a5df8c-bbc6-487a-8ac5-9c55f78d259f
@@ -61,7 +61,7 @@ end
 svm = AnomalyDetection.train_anomaly_detector(X_train_scaled, ν_opt, γ_opt)
 
 # ╔═╡ 82d8dcb1-5b76-47d3-bc6e-19e67ee95d0b
-data_test = SyntheticDataGen.gen_data(150, 10, σ_H₂O, σ_m)
+data_test = SyntheticDataGen.gen_data(100, 5, σ_H₂O, σ_m)
 
 # ╔═╡ 9046f0d9-d054-4f15-9e09-5edc419f9440
 X_test, y_test = AnomalyDetection.data_to_Xy(data_test)
@@ -72,290 +72,11 @@ X_test_scaled = scaler.transform(X_test)
 # ╔═╡ 67257cbd-224d-4dcf-b414-1c67352a5c66
 y_pred = svm.predict(X_test_scaled)
 
-# ╔═╡ 45575909-d7d2-46b7-b689-7382008636b1
-function viz_cm(svm, data_test::DataFrame, scaler)
-	all_labels = SyntheticDataGen.viable_labels
-	n_labels = length(all_labels)
-
-	# confusion matrix. each row pertains to a label.
-	# col 1 = -1 predicted anomaly, col 2 = 1 predicted normal.
-	cm = zeros(Int, 2, n_labels)
-
-	for (l, label) in enumerate(all_labels)
-		# get all test data with this label
-		data_test_l = filter(row -> row["label"] == label, data_test)
-		# get feature matrix
-		X_test_l, y_test_l = AnomalyDetection.data_to_Xy(data_test_l)
-		# scale
-		X_test_l_scaled = scaler.transform(X_test_l)
-		# make predictions for this subset of test data
-		y_pred_l = svm.predict(X_test_l_scaled)
-		
-		# how many are predicted as anomaly?
-		cm[1, l] = sum(y_pred_l .== -1)
-		# how many predicted as normal?
-		cm[2, l] = sum(y_pred_l .== 1)
-	end
-	@assert sum(cm) == nrow(data_test)
-
-	fig = Figure()
-	ax = Axis(fig[1, 1],
-		  xticks=([1, 2], ["anomalous", "normal"]),
-		  yticks=([i for i=1:n_labels], all_labels),
-		  xticklabelrotation=45.0,
-		  ylabel="truth",
-		  xlabel="prediction"
-    )
-
-	@assert SyntheticDataGen.viable_labels[1] == "normal"
-	# anomalies
-	heatmap!(1:2, 2:6, cm[:, 2:end], 
-			      colormap=ColorSchemes.amp, colorrange=(0, maximum(cm[:, 2:end])))
-	# normal data
-	heatmap!(1:2, 1:1, reshape(cm[:, 1], (2, 1)), 
-			      colormap=ColorSchemes.algae, colorrange=(0, maximum(cm[:, 1])))
-    for i = 1:2
-        for j = 1:length(all_labels)
-            text!("$(cm[i, j])",
-                  position=(i, j), align=(:center, :center), color=:black)
-        end
-    end
-    # Colorbar(fig[1, 2], hm, label="# data points")
-    fig
-end
-
-# ╔═╡ 26084b98-85da-468a-b593-dfc0f29a9e1c
-x = rand(3, 4)
-
-# ╔═╡ 746db933-b488-4e25-944f-8a62f22b4574
-x[:, 1]
-
 # ╔═╡ ee8029cf-c6a6-439f-b190-cb297e0ddb70
 AnomalyDetection.viz_cm(svm, data_test, scaler)
 
-# ╔═╡ d5c471c3-26be-46c0-a174-d580d0ed7f7d
-md"!!! example \"\"
-	Declare utility data structures to be used in data processing such as lists of names of gases, mofs, filename for the CSV file and import henry coefficients and sk learn libraries.
-"
-
-# ╔═╡ d657ed23-3eb4-49d0-a59c-811e8189c376
-# begin
-# 	gases              = SyntheticDataGen.gases
-# 	mofs               = SyntheticDataGen.mofs
-# 	gas_to_pretty_name = load("sensor_data.jld2")["gas_to_pretty_name"]
-# 	colors             = load("sensor_data.jld2")["colors"]
-# 	colors["anomaly"] = "red"
-
-# 	anomalous_labels = filter(x -> x != "normal", unique(data[:, "label"]))
-	
-# 	# https://scikit-learn.org/stable/modules/generated/sklearn.svm.OneClassSVM.html#sklearn.svm.OneClassSVM
-# 	# Returns -1 for outliers and 1 for inliers.
-# 	label_to_int = Dict(zip(anomalous_labels, [-1 for i = 1:length(anomalous_labels)]))
-# 	label_to_int["normal"] = 1
-# 	label_to_int["anomalous"] = -1
-	
-# 	color_map = RGBAf.(reverse(ColorSchemes.diverging_gwr_55_95_c38_n256), 0.5)
-# 	nothing
-# end
-
-# ╔═╡ a9c93bf0-b75f-421c-a289-2ae3b53b369a
-md"!!! example \"\" 
-	test/train/validation split. assign each experiment to train, valid, or test.
-"
-
-# ╔═╡ ff63e947-5e5b-4964-8cef-9b618b32b4f7
-md"normal data: assign to test/train/validation split."
-
-# ╔═╡ 470cbac8-9fef-4b0b-8998-db25267424ea
-md"anomalous data: assign 50% of each category to valid, 50% to test."
-
-# ╔═╡ 7f70bf3a-222e-4996-a781-6c4c4690e2be
-data[:, "label"]
-
-# ╔═╡ 4a986818-d848-4938-9a96-15a455403e4d
-md"!!! example \"\" 
-	get data ready for scikitlearn (`X`, `y` matrices/vectors) and input scalers
-"
-
-# ╔═╡ af2a17f8-069d-4e8c-a89b-b17fbe0eeacb
-md"scale inputs ($z$-score standardization)."
-
-# ╔═╡ c34be089-ff98-404c-85e6-6b605d2cfe1c
-md"!!! example \"\" 
-	Create functions to generate trained support vector machines for select kernels"
-
-# ╔═╡ 6eb73e08-3ef0-4aab-910d-28a55501e863
-md"!!! example \"\" 
-	From here start validation process"
-
-# ╔═╡ 1d2f71c0-3375-49e4-9351-0e0f0ac84616
-cm = confusion_matrix(y["test"], y_pred)
-#cm = confusion_matrix(y["train"], y_pred)
-
-# ╔═╡ f1be79a4-e36e-480f-a575-70d3ee062a14
-md"!!! example \"\" 
-	Fabricate a confusion matrix for anomalous vs normal data and a confusion matrix by anomaly type."
-
-# ╔═╡ 6591e930-8952-449a-8418-82a96b20fec9
-function viz_confusion_matrix(cm::Matrix{Int64}, naming::Vector{String})
-	# cm[i, j] is equal to the number of observations known to be in group i and predicted to be in group j.
-	cm_plot = reverse(cm, dims=1)'
-	
-    fig = Figure()
-    ax = Axis(fig[1, 1],
-              xticks=([1, 2], naming),
-              yticks=([1, 2], reverse(naming)),
-			  xticklabelrotation=45.0,
-              ylabel="truth",
-              xlabel="prediction"
-    )
-    hm = heatmap!(cm_plot, 
-		colormap=ColorSchemes.algae, colorrange=(0, sum(cm)))
-    for i = 1:2
-        for j = 1:2
-            text!("$(cm_plot[i, j])",
-                  position=(i, j), align=(:center, :center), color=:black)
-        end
-    end
-    Colorbar(fig[1, 2], hm, label="# compositions")
-	save("cm.pdf", fig)
-    fig
-end
-
-# ╔═╡ 9396ce45-70f6-485f-9015-b586d0950342
-function viz_anomaly_type_confusion_matrix(mysvm, anomalous_naming::Vector{String})
-	
-	train_data = filter(row -> row[:split] == "test", data)
-	naming = vcat(["normal"], anomalous_naming)
-	num_types = length(naming)
-	cm_plot = zeros(2, num_types)
-	xy_bylabel = Dict()
-
-	fig = Figure()
-	ax = Axis(fig[1, 1],
-		  xticks=([1, 2], ["anomalous", "normal"]),
-		  yticks=([i for i=1:num_types], naming),
-		  xticklabelrotation=45.0,
-		  ylabel="truth",
-		  xlabel="prediction"
-    )
-
-	for name_index = 1:num_types
-		label = naming[name_index]
-		data_bylabel = filter(row -> row[:label] == label, train_data)
-		temp_x, temp_y = data_to_Xy(data_bylabel)
-		xy_bylabel[label] = Dict("x" => scaler.transform(temp_x), "y" => temp_y)
-		predictions = mysvm.predict(xy_bylabel[label]["x"])
-
-		for i = 1:length(predictions)
-			if name_index == 1 #normal is first
-				if predictions[i] == xy_bylabel[label]["y"][i]
-					cm_plot[2, 1] += 1
-				else
-					cm_plot[1, 1] += 1
-				end
-			else #not normal data
-				if predictions[i] == xy_bylabel[label]["y"][i]
-					cm_plot[1, name_index] += 1
-				else
-					cm_plot[2, name_index] += 1
-				end
-			end
-		end
-	end
-
-	hm = heatmap!(cm_plot, 
-	colormap=ColorSchemes.algae, colorrange=(0, sum(cm_plot)))
-    for i = 1:2
-        for j = 1:length(naming)
-            text!("$(cm_plot[i, j])",
-                  position=(i, j), align=(:center, :center), color=:black)
-        end
-    end
-    Colorbar(fig[1, 2], hm, label="# compositions")
-	save("cm_anomaly.pdf", fig)
-    fig
-end
-
-# ╔═╡ ab8acf22-ab5d-471a-b914-f3a8749bf178
-viz_anomaly_type_confusion_matrix(deploy_oc_svm, anomalous_labels)
-
-# ╔═╡ d161fe94-c0cf-46ac-87c3-25c6a27a6b46
-viz_confusion_matrix(cm, ["anomalous", "normal"])
-
-# ╔═╡ 0a0cab3a-0231-4d75-8ce6-fde439204082
-#function to generate a grid of anomaly scores based on a trained svm and given resolution.
-function generate_response_grid(mysvm, scaler; grid_res::Int64=100, pad::Float64=0.01)
-	# lay grid over feature space
-	x₁s = range((1-pad) * minimum(X["test"][:, 1]), 
-			    (1+pad) * maximum(X["test"][:, 1]), 
-				  length=grid_res)
-	x₂s = range((1-pad) * minimum(X["test"][:, 2]), 
-		        (1+pad) * maximum(X["test"][:, 2]), 
-			      length=grid_res)
-
-	# get svm prediciton at each point
-	predictions = zeros(grid_res, grid_res)
-	for i = 1:grid_res
-		for j = 1:grid_res
-			x = [x₁s[i] x₂s[j]]
-			x_scaled = scaler.transform(x)
-			predictions[i, j] = mysvm.predict(x_scaled)[1]
-		end
-	end
-	
-	return x₁s, x₂s, predictions
-end
-
-# ╔═╡ a1a6e4cf-1a15-4492-88f9-f2e68646dcb5
-#function to generate and visualize a SVM given a particular nu, gamma and resolution.
-function viz_svm_data_fit(trained_svm, split::String, res=100)
-	@assert split == "train" || split == "test" # only set to plot train or test sets
-	
-	fig = Figure(resolution=(700, 700))
-	# generate the grid
-	x₁s, x₂s, predictions = generate_response_grid(trained_svm, scaler, 
-		grid_res=res, pad=0.02)
-	
-	ax1 = Axis(fig[1,1], 
-			   xlabel = "m, " * mofs[1] * " [g/g]",
-			   ylabel = "m, " * mofs[2] * " [g/g]",
-			   aspect = DataAspect())
-
-	contour!(x₁s, 
-			 x₂s,
-             predictions, 
-		     levels=[0.0], 
-			 color=:black,
-		     label="decision boundary"
-	) 
-	
-	data_test = filter(row -> row["split"] == split, data)
-    for label in vcat(["normal"], anomalous_labels)
-		sensor_data_g = filter(row -> row["label"] == label, data_test)
-		
-        scatter!(sensor_data_g[:, "m $(mofs[1]) [g/g]"],                                               sensor_data_g[:, "m $(mofs[2]) [g/g]"],                              
-                 strokewidth=1,                                                       
-                 markersize=15,                                                       
-                 marker=label == "normal" ? :circle : :x,                             
-                 color=(:white, 0.0), strokecolor=colors[label],                      
-                 label=label)                                                               
-    end                                                                               
-                                                                                
-    axislegend("$split data", position=:rb)
-
-	save("result.pdf", fig)
-	fig
-end
-
-# ╔═╡ 5c7379cc-cc01-4025-87d7-92162f65468d
-viz_svm_data_fit(deploy_oc_svm, "test")
-
-# ╔═╡ 91326408-9e8c-401a-9d4f-64a92866b82d
-viz_svm_data_fit(deploy_oc_svm, "train")
-
-# ╔═╡ efba55d1-f7dc-4a92-99ca-64d97e4fb4a5
-deploy_oc_svm.fit_status_
+# ╔═╡ 6e278c3e-45a3-4aa8-b904-e3dfa73615d5
+AnomalyDetection.viz_decision_boundary(svm, scaler, data_test)
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -1728,30 +1449,7 @@ version = "3.5.0+0"
 # ╠═9046f0d9-d054-4f15-9e09-5edc419f9440
 # ╠═476cbc96-5556-402c-a8e4-0697ade9a16a
 # ╠═67257cbd-224d-4dcf-b414-1c67352a5c66
-# ╠═45575909-d7d2-46b7-b689-7382008636b1
-# ╠═26084b98-85da-468a-b593-dfc0f29a9e1c
-# ╠═746db933-b488-4e25-944f-8a62f22b4574
 # ╠═ee8029cf-c6a6-439f-b190-cb297e0ddb70
-# ╟─d5c471c3-26be-46c0-a174-d580d0ed7f7d
-# ╠═d657ed23-3eb4-49d0-a59c-811e8189c376
-# ╟─a9c93bf0-b75f-421c-a289-2ae3b53b369a
-# ╟─ff63e947-5e5b-4964-8cef-9b618b32b4f7
-# ╟─470cbac8-9fef-4b0b-8998-db25267424ea
-# ╠═7f70bf3a-222e-4996-a781-6c4c4690e2be
-# ╟─4a986818-d848-4938-9a96-15a455403e4d
-# ╟─af2a17f8-069d-4e8c-a89b-b17fbe0eeacb
-# ╟─c34be089-ff98-404c-85e6-6b605d2cfe1c
-# ╟─6eb73e08-3ef0-4aab-910d-28a55501e863
-# ╠═1d2f71c0-3375-49e4-9351-0e0f0ac84616
-# ╟─f1be79a4-e36e-480f-a575-70d3ee062a14
-# ╠═6591e930-8952-449a-8418-82a96b20fec9
-# ╠═9396ce45-70f6-485f-9015-b586d0950342
-# ╠═ab8acf22-ab5d-471a-b914-f3a8749bf178
-# ╠═d161fe94-c0cf-46ac-87c3-25c6a27a6b46
-# ╠═0a0cab3a-0231-4d75-8ce6-fde439204082
-# ╠═a1a6e4cf-1a15-4492-88f9-f2e68646dcb5
-# ╠═5c7379cc-cc01-4025-87d7-92162f65468d
-# ╠═91326408-9e8c-401a-9d4f-64a92866b82d
-# ╠═efba55d1-f7dc-4a92-99ca-64d97e4fb4a5
+# ╠═6e278c3e-45a3-4aa8-b904-e3dfa73615d5
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

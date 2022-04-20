@@ -86,4 +86,68 @@ function viz_cm(svm, data_test::DataFrame, scaler)
     fig
 end
 
+#function to generate a grid of anomaly scores based on a trained svm and given resolution.
+function generate_response_grid(svm, scaler, xlims, ylims, res=100)
+	# lay grid over feature space
+	x₁s = range(xlims[1], xlims[2], length=res)
+	x₂s = range(ylims[1], ylims[2], length=res)
+	
+	# get svm prediciton at each point
+	predictions = zeros(res, res)
+	for i = 1:res
+		for j = 1:res
+			x = [x₁s[i] x₂s[j]]
+			x_scaled = scaler.transform(x)
+			predictions[i, j] = svm.predict(x_scaled)[1]
+		end
+	end
+	
+	return x₁s, x₂s, predictions
+end
+
+function viz_responses!(ax, data::DataFrame)
+	for data_l in groupby(data, "label")
+		label = data_l[1, "label"]
+
+        scatter!(ax, data_l[:, "m $(mofs[1]) [g/g]"],                                                  data_l[:, "m $(mofs[2]) [g/g]"],
+                 strokewidth=1,
+                 markersize=15,
+                 marker=label == "normal" ? :circle : :x,
+                 color=(:white, 0.0),
+			     strokecolor=SyntheticDataGen.label_to_color[label],
+                 label=label)
+    end
+
+    axislegend(ax, position=:rb)
+end
+
+#function to generate and visualize a SVM given a particular nu, gamma and resolution.
+function viz_decision_boundary(svm, scaler, data_test::DataFrame, res::Int=100)
+    X_test, _ = data_to_Xy(data_test)
+
+	xlims = (minimum(X_test[:, 1]), maximum(X_test[:, 1]))
+	ylims = (minimum(X_test[:, 2]), maximum(X_test[:, 2]))
+
+	# generate the grid
+	x₁s, x₂s, predictions = generate_response_grid(svm, scaler, xlims, ylims)
+	fig = Figure(resolution=(700, 700))
+	
+	
+	ax = Axis(fig[1, 1], 
+			   xlabel = "m, " * mofs[1] * " [g/g]",
+			   ylabel = "m, " * mofs[2] * " [g/g]",
+			   aspect = DataAspect())
+
+	contour!(x₁s, 
+			 x₂s,
+             predictions, 
+		     levels=[0.0], 
+			 color=:black,
+		     label="decision boundary"
+	) 
+	
+	viz_responses!(ax, data_test)
+	fig
+end
+
 end
