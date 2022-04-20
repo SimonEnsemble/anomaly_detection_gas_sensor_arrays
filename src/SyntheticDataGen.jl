@@ -24,8 +24,8 @@ gases = ["C₂H₄", "CO₂", "H₂O"]
 mofs = ["ZIF-71", "ZIF-8"]
 henry_data = load("henry_coeffs.jld2")["henry_data"]
 label_to_color = Dict(zip(
-	["normal", "CO₂ buildup", "C₂H₄ buildup", "C₂H₄ off", "CO₂ & C₂H₄ buildup"],
-	ColorSchemes.Dark2_5)
+	["normal", "CO₂ buildup", "C₂H₄ buildup", "C₂H₄ off", "CO₂ & C₂H₄ buildup", "low humidity"],
+	ColorSchemes.Dark2_6)
     )
 
 function setup_gas_comp_distn(σ_H₂O::Float64, label::String)
