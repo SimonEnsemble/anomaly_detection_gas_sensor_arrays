@@ -131,7 +131,7 @@ x = rand(3, 4)
 x[:, 1]
 
 # ╔═╡ ee8029cf-c6a6-439f-b190-cb297e0ddb70
-viz_cm(svm, data_test, scaler)
+AnomalyDetection.viz_cm(svm, data_test, scaler)
 
 # ╔═╡ d5c471c3-26be-46c0-a174-d580d0ed7f7d
 md"!!! example \"\"
