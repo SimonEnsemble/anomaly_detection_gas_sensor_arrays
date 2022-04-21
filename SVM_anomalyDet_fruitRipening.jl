@@ -39,7 +39,12 @@ begin
 end
 
 # ╔═╡ b2a5df8c-bbc6-487a-8ac5-9c55f78d259f
-data_train = SyntheticDataGen.gen_data(150, 0, σ_H₂O, σ_m)
+begin
+num_points = 150
+	
+data_train = SyntheticDataGen.gen_data(num_points, 0, σ_H₂O, σ_m)
+
+end
 
 # ╔═╡ fadb73a0-08b1-4fa5-a7f3-a07f280c7e30
 X_train, y_train = AnomalyDetection.data_to_Xy(data_train)
@@ -64,23 +69,23 @@ end
 begin
 	#generating a distribution of outliers in a hypersphere around our data
 
-	num_outliers = 1000
+	num_outliers = 500
 	num_dimensions = 2
 
-	x = zeros(2, num_outliers)
-	r² = zeros(1, num_outliers)
-	ρ² = zeros(1, num_outliers)
-	x′ = zeros(2, num_outliers)
+	x = zeros(num_outliers, 2)
+	r² = zeros(num_outliers, 1)
+	ρ² = zeros(num_outliers, 1)
+	x′ = zeros(num_outliers, 2)
 
 	for i = 1:num_outliers
 		for j = 1:num_dimensions
-			x[j, i]  = randn()
+			x[i, j]  = randn()
 			if j%2 == 0
-				r²[i] = dot(x[:, i], x[:, i])
+				r²[i] = dot(x[i, :], x[i, :])
 				ρ²[i] = cdf(Chisq(2), r²[i])
 			
-				x′[j-1, i] = (ρ²[i] / norm(x[:, i])) * x[j-1, i]
-				x′[j, i] = (ρ²[i] / norm(x[:, i])) * x[j, i]
+				x′[i, j-1] = (ρ²[i] / norm(x[i, :])) * x[i, j-1]
+				x′[i, j] = (ρ²[i] / norm(x[i, :])) * x[i, j]
 			end
 		end
 	end
@@ -93,26 +98,44 @@ begin
 	=#
 end
 
-# ╔═╡ ac118945-4905-4286-b07f-7aa58d25185b
-begin
-1%2
-end
-
-# ╔═╡ 85b29498-4800-4cde-8a7e-c4e15fe96361
-x
-
 # ╔═╡ 48d8afeb-2df0-44d1-9eaa-f28184813ab4
 begin
 fig_1 = Figure()
 ax = Axis(fig_1[1,1])
 
-scatter!([x′[1, i] for i = 1:num_outliers], [x′[2, i] for i = 1:num_outliers], markersize = 4)
+scatter!([x′[i, 1] for i = 1:num_outliers], [x′[i, 2] for i = 1:num_outliers], markersize = 4)
+scatter!([X_train_scaled[i, 1] for i = 1:num_points], [X_train_scaled[i, 2] for i = 1:num_points], markersize = 4)
 
 fig_1
 end
 
-# ╔═╡ d425b3e7-6a0e-4827-9670-abf033b91891
-r²
+# ╔═╡ bf920cb6-6e5f-473d-982f-623403650849
+begin
+	#identify the outer most data points on which to expand our hypershpere
+	
+	row_max_1 = zeros(1, 2)
+	row_max_2 = zeros(1, 2)
+	max_distance = 0
+	
+	for j = 1:num_points
+		for i = 1:num_points
+			if max_distance < norm(X_train_scaled[j, :] - X_train_scaled[i, :])
+				max_distance = norm(X_train_scaled[j, :] - X_train_scaled[i, :])
+				row_max_1 = X_train_scaled[j, :]
+				row_max_2 = X_train_scaled[i, :]
+			end
+		end
+	end
+end
+
+# ╔═╡ 29e2c726-f1ee-4ad8-aec0-bc60edddfb61
+row_max_1
+
+# ╔═╡ bc45dcc5-dbb3-4144-9402-169e60f67674
+row_max_2
+
+# ╔═╡ b824cc38-81d1-458c-a284-57f3bd9848cc
+
 
 # ╔═╡ 221ca0f5-69a8-4b19-bbb6-3ae520625df6
 svm = AnomalyDetection.train_anomaly_detector(X_train_scaled, ν_opt, γ_opt)
@@ -1464,10 +1487,11 @@ version = "3.5.0+0"
 # ╠═80a087e4-85fa-422a-9946-9d608af63ba0
 # ╠═219cfa7c-9ebb-4ef6-857d-6f2d1fa2e2e3
 # ╠═2795e470-fbb8-49ab-99ed-c08554bef374
-# ╠═ac118945-4905-4286-b07f-7aa58d25185b
-# ╠═85b29498-4800-4cde-8a7e-c4e15fe96361
 # ╠═48d8afeb-2df0-44d1-9eaa-f28184813ab4
-# ╠═d425b3e7-6a0e-4827-9670-abf033b91891
+# ╠═bf920cb6-6e5f-473d-982f-623403650849
+# ╠═29e2c726-f1ee-4ad8-aec0-bc60edddfb61
+# ╠═bc45dcc5-dbb3-4144-9402-169e60f67674
+# ╠═b824cc38-81d1-458c-a284-57f3bd9848cc
 # ╠═221ca0f5-69a8-4b19-bbb6-3ae520625df6
 # ╠═82d8dcb1-5b76-47d3-bc6e-19e67ee95d0b
 # ╠═9046f0d9-d054-4f15-9e09-5edc419f9440
