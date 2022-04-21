@@ -64,23 +64,51 @@ end
 begin
 	#generating a distribution of outliers in a hypersphere around our data
 
-	num_outlier_objects = 1000
-	
-	x = [rand(Normal(0, 1)) for i = 1:num_outlier_objects]
+	num_outliers = 1000
+	num_dimensions = 2
 
-	num_data_points = length(X_train[:,1])
-	dimensions = length(X_train[1,:])
+	x = zeros(2, num_outliers)
+	r² = zeros(1, num_outliers)
+	ρ² = zeros(1, num_outliers)
+	x′ = zeros(2, num_outliers)
 
-	r² = [norm(zeros(dimensions) - X_train[j, :])^2 for j = 1:num_data_points]
+	for i = 1:num_outliers
+		for j = 1:num_dimensions
+			x[j, i]  = randn()
+			if j%2 == 0
+				r²[i] = dot(x[:, i], x[:, i])
+				ρ²[i] = cdf(Chisq(2), r²[i])
+			
+				x′[j-1, i] = (ρ²[i] / norm(x[:, i])) * x[j-1, i]
+				x′[j, i] = (ρ²[i] / norm(x[:, i])) * x[j, i]
+			end
+		end
+	end
 
-	ᵪ² = [cdf(Uniform(0, 1), r²[k])^2 for k = 1:num_data_points]
+	#= method 2
+	x = [randn(2) for i = 1:num_outliers]
+	r² = [dot(x[i], x[i]) for i = 1:num_outliers]
+	ρ² = [cdf(Chisq(2), r²[i]) for i = 1:num_outliers]
+	x′ = [(ρ²[i] / norm(x[i])) * x[i] for i = 1:num_outliers]
+	=#
+end
 
-	r′ = [ᵪ²[k]^(2/dimensions) for k = 1:num_data_points] #no change for 2 dimensions
+# ╔═╡ ac118945-4905-4286-b07f-7aa58d25185b
+begin
+1%2
+end
 
+# ╔═╡ 85b29498-4800-4cde-8a7e-c4e15fe96361
+x
 
-	#okay obviously mistakes where made, I have no idea how I'm supposed to rescale a vector of size 1000 with two smaller vectors. Somehow I'm supposed to end up with some d dimensional scaling factor that scales the vector of normally distributed outlier objects...
-	
-	#x′ = ?
+# ╔═╡ 48d8afeb-2df0-44d1-9eaa-f28184813ab4
+begin
+fig_1 = Figure()
+ax = Axis(fig_1[1,1])
+
+scatter!([x′[1, i] for i = 1:num_outliers], [x′[2, i] for i = 1:num_outliers], markersize = 4)
+
+fig_1
 end
 
 # ╔═╡ d425b3e7-6a0e-4827-9670-abf033b91891
@@ -1436,6 +1464,9 @@ version = "3.5.0+0"
 # ╠═80a087e4-85fa-422a-9946-9d608af63ba0
 # ╠═219cfa7c-9ebb-4ef6-857d-6f2d1fa2e2e3
 # ╠═2795e470-fbb8-49ab-99ed-c08554bef374
+# ╠═ac118945-4905-4286-b07f-7aa58d25185b
+# ╠═85b29498-4800-4cde-8a7e-c4e15fe96361
+# ╠═48d8afeb-2df0-44d1-9eaa-f28184813ab4
 # ╠═d425b3e7-6a0e-4827-9670-abf033b91891
 # ╠═221ca0f5-69a8-4b19-bbb6-3ae520625df6
 # ╠═82d8dcb1-5b76-47d3-bc6e-19e67ee95d0b
