@@ -1,6 +1,6 @@
 module AnomalyDetection
 
-using ScikitLearn, DataFrames, CairoMakie, ColorSchemes, LinearAlgebra
+using ScikitLearn, DataFrames, CairoMakie, ColorSchemes, LinearAlgebra, Statistics
 SyntheticDataGen = include("SyntheticDataGen.jl")
 
 @sk_import svm : OneClassSVM
@@ -207,6 +207,7 @@ function viz_decision_boundary(svm, scaler, data_test::DataFrame, res::Int=100)
 			   ylabel = "m, " * mofs[2] * " [g/g]",
 			   aspect = DataAspect())
 
+	viz_responses!(ax, data_test)
 	contour!(x₁s, 
 			 x₂s,
              predictions, 
@@ -215,7 +216,6 @@ function viz_decision_boundary(svm, scaler, data_test::DataFrame, res::Int=100)
 		     label="decision boundary"
 	) 
 	
-	viz_responses!(ax, data_test)
 	fig
 end
 
