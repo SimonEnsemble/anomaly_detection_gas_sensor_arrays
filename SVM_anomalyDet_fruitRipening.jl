@@ -43,17 +43,28 @@ begin
 num_points = 150
 	
 data_train = SyntheticDataGen.gen_data(num_points, 0, σ_H₂O, σ_m)
+data_valid = SyntheticDataGen.gen_data(num_points, 0, σ_H₂O, σ_m)
 
 end
 
 # ╔═╡ fadb73a0-08b1-4fa5-a7f3-a07f280c7e30
+begin
 X_train, y_train = AnomalyDetection.data_to_Xy(data_train)
+X_valid, y_valid = AnomalyDetection.data_to_Xy(data_valid)
+
+end
 
 # ╔═╡ 791cde8d-f092-4c96-a6db-c63894b4e7bd
-scaler = StandardScaler().fit(X_train)
+begin
+scaler_train = StandardScaler().fit(X_train)
+scaler_valid = StandardScaler().fit(X_valid)
+end
 
 # ╔═╡ a88989ad-8ac5-410c-9fd7-da7c2ff85036
-X_train_scaled = scaler.transform(X_train)
+begin
+X_train_scaled = scaler_train.transform(X_train)
+X_valid_scaled = scaler_valid.transform(X_valid)
+end
 
 # ╔═╡ 80a087e4-85fa-422a-9946-9d608af63ba0
 begin
@@ -61,9 +72,6 @@ begin
 	ν_opt = 0.01
 	γ_opt = 1.0
 end
-
-# ╔═╡ 219cfa7c-9ebb-4ef6-857d-6f2d1fa2e2e3
-
 
 # ╔═╡ 2795e470-fbb8-49ab-99ed-c08554bef374
 begin
@@ -89,24 +97,17 @@ begin
 			end
 		end
 	end
-
-	#= method 2
-	x = [randn(2) for i = 1:num_outliers]
-	r² = [dot(x[i], x[i]) for i = 1:num_outliers]
-	ρ² = [cdf(Chisq(2), r²[i]) for i = 1:num_outliers]
-	x′ = [(ρ²[i] / norm(x[i])) * x[i] for i = 1:num_outliers]
-	=#
 end
 
 # ╔═╡ 48d8afeb-2df0-44d1-9eaa-f28184813ab4
 begin
-fig_1 = Figure()
-ax = Axis(fig_1[1,1])
-
-scatter!([x′[i, 1] for i = 1:num_outliers], [x′[i, 2] for i = 1:num_outliers], markersize = 4)
-scatter!([X_train_scaled[i, 1] for i = 1:num_points], [X_train_scaled[i, 2] for i = 1:num_points], markersize = 4)
-
-fig_1
+	fig_1 = Figure()
+	ax = Axis(fig_1[1,1])
+	
+	scatter!([x′[i, 1] for i = 1:num_outliers], [x′[i, 2] for i = 1:num_outliers], markersize = 4)
+	scatter!([X_valid_scaled[i, 1] for i = 1:num_points], [X_valid_scaled[i, 2] for i = 1:num_points], markersize = 4)
+	
+	fig_1
 end
 
 # ╔═╡ bf920cb6-6e5f-473d-982f-623403650849
@@ -119,23 +120,106 @@ begin
 	
 	for j = 1:num_points
 		for i = 1:num_points
-			if max_distance < norm(X_train_scaled[j, :] - X_train_scaled[i, :])
-				max_distance = norm(X_train_scaled[j, :] - X_train_scaled[i, :])
-				row_max_1 = X_train_scaled[j, :]
-				row_max_2 = X_train_scaled[i, :]
+			if max_distance < norm(X_valid_scaled[j, :] - X_valid_scaled[i, :])
+				max_distance = norm(X_valid_scaled[j, :] - X_valid_scaled[i, :])
+				row_max_1 = X_valid_scaled[j, :]
+				row_max_2 = X_valid_scaled[i, :]
 			end
 		end
 	end
 end
 
-# ╔═╡ 29e2c726-f1ee-4ad8-aec0-bc60edddfb61
-row_max_1
+# ╔═╡ 07f234b3-5b41-4d4e-a21f-79b22c44582a
+max_distance
 
-# ╔═╡ bc45dcc5-dbb3-4144-9402-169e60f67674
-row_max_2
+# ╔═╡ 65b027b2-3699-43df-8583-03b0185398d2
+function rescale_hypersphere(factor::Float64, x′::Matrix{Float64})
+	num_points = length(x′[:, 1])
+	dimensions = length(x′[1, :])
+	new_x′ = zeros(num_points, dimensions)
 
-# ╔═╡ b824cc38-81d1-458c-a284-57f3bd9848cc
+	for i = 1:num_points
+		dim_1 = sqrt((1 + (x′[i, 2] / x′[i, 1])^2)^-1 * sqrt(x′[i, 1]^2 + x′[i, 2]^2) * factor)
+		dim_2 = abs(dim_1 * (x′[i, 2] / x′[i, 1]))
 
+		if x′[i, 1] >= 0
+			new_x′[i, 1] = dim_1
+		else
+			new_x′[i, 1] = -dim_1
+		end
+
+		if x′[i, 2] >= 0
+			new_x′[i, 2] = dim_2
+		else
+			new_x′[i, 2] = -dim_2
+		end
+	end
+	return new_x′
+end
+
+# ╔═╡ 287ced3f-f566-473e-8301-733f352331a3
+new_x = rescale_hypersphere(max_distance * 2, x′)
+
+# ╔═╡ 4340c3a5-62af-4d77-8b08-9f4a3ec477e1
+begin
+	fig_2 = Figure()
+	ax_2 = Axis(fig_2[1,1])
+	
+	scatter!([new_x[i, 1] for i = 1:num_outliers], [new_x[i, 2] for i = 1:num_outliers], markersize = 4)
+	scatter!([X_valid_scaled[i, 1] for i = 1:num_points], [X_valid_scaled[i, 2] for i = 1:num_points], markersize = 4)
+	
+	fig_2
+end
+
+# ╔═╡ ad89c245-7175-42ae-afa5-2aafa1492b7f
+begin
+X_valid_with_outliers = vcat(X_valid_scaled, new_x)
+y_valid_with_outliers = vcat(y_valid, [-1 for i = 1:num_outliers])
+end
+
+# ╔═╡ 53acc61a-3d69-46bc-ba7d-2c89ff7a0100
+function Λ(num_sv::Int32, N::Int64, outliers_accepted::Int64, outliers::Int64 , λ = 0.5)
+	return λ * num_sv / N + (1-λ) * outliers_accepted / outliers
+end
+
+# ╔═╡ 7f3b46f2-3d6e-40a4-8e1e-e542d870810b
+function optimize_ν_γ(ν::Float64, γ::Float64)
+	svm = AnomalyDetection.train_anomaly_detector(X_valid_scaled, ν, γ)
+
+	y = svm.predict(new_x)
+	
+	outliers_accepted = sum(deleteat!(y, findall(x->x==-1,y)))
+	
+	return Λ(svm.n_support_[1], num_points, outliers_accepted, num_outliers )
+end
+
+# ╔═╡ e8f0dfc7-34a5-4a36-884a-4a91fa76a6e1
+function test_ν_γ(ν_range, γ_range)
+	ν_opt = 0
+	γ_opt = 0
+
+	test_grid = zeros(length(ν_range), length(γ_range))
+
+	Λ_opt = 0.0
+	Λ_test = 0.0
+	
+	for i = length(ν_range)
+		for j = length(γ_range)
+			Λ_test = optimize_ν_γ(ν_range[i], γ_range[j])
+
+			if Λ_test > Λ_opt
+				Λ_opt = Λ_test
+				ν_opt = ν_range[i]
+				γ_opt = γ_range[j]
+			end	
+		end
+	end
+
+	return ν_opt, γ_opt
+end
+
+# ╔═╡ 7caed0d6-554f-44f4-8f91-cd5875299dcc
+test_ν_γ(0.01:0.01:0.9, 0.01:0.005:1.5)
 
 # ╔═╡ 221ca0f5-69a8-4b19-bbb6-3ae520625df6
 svm = AnomalyDetection.train_anomaly_detector(X_train_scaled, ν_opt, γ_opt)
@@ -147,16 +231,16 @@ data_test = SyntheticDataGen.gen_data(100, 5, σ_H₂O, σ_m)
 X_test, y_test = AnomalyDetection.data_to_Xy(data_test)
 
 # ╔═╡ 476cbc96-5556-402c-a8e4-0697ade9a16a
-X_test_scaled = scaler.transform(X_test)
+X_test_scaled = scaler_train.transform(X_test)
 
 # ╔═╡ 67257cbd-224d-4dcf-b414-1c67352a5c66
 y_pred = svm.predict(X_test_scaled)
 
 # ╔═╡ ee8029cf-c6a6-439f-b190-cb297e0ddb70
-AnomalyDetection.viz_cm(svm, data_test, scaler)
+AnomalyDetection.viz_cm(svm, data_test, scaler_train)
 
 # ╔═╡ 6e278c3e-45a3-4aa8-b904-e3dfa73615d5
-AnomalyDetection.viz_decision_boundary(svm, scaler, data_test)
+AnomalyDetection.viz_decision_boundary(svm, scaler_train, data_test)
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -1485,13 +1569,18 @@ version = "3.5.0+0"
 # ╠═791cde8d-f092-4c96-a6db-c63894b4e7bd
 # ╠═a88989ad-8ac5-410c-9fd7-da7c2ff85036
 # ╠═80a087e4-85fa-422a-9946-9d608af63ba0
-# ╠═219cfa7c-9ebb-4ef6-857d-6f2d1fa2e2e3
 # ╠═2795e470-fbb8-49ab-99ed-c08554bef374
 # ╠═48d8afeb-2df0-44d1-9eaa-f28184813ab4
 # ╠═bf920cb6-6e5f-473d-982f-623403650849
-# ╠═29e2c726-f1ee-4ad8-aec0-bc60edddfb61
-# ╠═bc45dcc5-dbb3-4144-9402-169e60f67674
-# ╠═b824cc38-81d1-458c-a284-57f3bd9848cc
+# ╠═07f234b3-5b41-4d4e-a21f-79b22c44582a
+# ╠═65b027b2-3699-43df-8583-03b0185398d2
+# ╠═287ced3f-f566-473e-8301-733f352331a3
+# ╠═4340c3a5-62af-4d77-8b08-9f4a3ec477e1
+# ╠═ad89c245-7175-42ae-afa5-2aafa1492b7f
+# ╠═53acc61a-3d69-46bc-ba7d-2c89ff7a0100
+# ╠═7f3b46f2-3d6e-40a4-8e1e-e542d870810b
+# ╠═e8f0dfc7-34a5-4a36-884a-4a91fa76a6e1
+# ╠═7caed0d6-554f-44f4-8f91-cd5875299dcc
 # ╠═221ca0f5-69a8-4b19-bbb6-3ae520625df6
 # ╠═82d8dcb1-5b76-47d3-bc6e-19e67ee95d0b
 # ╠═9046f0d9-d054-4f15-9e09-5edc419f9440
