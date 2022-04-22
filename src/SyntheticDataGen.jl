@@ -58,7 +58,7 @@ function setup_gas_comp_distn(σ_H₂O::Float64, label::String)
 		gas_comp_distn.f_CO₂ = Uniform(7500e-6, 20000e-6)
     elseif label == "CO₂ & C₂H₄ buildup"
 		gas_comp_distn.f_CO₂ = Uniform(7500e-6, 20000e-6)
-		gas_comp_distn.f_C₂H₄ = Uniform(300e-6, 1000e-6)
+		gas_comp_distn.f_C₂H₄ = Uniform(300e-6, 2000e-6)
     elseif label == "low humidity"
         gas_comp_distn.f_H₂O = Uniform(0.2 * p_H₂O_vapor, 0.75 * p_H₂O_vapor)
     end
