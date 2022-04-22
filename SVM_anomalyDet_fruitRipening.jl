@@ -77,10 +77,10 @@ end
 begin
 	#generating a distribution of outliers in a hypersphere around our data
 
-	num_outliers = 500
+	num_outliers   = 500
 	num_dimensions = 2
 
-	x = zeros(num_outliers, 2)
+	x  = zeros(num_outliers, 2)
 	r² = zeros(num_outliers, 1)
 	ρ² = zeros(num_outliers, 1)
 	x′ = zeros(num_outliers, 2)
@@ -93,7 +93,7 @@ begin
 				ρ²[i] = cdf(Chisq(2), r²[i])
 			
 				x′[i, j-1] = (ρ²[i] / norm(x[i, :])) * x[i, j-1]
-				x′[i, j] = (ρ²[i] / norm(x[i, :])) * x[i, j]
+				x′[i, j]   = (ρ²[i] / norm(x[i, :])) * x[i, j]
 			end
 		end
 	end
@@ -104,36 +104,39 @@ begin
 	fig_1 = Figure()
 	ax = Axis(fig_1[1,1])
 	
-	scatter!([x′[i, 1] for i = 1:num_outliers], [x′[i, 2] for i = 1:num_outliers], markersize = 4)
-	scatter!([X_valid_scaled[i, 1] for i = 1:num_points], [X_valid_scaled[i, 2] for i = 1:num_points], markersize = 4)
-	
+	scatter!([x′[i, 1] for i = 1:num_outliers], 
+			 [x′[i, 2] for i = 1:num_outliers], 
+			  markersize = 10, color=:orange, marker=:x, label="synthetic anomaly")
+	scatter!([X_valid_scaled[i, 1] for i = 1:num_points], 
+			 [X_valid_scaled[i, 2] for i = 1:num_points], 
+			  markersize = 5, color = :darkgreen, label="normal")
+	axislegend(position=:rb)
 	fig_1
 end
 
 # ╔═╡ bf920cb6-6e5f-473d-982f-623403650849
 begin
 	#identify the outer most data points on which to expand our hypershpere
+	#recode to find furthest from the center, not eachother
 	
-	row_max_1 = zeros(1, 2)
-	row_max_2 = zeros(1, 2)
-	max_distance = 0
+	max_euclidean_distance = 0
 	
 	for j = 1:num_points
 		for i = 1:num_points
-			if max_distance < norm(X_valid_scaled[j, :] - X_valid_scaled[i, :])
-				max_distance = norm(X_valid_scaled[j, :] - X_valid_scaled[i, :])
-				row_max_1 = X_valid_scaled[j, :]
-				row_max_2 = X_valid_scaled[i, :]
+			if max_euclidean_distance < norm(X_valid_scaled[j, :] - X_valid_scaled[i, :])
+				max_euclidean_distance = norm(X_valid_scaled[j, :] - X_valid_scaled[i, :])
 			end
 		end
 	end
 end
 
-# ╔═╡ 07f234b3-5b41-4d4e-a21f-79b22c44582a
-max_distance
-
 # ╔═╡ 65b027b2-3699-43df-8583-03b0185398d2
 function rescale_hypersphere(factor::Float64, x′::Matrix{Float64})
+	#determined dimension scaling using analytical geomtry
+	#is there a better method that scales to higher dimensions?
+
+	# R(rescaling factor) * x
+	
 	num_points = length(x′[:, 1])
 	dimensions = length(x′[1, :])
 	new_x′ = zeros(num_points, dimensions)
@@ -158,23 +161,22 @@ function rescale_hypersphere(factor::Float64, x′::Matrix{Float64})
 end
 
 # ╔═╡ 287ced3f-f566-473e-8301-733f352331a3
-new_x = rescale_hypersphere(max_distance * 2, x′)
+new_x = rescale_hypersphere(max_euclidean_distance * 2, x′)
 
 # ╔═╡ 4340c3a5-62af-4d77-8b08-9f4a3ec477e1
 begin
 	fig_2 = Figure()
 	ax_2 = Axis(fig_2[1,1])
 	
-	scatter!([new_x[i, 1] for i = 1:num_outliers], [new_x[i, 2] for i = 1:num_outliers], markersize = 4)
-	scatter!([X_valid_scaled[i, 1] for i = 1:num_points], [X_valid_scaled[i, 2] for i = 1:num_points], markersize = 4)
-	
+	scatter!([new_x[i, 1] for i = 1:num_outliers], 
+			 [new_x[i, 2] for i = 1:num_outliers], 
+			  markersize = 8, color=:orange, marker = :x, label="synthetic anomaly")
+	scatter!([X_valid_scaled[i, 1] for i = 1:num_points], 
+			 [X_valid_scaled[i, 2] for i = 1:num_points], 
+			  markersize = 5, color=:darkgreen, label="normal")
+	xlims!(-4, 5.5)
+	axislegend(position=:rb)
 	fig_2
-end
-
-# ╔═╡ ad89c245-7175-42ae-afa5-2aafa1492b7f
-begin
-X_valid_with_outliers = vcat(X_valid_scaled, new_x)
-y_valid_with_outliers = vcat(y_valid, [-1 for i = 1:num_outliers])
 end
 
 # ╔═╡ 53acc61a-3d69-46bc-ba7d-2c89ff7a0100
@@ -183,12 +185,15 @@ function Λ(num_sv::Int32, N::Int64, outliers_accepted::Int64, outliers::Int64 ,
 end
 
 # ╔═╡ 7f3b46f2-3d6e-40a4-8e1e-e542d870810b
-function optimize_ν_γ(ν::Float64, γ::Float64)
+function objective_function_ν_γ(ν::Float64, γ::Float64)
+	#FIX - only use training data here, no need to fabricate validation set
 	svm = AnomalyDetection.train_anomaly_detector(X_valid_scaled, ν, γ)
 
-	y = svm.predict(new_x)
+	y_outliers = svm.predict(new_x)
+	y_normal   = svm.predict(X_valid_scaled)
 	
-	outliers_accepted = sum(deleteat!(y, findall(x->x==-1,y)))
+	outliers_accepted = sum(y_outliers .== 1)
+	#normals_rejected = sum(deleteat!(y_normal, findall(x->x==1,y_normal)))
 	
 	return Λ(svm.n_support_[1], num_points, outliers_accepted, num_outliers )
 end
@@ -198,17 +203,20 @@ function test_ν_γ(ν_range, γ_range)
 	ν_opt = 0
 	γ_opt = 0
 
-	test_grid = zeros(length(ν_range), length(γ_range))
+	#test_grid = zeros(length(ν_range), length(γ_range))
 
-	Λ_opt = 0.0
+	Λ_opt = Inf
 	Λ_test = 0.0
 	
 	for i = length(ν_range)
 		for j = length(γ_range)
-			Λ_test = optimize_ν_γ(ν_range[i], γ_range[j])
-
-			if Λ_test > Λ_opt
-				Λ_opt = Λ_test
+			Λ_test = objective_function_ν_γ(ν_range[i], γ_range[j])
+			print("Λ_test = $Λ_test")
+			print("ν = $(ν_range[i])")
+			print("γ = $(γ_range[j])")
+			if Λ_test < Λ_opt
+				Λ_opt = deepcopy(Λ_test)
+				#print()
 				ν_opt = ν_range[i]
 				γ_opt = γ_range[j]
 			end	
@@ -219,10 +227,13 @@ function test_ν_γ(ν_range, γ_range)
 end
 
 # ╔═╡ 7caed0d6-554f-44f4-8f91-cd5875299dcc
-test_ν_γ(0.01:0.01:0.9, 0.01:0.005:1.5)
+test_ν_γ(0.1:0.01:0.2, 0.1:0.05:1.0)
 
 # ╔═╡ 221ca0f5-69a8-4b19-bbb6-3ae520625df6
 svm = AnomalyDetection.train_anomaly_detector(X_train_scaled, ν_opt, γ_opt)
+
+# ╔═╡ 03da02de-a49e-41b7-aa31-dcc39e6a0170
+svm.n_support_
 
 # ╔═╡ 82d8dcb1-5b76-47d3-bc6e-19e67ee95d0b
 data_test = SyntheticDataGen.gen_data(100, 5, σ_H₂O, σ_m)
@@ -1572,13 +1583,12 @@ version = "3.5.0+0"
 # ╠═2795e470-fbb8-49ab-99ed-c08554bef374
 # ╠═48d8afeb-2df0-44d1-9eaa-f28184813ab4
 # ╠═bf920cb6-6e5f-473d-982f-623403650849
-# ╠═07f234b3-5b41-4d4e-a21f-79b22c44582a
 # ╠═65b027b2-3699-43df-8583-03b0185398d2
 # ╠═287ced3f-f566-473e-8301-733f352331a3
 # ╠═4340c3a5-62af-4d77-8b08-9f4a3ec477e1
-# ╠═ad89c245-7175-42ae-afa5-2aafa1492b7f
 # ╠═53acc61a-3d69-46bc-ba7d-2c89ff7a0100
 # ╠═7f3b46f2-3d6e-40a4-8e1e-e542d870810b
+# ╠═03da02de-a49e-41b7-aa31-dcc39e6a0170
 # ╠═e8f0dfc7-34a5-4a36-884a-4a91fa76a6e1
 # ╠═7caed0d6-554f-44f4-8f91-cd5875299dcc
 # ╠═221ca0f5-69a8-4b19-bbb6-3ae520625df6
