@@ -20,6 +20,9 @@ include("plot_theme.jl")
 md"# anomaly Detection for gas sensor arrays using one-class SVM
 "
 
+# ╔═╡ abc4d22b-b2bf-4887-b7bd-2b04e28894a9
+label_to_color = SyntheticDataGen.label_to_color
+
 # ╔═╡ 5d920ea0-f04d-475f-b05b-86e7b199d7e0
 begin
 	@sk_import preprocessing : StandardScaler
@@ -36,6 +39,33 @@ begin
 
 	σ_H₂O = 0.025
 	σ_m   = 0.00001
+end
+
+# ╔═╡ 349d7a74-d9c2-4872-9155-60562ea118cf
+begin
+	fig = Figure(resolution=(600, 600))
+	# create panels
+	ax  = Axis(fig[1, 1],
+				xlabel="p, C₂H₄ [ppm]",
+				ylabel="p, CO₂ [ppm]"
+	)
+	for label in SyntheticDataGen.viable_labels
+		gc = SyntheticDataGen.setup_gas_comp_distn(σ_H₂O, label)
+		p_C₂H₄s = range(mean(gc.f_C₂H₄) - 2 * std(gc.f_C₂H₄),
+						mean(gc.f_C₂H₄) + 2 * std(gc.f_C₂H₄), length=100)
+		p_CO₂s  = range(mean(gc.f_CO₂) - 2 * std(gc.f_CO₂),
+						mean(gc.f_CO₂) + 2 * std(gc.f_CO₂), length=100)
+
+		pdfs = [pdf(gc.f_C₂H₄, p_C₂H₄) * pdf(gc.f_CO₂, p_CO₂)
+				for p_C₂H₄ in p_C₂H₄s, p_CO₂ in p_CO₂s]
+
+		contour!(ax, p_C₂H₄s * 1e6, p_CO₂s * 1e6, pdfs, 
+			levels=[0.95 * maximum(pdfs)], color=label_to_color[label], 
+			label=label
+		)
+	end
+	axislegend()
+	fig
 end
 
 # ╔═╡ b2a5df8c-bbc6-487a-8ac5-9c55f78d259f
@@ -72,6 +102,12 @@ svm = AnomalyDetection.train_anomaly_detector(X_train_scaled, ν_opt, γ_opt)
 
 # ╔═╡ 82d8dcb1-5b76-47d3-bc6e-19e67ee95d0b
 data_test = SyntheticDataGen.gen_data(100, 10, σ_H₂O, σ_m)
+
+# ╔═╡ 0fbfc2dd-203b-4d86-ba91-bc57c756bacf
+SyntheticDataGen.viz_C2H4_CO2_composition(data_test)
+
+# ╔═╡ 6058a55f-6807-4610-bcdf-340fc09dbed5
+SyntheticDataGen.viz_H2O_compositions(data_test)
 
 # ╔═╡ 9046f0d9-d054-4f15-9e09-5edc419f9440
 X_test, y_test = AnomalyDetection.data_to_Xy(data_test)
@@ -1429,10 +1465,12 @@ version = "3.5.0+0"
 # ╟─1784c510-5465-11ec-0dd1-13e5a66e4ce6
 # ╠═d090131e-6602-4c03-860c-ad3cb6c7844a
 # ╠═0a6fe423-c3be-4a75-aa27-dfb84fde7fef
+# ╠═abc4d22b-b2bf-4887-b7bd-2b04e28894a9
 # ╠═3e7c36ca-8345-40fb-b199-34fe49dea73e
 # ╠═5d920ea0-f04d-475f-b05b-86e7b199d7e0
 # ╠═31f71438-ff2f-49f9-a801-3a6489eaf271
 # ╠═738a227e-9665-4fe1-b3b5-d12c93c9300d
+# ╠═349d7a74-d9c2-4872-9155-60562ea118cf
 # ╠═b2a5df8c-bbc6-487a-8ac5-9c55f78d259f
 # ╠═fadb73a0-08b1-4fa5-a7f3-a07f280c7e30
 # ╠═791cde8d-f092-4c96-a6db-c63894b4e7bd
@@ -1442,6 +1480,8 @@ version = "3.5.0+0"
 # ╠═bc45dcc5-dbb3-4144-9402-169e60f67674
 # ╠═221ca0f5-69a8-4b19-bbb6-3ae520625df6
 # ╠═82d8dcb1-5b76-47d3-bc6e-19e67ee95d0b
+# ╠═0fbfc2dd-203b-4d86-ba91-bc57c756bacf
+# ╠═6058a55f-6807-4610-bcdf-340fc09dbed5
 # ╠═9046f0d9-d054-4f15-9e09-5edc419f9440
 # ╠═476cbc96-5556-402c-a8e4-0697ade9a16a
 # ╠═67257cbd-224d-4dcf-b414-1c67352a5c66
