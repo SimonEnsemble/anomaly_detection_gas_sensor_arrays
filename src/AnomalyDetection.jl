@@ -1,6 +1,6 @@
 module AnomalyDetection
 
-using ScikitLearn, DataFrames, CairoMakie, ColorSchemes
+using ScikitLearn, DataFrames, CairoMakie, ColorSchemes, LinearAlgebra
 SyntheticDataGen = include("SyntheticDataGen.jl")
 
 @sk_import svm : OneClassSVM
@@ -23,6 +23,75 @@ function data_to_Xy(data::DataFrame)
 	# y: anomolous or normal
 	y = [label_to_int[label] for label in data[:, "label"]]
 	return X, y
+end
+
+#= 
+to find optimal ν, γ in an unsupervised way, via density measure.
+=#
+function compute_density_measures(X::Matrix{Float64}, K::Int)
+    nb_data = size(X)[1]
+
+    distance_matrix = [norm(X[i, :] - X[j, :]) for i = 1:nb_data, j = 1:nb_data]
+    density_measures = zeros(nb_data)
+
+    @assert K < nb_data
+
+    for i = 1:nb_data
+        density_measures[i] = mean(sort(distance_matrix[i, :])[2:K+1])
+    end
+
+    return density_measures
+end
+
+"""
+find point of maximal curvature according to finite difference.
+"""
+function find_elbow(density_measures::Vector{Float64})
+	# sorted density measure
+	f = sort(density_measures)
+	
+	curvature = zeros(length(f))
+	Δx = 1
+	for i = 2:length(f) - 1
+		f′  = (f[i + 1] - f[i - 1]) / 2
+		f′′ = f[i + 1] - 2 * f[i] + f[i - 1]
+
+		curvature[i] = f′′ / sqrt(1 + f′ ^ 2)
+	end
+	return argmax(curvature), f[argmax(curvature)]
+end
+
+function opt_ν_γ_by_density_measure_method(X::Array{Float64}, K::Int)
+	density_measures = compute_density_measures(X, K)
+
+	elbow_id, density_measure_at_elbow = find_elbow(density_measures)
+
+	nb_data = size(X)[1]
+	ν_opt = (nb_data - elbow_id) / nb_data
+	γ_opt = 1 / density_measure_at_elbow
+	return ν_opt, γ_opt
+end
+
+function viz_density_measures(X::Matrix{Float64}, K::Int)
+	density_measures = compute_density_measures(X, K)
+	sorted_density_measures = sort(density_measures)
+
+	elbow_id, density_measure_at_elbow = find_elbow(density_measures)
+
+    fig = Figure()
+    ax = Axis(fig[1, 1], ylabel="density measure", xlabel="(sorted) index")
+
+	lines!(1:length(density_measures), sorted_density_measures)
+
+	lines!([0, elbow_id, elbow_id],
+		   [density_measure_at_elbow, density_measure_at_elbow, 0],
+		   linestyle = :dash,
+		   color = :red)
+
+	text!("$(round(density_measure_at_elbow, digits=3))",
+	      position = (0, density_measure_at_elbow))
+
+    fig
 end
 
 function train_anomaly_detector(X_scaled::Matrix, ν::Float64, γ::Float64)
@@ -109,7 +178,7 @@ function viz_responses!(ax, data::DataFrame)
 	for data_l in groupby(data, "label")
 		label = data_l[1, "label"]
 
-        scatter!(ax, data_l[:, "m $(mofs[1]) [g/g]"],                                                  data_l[:, "m $(mofs[2]) [g/g]"],
+        scatter!(ax, data_l[:, "m $(mofs[1]) [g/g]"], data_l[:, "m $(mofs[2]) [g/g]"],
                  strokewidth=1,
                  markersize=15,
                  marker=label == "normal" ? :circle : :x,
