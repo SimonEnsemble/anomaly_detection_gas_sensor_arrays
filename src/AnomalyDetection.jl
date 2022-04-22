@@ -148,7 +148,8 @@ function viz_cm(svm, data_test::DataFrame, scaler)
     for i = 1:2
         for j = 1:length(all_labels)
             text!("$(cm[i, j])",
-                  position=(i, j), align=(:center, :center), color=:black)
+                  position=(i, j), align=(:center, :center), 
+                  color=cm[i, j] > sum(cm[:, j]) / 2 ? :white : :black)
         end
     end
     # Colorbar(fig[1, 2], hm, label="# data points")
