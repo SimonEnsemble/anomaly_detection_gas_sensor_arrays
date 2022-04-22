@@ -1,6 +1,6 @@
 module SyntheticDataGen
 
-using Distributions, DataFrames, JLD2, ColorSchemes
+using Distributions, DataFrames, JLD2, ColorSchemes, CairoMakie
 
 export GasCompDistribution, setup_gas_comp_distn, gen_gas_comps, sensor_response!, gen_data
 
@@ -58,9 +58,9 @@ function setup_gas_comp_distn(σ_H₂O::Float64, label::String)
 		gas_comp_distn.f_CO₂ = Uniform(7500e-6, 20000e-6)
     elseif label == "CO₂ & C₂H₄ buildup"
 		gas_comp_distn.f_CO₂ = Uniform(7500e-6, 20000e-6)
-		gas_comp_distn.f_C₂H₄ = Uniform(300e-6, 1000e-6)
+		gas_comp_distn.f_C₂H₄ = Uniform(300e-6, 2000e-6)
     elseif label == "low humidity"
-        gas_comp_distn.f_H₂O = Uniform(0.7*p_H₂O_vapor, 0.8*p_H₂O_vapor)
+        gas_comp_distn.f_H₂O = Uniform(0.2 * p_H₂O_vapor, 0.75 * p_H₂O_vapor)
     end
 
     return gas_comp_distn
@@ -114,6 +114,73 @@ function gen_data(n_normal::Int, n_anomaly::Int, σ_H₂O::Float64, σ_m::Float6
     end
     sensor_response!(data, noise)
     return data
+end
+
+function viz_C2H4_CO2_composition(data::DataFrame)
+    fig = Figure(resolution=(600, 600))
+    # create panels
+    ax_main  = Axis(fig[2, 1],
+                xlabel="p, C₂H₄ [ppm]",
+                ylabel="p, CO₂ [ppm]"
+    )
+    ax_top   = Axis(fig[1, 1], ylabel="density", ticklabels=[], aspect=AxisAspect(2))
+    ax_right = Axis(fig[2, 2], xlabel="density", aspect=AxisAspect(0.5))
+    hidedecorations!(ax_top, grid=false, label=false)
+    hidedecorations!(ax_right, grid=false, label=false)
+    linkyaxes!(ax_main, ax_right)
+    linkxaxes!(ax_main, ax_top)
+    for c in 1:2
+        colsize!(fig.layout, c, Relative(.5))
+        rowsize!(fig.layout, c, Relative(.5))
+    end
+    ylims!(ax_right, 0, nothing)
+
+    for data_g in groupby(data, :label)
+        label = data_g[1, "label"]
+
+        scatter!(ax_main,
+                 data_g[:, "p C₂H₄ [bar]"] * 1e6,
+                 data_g[:, "p CO₂ [bar]"] * 1e6,
+                 marker=label == "normal" ? :circle : :x,
+                 strokewidth=1,
+                 label=label,
+                 strokecolor=label_to_color[label],
+                 color=(:white, 0.0)
+        )
+
+        hist!(ax_top,
+             data_g[:, "p C₂H₄ [bar]"] * 1e6,
+             label=label,
+             probability=true,
+             color=(label_to_color[label], 0.5)
+        )
+        hist!(ax_right,
+              data_g[:, "p CO₂ [bar]"] * 1e6,
+              direction=:x,
+              label=label,
+              probability=true,
+              color=(label_to_color[label], 0.5)
+        )
+    end
+    # ylims!(ax_top, 0, 0.01)
+    # xlims!(ax_right, 0, 0.0005)
+
+    # create legend, save and display
+    leg = Legend(fig[1,2], ax_main)
+    fig
+end
+
+function viz_H2O_compositions(data::DataFrame)
+    fig = Figure()
+    ax = Axis(fig[1, 1],
+              xlabel="p, H₂O [relative humidity]",
+              ylabel="# compositions")
+	for water_anomaly in [true, false]
+		ids = (data[:, "label"] .== "low humidity") .== water_anomaly
+    	hist!(data[ids, "p H₂O [bar]"] / SyntheticDataGen.p_H₂O_vapor)
+	end
+    ylims!(0.0, nothing)
+    fig
 end
 
 end
