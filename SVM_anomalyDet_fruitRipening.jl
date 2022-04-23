@@ -201,7 +201,7 @@ AnomalyDetection.viz_decision_boundary(svm, scaler_train, data_test)
 
 # ╔═╡ 151979b9-1d28-4133-a1f9-f86b90cc0ed3
 function viz_sensorδ_waterσ_grid(data_train, data_test, x′)
-	fig = Figure()
+	fig = Figure(resolution = (1000, 1000))
 	σ_H₂O = [0.0, 0.01, 0.1]
 	σ_m   = [0.0, 0.0001, 0.001]
 	ν_range = 0.01:0.002:0.16
@@ -233,8 +233,8 @@ function viz_sensorδ_waterσ_grid(data_train, data_test, x′)
 			sub_grid_left = GridLayout()
 			sub_grid_right = GridLayout()
 			
-			sub_grid_left[1, 1] = AnomalyDetection.viz_decision_boundary(svm, scaler, data_test)
-			sub_grid_right[1, 1] = AnomalyDetection.viz_cm(svm, data_test, scaler)
+			sub_grid_left[1, 1] = Axis(AnomalyDetection.viz_decision_boundary(svm, scaler, data_test))
+			sub_grid_right[1, 1] = Axis(AnomalyDetection.viz_cm(svm, data_test, scaler))
 			
 			
 			fig[i, j] = Box(fig, color = (color, 0.5))
@@ -252,9 +252,6 @@ function viz_sensorδ_waterσ_grid(data_train, data_test, x′)
 	fig
 	
 end
-
-# ╔═╡ e4eb4c6c-a1eb-403c-8802-d2a1c520efa8
-((1 == 1) && (1 == 1))
 
 # ╔═╡ 73ba9e1b-f363-468d-b097-019c56189336
 
@@ -1609,7 +1606,6 @@ version = "3.5.0+0"
 # ╠═6e278c3e-45a3-4aa8-b904-e3dfa73615d5
 # ╠═bacdd834-7c0e-42b3-8901-50b29507dd4b
 # ╠═151979b9-1d28-4133-a1f9-f86b90cc0ed3
-# ╠═e4eb4c6c-a1eb-403c-8802-d2a1c520efa8
 # ╠═73ba9e1b-f363-468d-b097-019c56189336
 # ╠═4b1759a7-eba1-4de5-8d6a-38106f3301c9
 # ╟─00000000-0000-0000-0000-000000000001
