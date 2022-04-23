@@ -67,7 +67,7 @@ function generate_uniform_hypersphere(num_outliers::Int64, num_dimensions::Int64
 			x[i, j]  = randn()
 			if j%num_dimensions == 0
 				r²[i] = dot(x[i, :], x[i, :])
-				ρ²[i] = cdf(Chisq(2), r²[i])
+				ρ²[i] = cdf(Chisq(num_dimensions), r²[i])
 			
 				x′[i, j-1] = (ρ²[i] / norm(x[i, :])) * x[i, j-1]
 				x′[i, j]   = (ρ²[i] / norm(x[i, :])) * x[i, j]
@@ -170,7 +170,7 @@ function test_ν_γ(X_train_scaled::Matrix{Float64}, x′::Matrix{Float64}, ν_r
 end
 
 # ╔═╡ 7caed0d6-554f-44f4-8f91-cd5875299dcc
-ν_opt, γ_opt = test_ν_γ(X_train_scaled, new_x′, 0.01:0.001:0.2, 0.1:0.005:1.0)
+ν_opt, γ_opt = test_ν_γ(X_train_scaled, new_x′, 0.01:0.002:0.16, 0.1:0.01:0.5)
 
 # ╔═╡ 221ca0f5-69a8-4b19-bbb6-3ae520625df6
 svm = AnomalyDetection.train_anomaly_detector(X_train_scaled, ν_opt, γ_opt)
@@ -192,6 +192,75 @@ AnomalyDetection.viz_cm(svm, data_test, scaler_train)
 
 # ╔═╡ 6e278c3e-45a3-4aa8-b904-e3dfa73615d5
 AnomalyDetection.viz_decision_boundary(svm, scaler_train, data_test)
+
+# ╔═╡ bacdd834-7c0e-42b3-8901-50b29507dd4b
+#=
+	σ_H₂O = [0.0, 0.01, 0.1]
+	σ_m   = [0.0, 0.0001, 0.001]
+=#
+
+# ╔═╡ 151979b9-1d28-4133-a1f9-f86b90cc0ed3
+function viz_sensorδ_waterσ_grid(data_train, data_test, x′)
+	fig = Figure()
+	σ_H₂O = [0.0, 0.01, 0.1]
+	σ_m   = [0.0, 0.0001, 0.001]
+	ν_range = 0.01:0.002:0.16
+	γ_range = 0.1:0.01:0.5
+
+	for i = 1:3
+		for j = 1:3
+
+			if (i == 1) && (j == 1)
+				color = ColorSchemes.RdYlGn_5[5]
+			elseif ⊻(i == 2,  j == 2) && (i != 3 && j != 3)
+				color = ColorSchemes.RdYlGn_5[4]
+			elseif i == 2 && j == 2
+				color = ColorSchemes.RdYlGn_6[3]
+			elseif 	⊻(i == 3, j == 3)
+				color = ColorSchemes.RdYlGn_5[2]
+			elseif i == 3 && j == 3
+				color = ColorSchemes.RdYlGn_5[1]
+			end
+
+			
+
+			X, y = AnomalyDetection.data_to_Xy(data_train)
+			scaler = StandardScaler().fit(X)
+			X_scaled = scaler.transform(X)
+			ν_opt, γ_opt = test_ν_γ(X_scaled, new_x′, ν_range, γ_range)
+			svm = AnomalyDetection.train_anomaly_detector(X_scaled, ν_opt, γ_opt)
+
+			sub_grid_left = GridLayout()
+			sub_grid_right = GridLayout()
+			
+			sub_grid_left[1, 1] = AnomalyDetection.viz_decision_boundary(svm, scaler, data_test)
+			sub_grid_right[1, 1] = AnomalyDetection.viz_cm(svm, data_test, scaler)
+			
+			
+			fig[i, j] = Box(fig, color = (color, 0.5))
+			ax = Axis(fig[i, j])
+
+			fig[i, j].layout[1, 1] = sub_grid_left
+			fig[i, j].layout[1, 2] = sub_grid_right
+			
+			
+			
+
+		end
+	end
+
+	fig
+	
+end
+
+# ╔═╡ e4eb4c6c-a1eb-403c-8802-d2a1c520efa8
+((1 == 1) && (1 == 1))
+
+# ╔═╡ 73ba9e1b-f363-468d-b097-019c56189336
+
+
+# ╔═╡ 4b1759a7-eba1-4de5-8d6a-38106f3301c9
+viz_sensorδ_waterσ_grid(data, data_test, new_x′)
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -1538,5 +1607,10 @@ version = "3.5.0+0"
 # ╠═67257cbd-224d-4dcf-b414-1c67352a5c66
 # ╠═ee8029cf-c6a6-439f-b190-cb297e0ddb70
 # ╠═6e278c3e-45a3-4aa8-b904-e3dfa73615d5
+# ╠═bacdd834-7c0e-42b3-8901-50b29507dd4b
+# ╠═151979b9-1d28-4133-a1f9-f86b90cc0ed3
+# ╠═e4eb4c6c-a1eb-403c-8802-d2a1c520efa8
+# ╠═73ba9e1b-f363-468d-b097-019c56189336
+# ╠═4b1759a7-eba1-4de5-8d6a-38106f3301c9
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
