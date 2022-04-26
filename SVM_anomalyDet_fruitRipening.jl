@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.18.1
+# v0.19.2
 
 using Markdown
 using InteractiveUtils
@@ -53,14 +53,17 @@ scaler_train = StandardScaler().fit(X_train)
 # ╔═╡ a88989ad-8ac5-410c-9fd7-da7c2ff85036
 X_train_scaled = scaler_train.transform(X_train)
 
+# ╔═╡ b2524337-f105-414e-a9e9-09d5c7f5a56b
+
+
 # ╔═╡ 2795e470-fbb8-49ab-99ed-c08554bef374
 function generate_uniform_hypersphere(num_outliers::Int64, num_dimensions::Int64)
 	#generating a distribution of outliers in a hypersphere around our data
 
-	x  = zeros(num_outliers, 2)
+	x  = zeros(num_outliers, num_dimensions)
 	r² = zeros(num_outliers, 1)
 	ρ² = zeros(num_outliers, 1)
-	x′ = zeros(num_outliers, 2)
+	x′ = zeros(num_outliers, num_dimensions)
 
 	for i = 1:num_outliers
 		for j = 1:num_dimensions
@@ -78,11 +81,29 @@ function generate_uniform_hypersphere(num_outliers::Int64, num_dimensions::Int64
 	return x′
 end
 
+# ╔═╡ e94ec5c0-9e8e-44a6-9767-585fe44a1d2d
+function gen_x(d)
+   x = randn(d)
+	
+   if norm(x) > 1
+	   return gen_x(d)
+   else
+	   return x
+   end
+end
+
 # ╔═╡ 717d8c90-f022-4404-a84f-cc70360b4f3a
 begin
-num_outliers = 500
-num_dimensions = 2
-x′ = generate_uniform_hypersphere(num_outliers, num_dimensions)
+	num_outliers = 500
+	num_dimensions = 2
+	x′ = zeros(num_outliers, num_dimensions)
+
+	for i = 1:num_outliers
+		point = gen_x(num_dimensions)
+		for j = 1:num_dimensions
+		x′[i, j] = point[j]
+		end
+	end
 end
 
 # ╔═╡ 7ff4fe4f-b755-4ef8-891a-7ac89da2d95f
@@ -194,18 +215,59 @@ AnomalyDetection.viz_cm(svm, data_test, scaler_train)
 AnomalyDetection.viz_decision_boundary(svm, scaler_train, data_test)
 
 # ╔═╡ bacdd834-7c0e-42b3-8901-50b29507dd4b
-#=
-	σ_H₂O = [0.0, 0.01, 0.1]
-	σ_m   = [0.0, 0.0001, 0.001]
-=#
+typeof(0.01:0.002:0.16)
+
+# ╔═╡ 52e0fb0c-552d-4bd6-9ccb-bd9681fd9ed8
+function simulate_f1(x′, σ_H₂O::Float64, σ_m::Float64, ν_range, γ_range, num_simulations = 100)
+	f1_score = 0
+	
+	data_test  		 = SyntheticDataGen.gen_data(100, 5, σ_H₂O[i], σ_m[j])
+	data_train 		 = SyntheticDataGen.gen_data(100, 0, σ_H₂O[i], σ_m[j])
+	X_train, y_train = AnomalyDetection.data_to_Xy(data_train)
+	X_test, y_test   = AnomalyDetection.data_to_Xy(data_test)
+	scaler 			 = StandardScaler().fit(X_train)
+	X_train_scaled 	 = scaler.transform(X_train)
+
+	#optimize hyperparameters
+	ν_opt, γ_opt = test_ν_γ(X_train_scaled, new_x′, ν_range, γ_range)
+	svm = AnomalyDetection.train_anomaly_detector(X_train_scaled, 
+															ν_opt, 
+															γ_opt)
+
+	return f1_score
+end
 
 # ╔═╡ 151979b9-1d28-4133-a1f9-f86b90cc0ed3
-function viz_sensorδ_waterσ_grid(data_train, data_test, x′)
-	fig = Figure(resolution = (1000, 1000))
-	σ_H₂O = [0.0, 0.01, 0.1]
-	σ_m   = [0.0, 0.0001, 0.001]
-	ν_range = 0.01:0.002:0.16
-	γ_range = 0.1:0.01:0.5
+function viz_sensorδ_waterσ_grid(x′, σ_H₂O::Vector{Float64}, σ_m::Vector{Float64}, ν_range, γ_range)
+	
+	fig = Figure(resolution = (2400, 1200))
+	ideal_fig = fig[1, 1]
+	med_sensor_error_fig = fig[1, 2]
+	high_sensor_error_fig = fig[1, 3]
+	med_water_variance_fig = fig[2, 1]
+	high_water_variance_fig = fig[3, 1]
+
+	#top sensor error labels
+	for (label, layout) in zip(["σₘ=$(σ_m[1])","σₘ=$(σ_m[2])", "σₘ=$(σ_m[3])"], [ideal_fig, med_sensor_error_fig, high_sensor_error_fig])
+    Label(layout[1, 1, Top()], 
+		  label,
+          textsize = 40,
+          padding = (0, -350, 25, 0),
+		  halign = :center)
+	end
+
+	#left water variance labels
+	for (label, layout) in zip(["σH₂O=$(σ_H₂O[1])","σH₂O=$(σ_H₂O[2])", "σH₂O=$(σ_H₂O[3])"], [ideal_fig, med_water_variance_fig, high_water_variance_fig])
+	Label(layout[1, 1, Left()], 
+	  	  label,
+		  textsize = 40,
+	  	  padding = (0, 25, 0, 0),
+	  	  valign = :center,
+	  	  rotation = pi/2)
+	end
+
+	#establish axes for 9x9 grid
+	axes = [Axis(fig[i, j]) for i in 1:3, j in 1:3]
 
 	for i = 1:3
 		for j = 1:3
@@ -222,42 +284,148 @@ function viz_sensorδ_waterσ_grid(data_train, data_test, x′)
 				color = ColorSchemes.RdYlGn_5[1]
 			end
 
-			
+			#generate test and training data
+			data_test  		 = SyntheticDataGen.gen_data(100, 5, σ_H₂O[i], σ_m[j])
+			data_train 		 = SyntheticDataGen.gen_data(100, 0, σ_H₂O[i], σ_m[j])
+			X_train, y_train = AnomalyDetection.data_to_Xy(data_train)
+			X_test, y_test   = AnomalyDetection.data_to_Xy(data_test)
+			scaler 			 = StandardScaler().fit(X_train)
+			X_train_scaled 	 = scaler.transform(X_train)
 
-			X, y = AnomalyDetection.data_to_Xy(data_train)
-			scaler = StandardScaler().fit(X)
-			X_scaled = scaler.transform(X)
-			ν_opt, γ_opt = test_ν_γ(X_scaled, new_x′, ν_range, γ_range)
-			svm = AnomalyDetection.train_anomaly_detector(X_scaled, ν_opt, γ_opt)
+			#optimize hyperparameters and determine f1score
+			ν_opt, γ_opt = test_ν_γ(X_train_scaled, x′, ν_range, γ_range)
+			svm = AnomalyDetection.train_anomaly_detector(X_train_scaled, 
+																	ν_opt, 
+																	γ_opt)
+			y_pred 		= svm.predict(X_test_scaled)
+			f1_score 	= AnomalyDetection.performance_metric(y_test, y_pred)
+			fig[i, j] 	= Box(fig, color = (color, 0.25))
+			
+			axes[i, j].title = "f1 score = $(f1_score)"
+			hidedecorations!(axes[i, j])
 
-			sub_grid_left = GridLayout()
-			sub_grid_right = GridLayout()
-			
-			sub_grid_left[1, 1] = Axis(AnomalyDetection.viz_decision_boundary(svm, scaler, data_test))
-			sub_grid_right[1, 1] = Axis(AnomalyDetection.viz_cm(svm, data_test, scaler))
-			
-			
-			fig[i, j] = Box(fig, color = (color, 0.5))
-			ax = Axis(fig[i, j])
+			#scatter and contour plot
+			pos = fig[i, j][1, 1] 
+				
 
-			fig[i, j].layout[1, 1] = sub_grid_left
-			fig[i, j].layout[1, 2] = sub_grid_right
-			
-			
-			
+				xlims = (minimum(X_train[:, 1]), maximum(X_train[:, 1]))
+				ylims = (minimum(X_train[:, 2]), maximum(X_train[:, 2]))
 
+				ax = Axis(fig[i, j][1, 1], 
+			   			  xlabel = "m, " * mofs[1] * " [g/g]",
+			   			  ylabel = "m, " * mofs[2] * " [g/g]",
+			   			  aspect = 1,
+						  xticks = LinearTicks(3),
+						  yticks = LinearTicks(3),
+						  alignmode = Outside())
+
+				for data_l in groupby(data_test, "label")
+					label = data_l[1, "label"]
+					
+					if label != "low humidity"
+				        scatter!(ax, 
+								 data_l[:, "m $(mofs[1]) [g/g]"], 
+								 data_l[:, "m $(mofs[2]) [g/g]"],
+				                 strokewidth=1,
+				                 markersize=15,
+				                 marker=label == "normal" ? :circle : :x,
+				                 color=(:white, 0.0),
+							     strokecolor=SyntheticDataGen.label_to_color[label],
+				                 label=label)
+					end
+		    	end
+
+				zif71_lims = (0.97 * minimum(X_train[:, 1]), 
+							  1.03 * maximum(X_train[:, 1]))
+				zif8_lims  = (0.97 * minimum(X_train[:, 2]), 
+							  1.03 * maximum(X_train[:, 2]))
+				
+				x₁s, x₂s, predictions = AnomalyDetection.generate_response_grid(svm, scaler, zif71_lims, zif8_lims)
+			
+				contour!(ax, x₁s, 
+						 x₂s,
+						 predictions, 
+						 levels=[0.0], 
+						 color=:black,
+						 label="decision boundary") 
+
+			#confusion matrix
+			pos = fig[i, j][1, 2] 
+
+			all_labels = SyntheticDataGen.viable_labels
+			n_labels   = length(all_labels)
+
+			# confusion matrix. each row pertains to a label.
+			# col 1 = -1 predicted anomaly, col 2 = 1 predicted normal.
+			cm = zeros(Int, 2, n_labels)
+			
+			for (l, label) in enumerate(all_labels)
+				# get all test data with this label
+				data_test_l = filter(row -> row["label"] == label, data_test)
+				# get feature matrix
+				X_test_l, y_test_l = AnomalyDetection.data_to_Xy(data_test_l)
+				# scale
+				X_test_l_scaled = scaler.transform(X_test_l)
+				# make predictions for this subset of test data
+				y_pred_l = svm.predict(X_test_l_scaled)
+		
+				# how many are predicted as anomaly?
+				cm[1, l] = sum(y_pred_l .== -1)
+				# how many predicted as normal?
+				cm[2, l] = sum(y_pred_l .== 1)
+			end
+
+			@assert sum(cm) == nrow(data_test)
+
+			ax = Axis(fig[i, j][1, 2],
+			  	 	  xticks=([1, 2], ["anomalous", "normal"]),
+			  		  yticks=([i for i=1:n_labels], all_labels),
+			  		  xticklabelrotation=45.0,
+			  		  ylabel="truth",
+			  		  xlabel="prediction",
+			  		  alignmode = Outside())
+
+			@assert SyntheticDataGen.viable_labels[1] == "normal"
+
+			# anomalies
+			heatmap!(1:2, 
+					 2:6, 
+					 cm[:, 2:end], 
+					 colormap=ColorSchemes.amp, 
+					 colorrange=(0, maximum(cm[:, 2:end])))
+			
+			# normal data
+			heatmap!(1:2, 
+					 1:1, 
+					 reshape(cm[:, 1], (2, 1)), 
+					 colormap=ColorSchemes.algae, 
+					 colorrange=(0, maximum(cm[:, 1])))
+			
+			for i = 1:2
+				for j = 1:length(all_labels)
+					text!("$(cm[i, j])",
+						  position=(i, j), 
+						  align=(:center, :center), 
+						  color=cm[i, j] > sum(cm[:, j]) / 2 ? :white : :black)
+				end
+			end
 		end
 	end
 
+	save("sensor_error_&_H2O_variance_plot.pdf", fig)
 	fig
 	
 end
 
-# ╔═╡ 73ba9e1b-f363-468d-b097-019c56189336
-
-
 # ╔═╡ 4b1759a7-eba1-4de5-8d6a-38106f3301c9
-viz_sensorδ_waterσ_grid(data, data_test, new_x′)
+begin
+	ν_range = 0.01:0.002:0.16
+	γ_range = 0.1:0.01:0.5
+	σ_H₂O_vector = [0.0, 0.01, 0.1]
+	σ_m_vector   = [0.0, 0.0001, 0.001]
+	viz_sensorδ_waterσ_grid(new_x′, σ_H₂O_vector, σ_m_vector, ν_range, γ_range)
+
+end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -1585,7 +1753,9 @@ version = "3.5.0+0"
 # ╠═fadb73a0-08b1-4fa5-a7f3-a07f280c7e30
 # ╠═791cde8d-f092-4c96-a6db-c63894b4e7bd
 # ╠═a88989ad-8ac5-410c-9fd7-da7c2ff85036
+# ╠═b2524337-f105-414e-a9e9-09d5c7f5a56b
 # ╠═2795e470-fbb8-49ab-99ed-c08554bef374
+# ╠═e94ec5c0-9e8e-44a6-9767-585fe44a1d2d
 # ╠═717d8c90-f022-4404-a84f-cc70360b4f3a
 # ╠═7ff4fe4f-b755-4ef8-891a-7ac89da2d95f
 # ╠═48d8afeb-2df0-44d1-9eaa-f28184813ab4
@@ -1605,8 +1775,8 @@ version = "3.5.0+0"
 # ╠═ee8029cf-c6a6-439f-b190-cb297e0ddb70
 # ╠═6e278c3e-45a3-4aa8-b904-e3dfa73615d5
 # ╠═bacdd834-7c0e-42b3-8901-50b29507dd4b
+# ╠═52e0fb0c-552d-4bd6-9ccb-bd9681fd9ed8
 # ╠═151979b9-1d28-4133-a1f9-f86b90cc0ed3
-# ╠═73ba9e1b-f363-468d-b097-019c56189336
 # ╠═4b1759a7-eba1-4de5-8d6a-38106f3301c9
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
