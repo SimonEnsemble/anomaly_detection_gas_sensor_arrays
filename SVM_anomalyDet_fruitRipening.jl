@@ -156,7 +156,7 @@ new_x′ = rescale_hypersphere(max_euclidean_distance, x′)
 viz_synthetic_anomaly_hypersphere(new_x′, X_train_scaled)
 
 # ╔═╡ 7f3b46f2-3d6e-40a4-8e1e-e542d870810b
-function objective_function(X_train_scaled::Matrix{Float64}, x′::Matrix{Float64}, ν::Float64, γ::Float64,  λ = 0.5)
+function objective_function(X_train_scaled::Matrix{Float64}, x′::Matrix{Float64}, ν::Float64, γ::Float64, λ::Float64)
 	svm = AnomalyDetection.train_anomaly_detector(X_train_scaled, ν, γ)
 
 	y_outliers = svm.predict(x′)
@@ -169,7 +169,7 @@ function objective_function(X_train_scaled::Matrix{Float64}, x′::Matrix{Float6
 end
 
 # ╔═╡ e8f0dfc7-34a5-4a36-884a-4a91fa76a6e1
-function test_ν_γ(X_train_scaled::Matrix{Float64}, x′::Matrix{Float64}, ν_range, γ_range)
+function test_ν_γ(X_train_scaled::Matrix{Float64}, x′::Matrix{Float64}, ν_range, γ_range, λ = 0.5)
 	ν_opt = 0
 	γ_opt = 0
 
@@ -178,7 +178,7 @@ function test_ν_γ(X_train_scaled::Matrix{Float64}, x′::Matrix{Float64}, ν_r
 	
 	for i = 1:length(ν_range)
 		for j = 1:length(γ_range)
-			Λ_test = objective_function(X_train_scaled, x′, ν_range[i], γ_range[j])
+			Λ_test = objective_function(X_train_scaled, x′, ν_range[i], γ_range[j], λ)
 			if Λ_test < Λ_opt
 				Λ_opt = deepcopy(Λ_test)
 				ν_opt = ν_range[i]
@@ -214,31 +214,8 @@ AnomalyDetection.viz_cm(svm, data_test, scaler_train)
 # ╔═╡ 6e278c3e-45a3-4aa8-b904-e3dfa73615d5
 AnomalyDetection.viz_decision_boundary(svm, scaler_train, data_test)
 
-# ╔═╡ bacdd834-7c0e-42b3-8901-50b29507dd4b
-typeof(0.01:0.002:0.16)
-
-# ╔═╡ 52e0fb0c-552d-4bd6-9ccb-bd9681fd9ed8
-function simulate_f1(x′, σ_H₂O::Float64, σ_m::Float64, ν_range, γ_range, num_simulations = 100)
-	f1_score = 0
-	
-	data_test  		 = SyntheticDataGen.gen_data(100, 5, σ_H₂O[i], σ_m[j])
-	data_train 		 = SyntheticDataGen.gen_data(100, 0, σ_H₂O[i], σ_m[j])
-	X_train, y_train = AnomalyDetection.data_to_Xy(data_train)
-	X_test, y_test   = AnomalyDetection.data_to_Xy(data_test)
-	scaler 			 = StandardScaler().fit(X_train)
-	X_train_scaled 	 = scaler.transform(X_train)
-
-	#optimize hyperparameters
-	ν_opt, γ_opt = test_ν_γ(X_train_scaled, new_x′, ν_range, γ_range)
-	svm = AnomalyDetection.train_anomaly_detector(X_train_scaled, 
-															ν_opt, 
-															γ_opt)
-
-	return f1_score
-end
-
 # ╔═╡ 151979b9-1d28-4133-a1f9-f86b90cc0ed3
-function viz_sensorδ_waterσ_grid(x′, σ_H₂O::Vector{Float64}, σ_m::Vector{Float64}, ν_range, γ_range)
+function viz_sensorδ_waterσ_grid(x′, σ_H₂O::Vector{Float64}, σ_m::Vector{Float64}, ν_range::Vector{Float64}, γ_range::Vector{Float64}, λ::Float64)
 	
 	fig = Figure(resolution = (2400, 1200))
 	ideal_fig = fig[1, 1]
@@ -272,6 +249,7 @@ function viz_sensorδ_waterσ_grid(x′, σ_H₂O::Vector{Float64}, σ_m::Vector
 	for i = 1:3
 		for j = 1:3
 
+			#=
 			if (i == 1) && (j == 1)
 				color = ColorSchemes.RdYlGn_5[5]
 			elseif ⊻(i == 2,  j == 2) && (i != 3 && j != 3)
@@ -283,6 +261,7 @@ function viz_sensorδ_waterσ_grid(x′, σ_H₂O::Vector{Float64}, σ_m::Vector
 			elseif i == 3 && j == 3
 				color = ColorSchemes.RdYlGn_5[1]
 			end
+			=#
 
 			#generate test and training data
 			data_test  		 = SyntheticDataGen.gen_data(100, 5, σ_H₂O[i], σ_m[j])
@@ -293,13 +272,13 @@ function viz_sensorδ_waterσ_grid(x′, σ_H₂O::Vector{Float64}, σ_m::Vector
 			X_train_scaled 	 = scaler.transform(X_train)
 
 			#optimize hyperparameters and determine f1score
-			ν_opt, γ_opt = test_ν_γ(X_train_scaled, x′, ν_range, γ_range)
+			ν_opt, γ_opt = test_ν_γ(X_train_scaled, x′, ν_range, γ_range, λ)
 			svm = AnomalyDetection.train_anomaly_detector(X_train_scaled, 
 																	ν_opt, 
 																	γ_opt)
 			y_pred 		= svm.predict(X_test_scaled)
 			f1_score 	= AnomalyDetection.performance_metric(y_test, y_pred)
-			fig[i, j] 	= Box(fig, color = (color, 0.25))
+			fig[i, j] 	= Box(fig, color = (ColorSchemes.RdYlGn_4[f1_score], 0.7))
 			
 			axes[i, j].title = "f1 score = $(f1_score)"
 			hidedecorations!(axes[i, j])
@@ -419,13 +398,51 @@ end
 
 # ╔═╡ 4b1759a7-eba1-4de5-8d6a-38106f3301c9
 begin
-	ν_range = 0.01:0.002:0.16
-	γ_range = 0.1:0.01:0.5
+	ν_range = collect(0.01:0.002:0.16)
+	γ_range = collect(0.1:0.01:0.5)
 	σ_H₂O_vector = [0.0, 0.01, 0.1]
 	σ_m_vector   = [0.0, 0.0001, 0.001]
-	viz_sensorδ_waterσ_grid(new_x′, σ_H₂O_vector, σ_m_vector, ν_range, γ_range)
+	λ = 0.50
+	viz_sensorδ_waterσ_grid(new_x′, σ_H₂O_vector, σ_m_vector, ν_range, γ_range, λ)
 
 end
+
+# ╔═╡ a1843a87-a8d3-40ab-9959-3e14d520a4d1
+function f1(true_pstv, false_pstv, false_ngtv)
+	prec = true_pstv / (true_pstv + false_pstv)
+	rec = true_pstv / (true_pstv + false_ngtv)
+
+	return 2* (prec*rec) / (prec + rec)
+end
+
+# ╔═╡ 3eebfd24-9a90-4093-b273-80d5d94cfed3
+begin
+
+	#absurd brute force testing to see if I can replicate these stupid f1 scores
+	
+	set = [85, 94, 99, 101, 16, 15, 9, 31, 24, 25, 40, 1, 70, 69]
+	known_score = 0.708333
+	
+	for i = 1:length(set)
+		for j = 1:length(set)
+			for k = 1:length(set)
+				
+				if (i != j) && (j != k) && (i != k)
+					values = [set[i], set[j], set[k]]
+					scores = [[f1(values[o], values[p], values[q]), [values[o], values[p], values[q]]] for o = 1:3, p = 1:3, q=1:3]
+					for l = 1:length(scores)
+						if (abs(known_score - scores[l][1]) < 0.0001)
+							print("values in order = $(scores[l][2][1]),$(scores[l][2][2]),$(scores[l][2][3])")
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
+# ╔═╡ 1e6fe488-7413-4b65-83d0-769d2a33022d
+f1(23, 2, 89)
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -1774,9 +1791,10 @@ version = "3.5.0+0"
 # ╠═67257cbd-224d-4dcf-b414-1c67352a5c66
 # ╠═ee8029cf-c6a6-439f-b190-cb297e0ddb70
 # ╠═6e278c3e-45a3-4aa8-b904-e3dfa73615d5
-# ╠═bacdd834-7c0e-42b3-8901-50b29507dd4b
-# ╠═52e0fb0c-552d-4bd6-9ccb-bd9681fd9ed8
 # ╠═151979b9-1d28-4133-a1f9-f86b90cc0ed3
 # ╠═4b1759a7-eba1-4de5-8d6a-38106f3301c9
+# ╠═a1843a87-a8d3-40ab-9959-3e14d520a4d1
+# ╠═3eebfd24-9a90-4093-b273-80d5d94cfed3
+# ╠═1e6fe488-7413-4b65-83d0-769d2a33022d
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
