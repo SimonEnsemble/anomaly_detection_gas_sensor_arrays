@@ -192,7 +192,7 @@ function viz_responses!(ax, data::DataFrame)
 end
 
 #function to generate and visualize a SVM given a particular nu, gamma and resolution.
-function viz_decision_boundary(svm, scaler, data_test::DataFrame, res::Int=100)
+function viz_decision_boundary(svm, scaler, data_test::DataFrame, res::Int=700)
     X_test, _ = data_to_Xy(data_test)
 
 	xlims = (minimum(X_test[:, 1]), maximum(X_test[:, 1]))
@@ -200,7 +200,7 @@ function viz_decision_boundary(svm, scaler, data_test::DataFrame, res::Int=100)
 
 	# generate the grid
 	x₁s, x₂s, predictions = generate_response_grid(svm, scaler, xlims, ylims)
-	fig = Figure(resolution=(700, 700))
+	fig = Figure(resolution=(res, res))
 	
 	
 	ax = Axis(fig[1, 1], 
