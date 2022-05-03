@@ -38,334 +38,126 @@ begin
 	σ_m   = 0.00005
 end
 
+# ╔═╡ 32c8e7ce-113c-4606-a463-47d9802a2238
+md"!!! example \"\" 
+	generate data and scale it in order to train the anomaly detector."
+
 # ╔═╡ b2a5df8c-bbc6-487a-8ac5-9c55f78d259f
 begin
-num_points = 150	
-data = SyntheticDataGen.gen_data(num_points, 0, σ_H₂O, σ_m)
+	num_points = 150	
+
+	# generate synthetic training data
+	data = SyntheticDataGen.gen_data(num_points, 0, σ_H₂O, σ_m)
+	X_train, y_train = AnomalyDetection.data_to_Xy(data)
+	scaler_train = StandardScaler().fit(X_train)
+	X_train_scaled = scaler_train.transform(X_train)
+
+	# generate synthetic test data
+	data_test = SyntheticDataGen.gen_data(100, 5, σ_H₂O, σ_m)
+	X_test, y_test = AnomalyDetection.data_to_Xy(data_test)
+	X_test_scaled = scaler_train.transform(X_test)
+
+	data
 end
 
-# ╔═╡ fadb73a0-08b1-4fa5-a7f3-a07f280c7e30
-X_train, y_train = AnomalyDetection.data_to_Xy(data)
+# ╔═╡ 9873c6d8-84ba-47e5-adcb-4d0f30829227
+md"!!! example \"\" 
+	Unsupervised hyperparameter validation method 1:
 
-# ╔═╡ 791cde8d-f092-4c96-a6db-c63894b4e7bd
-scaler_train = StandardScaler().fit(X_train)
-
-# ╔═╡ a88989ad-8ac5-410c-9fd7-da7c2ff85036
-X_train_scaled = scaler_train.transform(X_train)
-
-# ╔═╡ b2524337-f105-414e-a9e9-09d5c7f5a56b
-"""
-generate a vector uniformly distributed in a hypersphere via generating a uniformly distributed vector in a cube and rejecting the corners.
-"""
-function gen_uniform_vector_in_hypersphere()
-   x = randn(2)
-	
-   if norm(x) > 1
-	   return gen_uniform_vector_in_hypersphere()
-   else
-	   return x
-   end
-end
-
-# ╔═╡ 2795e470-fbb8-49ab-99ed-c08554bef374
-function generate_uniform_vectors_in_hypersphere(num_outliers::Int64,
-			                                     R_sphere::Float64
-)
-	# generating a distribution of outliers in a hypersphere around our data
-	X = zeros(num_outliers, 2)
-	for i = 1:num_outliers
-		X[i, :] = gen_uniform_vector_in_hypersphere()
-	end
-	return R_sphere * X
-end
+	uniform hypersphere of 'anomalies' around our data"
 
 # ╔═╡ bf920cb6-6e5f-473d-982f-623403650849
-#identify the outer most data points on which to expand our hypershpere
-R_sphere = maximum([norm(x) for x in eachrow(X_train_scaled)])
-
-# ╔═╡ 72242648-f010-4cfc-8187-f507e25d960a
-X_sphere = generate_uniform_vectors_in_hypersphere(500, R_sphere)
-
-# ╔═╡ 7ff4fe4f-b755-4ef8-891a-7ac89da2d95f
-function viz_synthetic_anomaly_hypersphere(X_sphere::Matrix{Float64},
-	                                       X_scaled::Matrix{Float64})
-	fig = Figure()
-	ax = Axis(fig[1,1], aspect=DataAspect(), xlabel="m₁ scaled", ylabel="m₂ scaled")
+begin
+	#identify the outer most data points on which to expand our hypershpere
+	R_sphere = maximum([norm(x) for x in eachrow(X_train_scaled)])
 	
-	scatter!(X_sphere[:, 1], X_sphere[:, 2],
-			  markersize = 10, color=:red, marker=:x, label="synthetic data")
-	scatter!(X_scaled[:, 1], X_scaled[:, 2],
-			  markersize = 5, color = :darkgreen, label="normal")
-	xlims!(minimum(X_train_scaled[:, 1]) - 1, maximum(X_train_scaled[:, 1]) + 3)
-	axislegend(position=:rb)
-	return fig
+	#create the uniform hypersphere of data scaled to our data
+	X_sphere = AnomalyDetection.generate_uniform_vectors_in_hypersphere(500, R_sphere)
+
+	R_sphere
 end
 
 # ╔═╡ 48d8afeb-2df0-44d1-9eaa-f28184813ab4
-viz_synthetic_anomaly_hypersphere(X_sphere, X_train_scaled)
-
-# ╔═╡ 7f3b46f2-3d6e-40a4-8e1e-e542d870810b
-function objective_function(X_train_scaled::Matrix{Float64}, 
-	                        X_sphere::Matrix{Float64}, 
-	                        ν::Float64, γ::Float64, λ::Float64=0.5)
-	svm = AnomalyDetection.train_anomaly_detector(X_train_scaled, ν, γ)
-
-	# term 1: estimate of error on normal data as fraction support vectors
-	fraction_svs = svm.n_support_[1] / size(X_train_scaled)[1]
-
-	# term 2: estimating the volume inside the decision boundary
-	y_sphere = svm.predict(X_sphere)
-	num_inside = sum(y_sphere .== 1)
-	fraction_inside = num_inside / length(y_sphere)
-
-	return λ * fraction_svs + (1 - λ) * fraction_inside
-end
-
-# ╔═╡ e8f0dfc7-34a5-4a36-884a-4a91fa76a6e1
-function determine_ν_opt_γ_opt(X_train_scaled::Matrix{Float64};
-							   num_outliers::Int=1000)
-	# generate data in hypersphere
-	R_sphere = maximum([norm(x) for x in eachrow(X_train_scaled)])
-	X_sphere = generate_uniform_vectors_in_hypersphere(num_outliers, R_sphere)
-
-	# grid search for optimal ν, γ
-	ν_range = 0.01:0.002:0.16
-	γ_range = 0.05:0.01:0.5
-	
-	opt_ν_γ = (0.0, 0.0)
-	Λ_opt = Inf
-	
-	for (i, ν) in enumerate(ν_range)
-		for (j, γ) in enumerate(γ_range)
-			Λ = objective_function(X_train_scaled, X_sphere, ν, γ)
-			if Λ < Λ_opt
-				Λ_opt = deepcopy(Λ)
-				opt_ν_γ = (ν, γ)
-			end	
-		end
-	end
-
-	if opt_ν_γ[1] == ν_range[1] || opt_ν_γ[1] == ν_range[end]
-		@warn "grid search optimized at boundary... change ν range."
-	end
-	if opt_ν_γ[2] == γ_range[1] || opt_ν_γ[2] == γ_range[end]
-		@warn "grid search optimized at boundary... change γ range."
-	end
-	return opt_ν_γ
-end
+AnomalyDetection.viz_synthetic_anomaly_hypersphere(X_sphere, X_train_scaled)
 
 # ╔═╡ 7caed0d6-554f-44f4-8f91-cd5875299dcc
-ν_opt, γ_opt = determine_ν_opt_γ_opt(X_train_scaled)
+begin
+	# use a grid search method to find optimal ν and γ
+	ν_opt, γ_opt = AnomalyDetection.determine_ν_opt_γ_opt_hypersphere(X_train_scaled)
 
-# ╔═╡ 221ca0f5-69a8-4b19-bbb6-3ae520625df6
-svm = AnomalyDetection.train_anomaly_detector(X_train_scaled, ν_opt, γ_opt)
+	# train the anomaly detector
+	svm = AnomalyDetection.train_anomaly_detector(X_train_scaled, ν_opt, γ_opt)
 
-# ╔═╡ 82d8dcb1-5b76-47d3-bc6e-19e67ee95d0b
-data_test = SyntheticDataGen.gen_data(100, 5, σ_H₂O, σ_m)
-
-# ╔═╡ 9046f0d9-d054-4f15-9e09-5edc419f9440
-X_test, y_test = AnomalyDetection.data_to_Xy(data_test)
-
-# ╔═╡ 476cbc96-5556-402c-a8e4-0697ade9a16a
-X_test_scaled = scaler_train.transform(X_test)
-
-# ╔═╡ 67257cbd-224d-4dcf-b414-1c67352a5c66
-y_pred = svm.predict(X_test_scaled)
+	(ν_opt, γ_opt)
+end
 
 # ╔═╡ ee8029cf-c6a6-439f-b190-cb297e0ddb70
 AnomalyDetection.viz_cm(svm, data_test, scaler_train)
 
 # ╔═╡ 6e278c3e-45a3-4aa8-b904-e3dfa73615d5
+AnomalyDetection.viz_decision_boundary(svm, scaler_train, data_test, 700, false)
+
+# ╔═╡ 8c426257-f4a5-4015-b39f-eab5e84d91ee
 begin
-	xlims = (0.01, 0.02)
-AnomalyDetection.viz_decision_boundary(svm, scaler_train, data_test)
-end
-
-# ╔═╡ f731bff9-18a4-47e7-a546-74e2bcb61b16
-function truncate(n::Float64)
-	n = n*100
-	n = trunc(Int, n)
-	convert(AbstractFloat, n)
-	return n/100
-end
-
-# ╔═╡ 151979b9-1d28-4133-a1f9-f86b90cc0ed3
-function viz_sensorδ_waterσ_grid(σ_H₂O::Vector{Float64}, σ_m::Vector{Float64})
-	
-	fig = Figure(resolution = (2400, 1200))
-	ideal_fig = fig[1, 1]
-	med_sensor_error_fig = fig[1, 2]
-	high_sensor_error_fig = fig[1, 3]
-	med_water_variance_fig = fig[2, 1]
-	high_water_variance_fig = fig[3, 1]
-
-	#top sensor error labels
-	for (label, layout) in zip(["σₘ=$(σ_m[1])","σₘ=$(σ_m[2])", "σₘ=$(σ_m[3])"], [ideal_fig, med_sensor_error_fig, high_sensor_error_fig])
-    Label(layout[1, 1, Top()], 
-		  label,
-          textsize = 40,
-          padding = (0, -350, 25, 0),
-		  halign = :center)
-	end
-
-	#left water variance labels
-	for (label, layout) in zip(["σH₂O=$(σ_H₂O[1])","σH₂O=$(σ_H₂O[2])", "σH₂O=$(σ_H₂O[3])"], [ideal_fig, med_water_variance_fig, high_water_variance_fig])
-	Label(layout[1, 1, Left()], 
-	  	  label,
-		  textsize = 40,
-	  	  padding = (0, 25, 0, 0),
-	  	  valign = :center,
-	  	  rotation = pi/2)
-	end
-
-	#establish axes for 9x9 grid
-	axes = [Axis(fig[i, j]) for i in 1:3, j in 1:3]
-
-	for i = 1:3
-		for j = 1:3
-
-			#generate test and training data
-			data_test  		 = SyntheticDataGen.gen_data(100, 5, σ_H₂O[i], σ_m[j])
-			data_train 		 = SyntheticDataGen.gen_data(100, 0, σ_H₂O[i], σ_m[j])
-			X_train, y_train = AnomalyDetection.data_to_Xy(data_train)
-			X_test, y_test   = AnomalyDetection.data_to_Xy(data_test)
-			scaler 			 = StandardScaler().fit(X_train)
-			X_train_scaled 	 = scaler.transform(X_train)
-
-			#optimize hyperparameters and determine f1score
-			ν_opt, γ_opt = determine_ν_opt_γ_opt(X_train_scaled)
-			svm = AnomalyDetection.train_anomaly_detector(X_train_scaled, 
-																	ν_opt, 
-																	γ_opt)
-			y_pred 		= svm.predict(X_test_scaled)
-			f1score 	= AnomalyDetection.performance_metric(-y_test, y_pred)
-			fig[i, j] 	= Box(fig, color = (ColorSchemes.RdYlGn_4[f1score], 0.7))
-			
-			axes[i, j].title = "f1 score = $(f1score)"
-			hidedecorations!(axes[i, j])
-
-			#scatter and contour plot
-			pos = fig[i, j][1, 1] 
-				
-
-			xlims = (minimum(X_train[:, 1]), maximum(X_train[:, 1]))
-			ylims = (minimum(X_train[:, 2]), maximum(X_train[:, 2]))
-
-			ax = Axis(fig[i, j][1, 1], 
-					  xlabel = "m, " * mofs[1] * " [g/g]",
-					  ylabel = "m, " * mofs[2] * " [g/g]",
-					  aspect = 1,
-					  xticks = LinearTicks(3),
-					  yticks = LinearTicks(3),
-					  alignmode = Outside(10))
-
-			for data_l in groupby(data_test, "label")
-				label = data_l[1, "label"]
-				
-				if label != "low humidity"
-					scatter!(ax, 
-							 data_l[:, "m $(mofs[1]) [g/g]"], 
-							 data_l[:, "m $(mofs[2]) [g/g]"],
-							 strokewidth=1,
-							 markersize=15,
-							 marker=label == "normal" ? :circle : :x,
-							 color=(:white, 0.0),
-							 strokecolor=SyntheticDataGen.label_to_color[label],
-							 label=label)
-				end
-			end
-
-			zif71_lims = (0.97 * minimum(X_train[:, 1]), 
-						  1.03 * maximum(X_train[:, 1]))
-			zif8_lims  = (0.97 * minimum(X_train[:, 2]), 
-						  1.03 * maximum(X_train[:, 2]))
-			
-			x₁s, x₂s, predictions = AnomalyDetection.generate_response_grid(svm, scaler, zif71_lims, zif8_lims)
-		
-			contour!(ax, x₁s, 
-					 x₂s,
-					 predictions, 
-					 levels=[0.0], 
-					 color=:black,
-					 label="decision boundary") 
-
-			#confusion matrix
-			pos = fig[i, j][1, 2] 
-
-			all_labels = SyntheticDataGen.viable_labels
-			n_labels   = length(all_labels)
-
-			# confusion matrix. each row pertains to a label.
-			# col 1 = -1 predicted anomaly, col 2 = 1 predicted normal.
-			cm = zeros(Int, 2, n_labels)
-			
-			for (l, label) in enumerate(all_labels)
-				# get all test data with this label
-				data_test_l = filter(row -> row["label"] == label, data_test)
-				# get feature matrix
-				X_test_l, y_test_l = AnomalyDetection.data_to_Xy(data_test_l)
-				# scale
-				X_test_l_scaled = scaler.transform(X_test_l)
-				# make predictions for this subset of test data
-				y_pred_l = svm.predict(X_test_l_scaled)
-		
-				# how many are predicted as anomaly?
-				cm[1, l] = sum(y_pred_l .== -1)
-				# how many predicted as normal?
-				cm[2, l] = sum(y_pred_l .== 1)
-			end
-
-			@assert sum(cm) == nrow(data_test)
-
-			ax = Axis(fig[i, j][1, 2],
-			  	 	  xticks=([1, 2], ["anomalous", "normal"]),
-			  		  yticks=([i for i=1:n_labels], all_labels),
-			  		  xticklabelrotation=45.0,
-			  		  ylabel="truth",
-			  		  xlabel="prediction",
-			  		  alignmode = Outside())
-
-			@assert SyntheticDataGen.viable_labels[1] == "normal"
-
-			# anomalies
-			heatmap!(1:2, 
-					 2:6, 
-					 cm[:, 2:end], 
-					 colormap=ColorSchemes.amp, 
-					 colorrange=(0, maximum(cm[:, 2:end])))
-			
-			# normal data
-			heatmap!(1:2, 
-					 1:1, 
-					 reshape(cm[:, 1], (2, 1)), 
-					 colormap=ColorSchemes.algae, 
-					 colorrange=(0, maximum(cm[:, 1])))
-			
-			for i = 1:2
-				for j = 1:length(all_labels)
-					text!("$(cm[i, j])",
-						  position=(i, j), 
-						  align=(:center, :center), 
-						  color=cm[i, j] > sum(cm[:, j]) / 2 ? :white : :black)
-				end
-			end
-		end
-	end
-
-	save("sensor_error_&_H2O_variance_plot.pdf", fig)
-	fig
-	
+	# check the f1 score to compare to other validation method(s)
+	f1_hypersphere = AnomalyDetection.performance_metric(y_test, svm.predict(X_test_scaled))
 end
 
 # ╔═╡ 4b1759a7-eba1-4de5-8d6a-38106f3301c9
 begin
+	#visualization of the effects of sensor error and water vapor variance
 	σ_H₂O_vector = [0.0, 0.005, 0.05]
 	σ_m_vector   = [0.0, 0.00005, 0.0005]
-	viz_sensorδ_waterσ_grid(σ_H₂O_vector, σ_m_vector)
+	AnomalyDetection.viz_sensorδ_waterσ_grid(σ_H₂O_vector, σ_m_vector)
 end
 
-# ╔═╡ 54471dc9-8f12-4734-8a75-bae2bbb8799d
+# ╔═╡ 51b0ebd4-1dec-4b35-bb15-cd3df906aca3
+md"!!! example \"\" 
+	Unsupervised hyperparameter validation method 2:
 
+	density measure plot and maximum curvature"
+
+# ╔═╡ 6ceab194-4861-4be1-901c-6713db5a4204
+begin
+	# according to paper K is optimally 0.05 * number of data points
+	K = trunc(Int, 0.05 * num_points)
+	
+	# use a density measure method to find optimal ν and γ
+	ν_opt_2, γ_opt_2 = AnomalyDetection.opt_ν_γ_by_density_measure_method(X_train_scaled, K)
+
+	# train the anomaly detector
+	svm_2 = AnomalyDetection.train_anomaly_detector(X_train_scaled, ν_opt_2, γ_opt_2)
+
+	(ν_opt_2, γ_opt_2)
+end
+
+# ╔═╡ 9a9262d4-02ff-4d82-bb7b-8584e8b79022
+AnomalyDetection.viz_density_measures(X_train_scaled, K)
+
+# ╔═╡ 47d6c332-632c-4880-9708-59e6fa187c6c
+AnomalyDetection.viz_cm(svm_2, data_test, scaler_train)
+
+# ╔═╡ f0cb9b40-0ed8-450a-8f03-4f16ca65fa77
+AnomalyDetection.viz_decision_boundary(svm_2, scaler_train, data_test, 700, false)
+
+# ╔═╡ 55640b9c-9a0a-4d0d-8c29-e67a8228edc2
+begin
+	# check the f1 score to compare to other validation method(s)
+	f1_density = AnomalyDetection.performance_metric(y_test, svm_2.predict(X_test_scaled))
+end
+
+# ╔═╡ 11e286be-d3a9-4896-a90c-fdd05fc35073
+f1_density
+
+# ╔═╡ f8dab032-e446-4e6e-8022-39ad3dbb1042
+f1_hypersphere
+
+# ╔═╡ ebd363f4-3929-4870-b5b8-2bae83b2789f
+AnomalyDetection.viz_sensorδ_waterσ_grid(σ_H₂O_vector, σ_m_vector, 2)
+
+# ╔═╡ 3aab547c-8b00-48da-aa8e-3d51e804c5df
+md"!!! example \"\" 
+	f1 score testing"
 
 # ╔═╡ a1843a87-a8d3-40ab-9959-3e14d520a4d1
 function f1(true_pstv, false_pstv, false_ngtv)
@@ -375,15 +167,26 @@ function f1(true_pstv, false_pstv, false_ngtv)
 	return 2* (prec*rec) / (prec + rec)
 end
 
+# ╔═╡ 923c9837-82ab-4071-b716-faa3565fa327
+begin
+	# test f1 score
+	# the middle plot has 16 true positives, 9 false negatives, 10 false positives
+	# it also has f1 0.62, lets test it
+	pauls_f1 = f1(16, 10, 9)
+
+	#perfect!
+end
+
 # ╔═╡ 773793c4-021a-4aa8-9b13-c27f94e694b0
 begin
 yy_pred = [1, 1, 1, -1, -1, 1, -1 ,-1]
 yy_true = [-1, -1, 1, 1, 1, 1, 1, -1]
 
+	# how many predicted as anomalous that are actually anomalous?
 	true_pstv = 1.0
-	# how many predicted as normal?
+	# how many predicted as normal, but actually anomalous?
 	false_ngtv = 2.0
-
+	# how many predicted as anomalous, but actually normal?
 	false_pstv = 3.0
 
 	println("paul's = $(f1(true_pstv, false_pstv, false_ngtv))")
@@ -391,35 +194,6 @@ yy_true = [-1, -1, 1, 1, 1, 1, 1, -1]
 	println("sklearn = $(f1_score(-yy_true, -yy_pred))")
 	
 end
-
-# ╔═╡ 3eebfd24-9a90-4093-b273-80d5d94cfed3
-begin
-
-	#absurd brute force testing to see if I can replicate these stupid f1 scores
-	
-	set = [85, 94, 99, 101, 16, 15, 9, 31, 24, 25, 40, 1, 70, 69]
-	known_score = 0.708333
-	
-	for i = 1:length(set)
-		for j = 1:length(set)
-			for k = 1:length(set)
-				
-				if (i != j) && (j != k) && (i != k)
-					values = [set[i], set[j], set[k]]
-					scores = [[f1(values[o], values[p], values[q]), [values[o], values[p], values[q]]] for o = 1:3, p = 1:3, q=1:3]
-					for l = 1:length(scores)
-						if (abs(known_score - scores[l][1]) < 0.0001)
-							print("values in order = $(scores[l][2][1]),$(scores[l][2][2]),$(scores[l][2][3])")
-						end
-					end
-				end
-			end
-		end
-	end
-end
-
-# ╔═╡ 1e6fe488-7413-4b65-83d0-769d2a33022d
-f1(23, 2, 89)
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -1743,33 +1517,28 @@ version = "3.5.0+0"
 # ╠═5d920ea0-f04d-475f-b05b-86e7b199d7e0
 # ╠═31f71438-ff2f-49f9-a801-3a6489eaf271
 # ╠═738a227e-9665-4fe1-b3b5-d12c93c9300d
+# ╟─32c8e7ce-113c-4606-a463-47d9802a2238
 # ╠═b2a5df8c-bbc6-487a-8ac5-9c55f78d259f
-# ╠═fadb73a0-08b1-4fa5-a7f3-a07f280c7e30
-# ╠═791cde8d-f092-4c96-a6db-c63894b4e7bd
-# ╠═a88989ad-8ac5-410c-9fd7-da7c2ff85036
-# ╠═b2524337-f105-414e-a9e9-09d5c7f5a56b
-# ╠═2795e470-fbb8-49ab-99ed-c08554bef374
+# ╟─9873c6d8-84ba-47e5-adcb-4d0f30829227
 # ╠═bf920cb6-6e5f-473d-982f-623403650849
-# ╠═72242648-f010-4cfc-8187-f507e25d960a
-# ╠═7ff4fe4f-b755-4ef8-891a-7ac89da2d95f
 # ╠═48d8afeb-2df0-44d1-9eaa-f28184813ab4
-# ╠═7f3b46f2-3d6e-40a4-8e1e-e542d870810b
-# ╠═e8f0dfc7-34a5-4a36-884a-4a91fa76a6e1
 # ╠═7caed0d6-554f-44f4-8f91-cd5875299dcc
-# ╠═221ca0f5-69a8-4b19-bbb6-3ae520625df6
-# ╠═82d8dcb1-5b76-47d3-bc6e-19e67ee95d0b
-# ╠═9046f0d9-d054-4f15-9e09-5edc419f9440
-# ╠═476cbc96-5556-402c-a8e4-0697ade9a16a
-# ╠═67257cbd-224d-4dcf-b414-1c67352a5c66
 # ╠═ee8029cf-c6a6-439f-b190-cb297e0ddb70
 # ╠═6e278c3e-45a3-4aa8-b904-e3dfa73615d5
-# ╠═f731bff9-18a4-47e7-a546-74e2bcb61b16
-# ╠═151979b9-1d28-4133-a1f9-f86b90cc0ed3
+# ╠═8c426257-f4a5-4015-b39f-eab5e84d91ee
 # ╠═4b1759a7-eba1-4de5-8d6a-38106f3301c9
-# ╠═54471dc9-8f12-4734-8a75-bae2bbb8799d
+# ╟─51b0ebd4-1dec-4b35-bb15-cd3df906aca3
+# ╠═6ceab194-4861-4be1-901c-6713db5a4204
+# ╠═9a9262d4-02ff-4d82-bb7b-8584e8b79022
+# ╠═47d6c332-632c-4880-9708-59e6fa187c6c
+# ╠═f0cb9b40-0ed8-450a-8f03-4f16ca65fa77
+# ╠═55640b9c-9a0a-4d0d-8c29-e67a8228edc2
+# ╠═11e286be-d3a9-4896-a90c-fdd05fc35073
+# ╠═f8dab032-e446-4e6e-8022-39ad3dbb1042
+# ╠═ebd363f4-3929-4870-b5b8-2bae83b2789f
+# ╟─3aab547c-8b00-48da-aa8e-3d51e804c5df
+# ╠═923c9837-82ab-4071-b716-faa3565fa327
 # ╠═a1843a87-a8d3-40ab-9959-3e14d520a4d1
 # ╠═773793c4-021a-4aa8-9b13-c27f94e694b0
-# ╠═3eebfd24-9a90-4093-b273-80d5d94cfed3
-# ╠═1e6fe488-7413-4b65-83d0-769d2a33022d
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

@@ -277,6 +277,37 @@ p₁ = p₀ + Δp
 # ╔═╡ 1ab4e12a-cc8a-45d3-9991-7f03d32d416a
 H * p₁
 
+# ╔═╡ 68148010-05e0-45e9-86dd-4ae324ddb438
+
+
+# ╔═╡ 74e6609d-0ed8-4e52-b307-b68f8be9a8d5
+md"## Gas selectivity of each MOF"
+
+# ╔═╡ 814741cc-7b99-469d-8705-32a3ff02e46e
+begin
+	#Selectivity calculations
+("C2H4" => "C₂H₄", "CO2" => "CO₂", "H2O" => "H₂O")
+	for (MOF, dict) in henry_data
+		
+		println("$MOF")
+		
+		water = dict["H₂O"]["henry coef [g/(g-bar)]"]
+		carbon_dioxide = dict["CO₂"]["henry coef [g/(g-bar)]"]
+		ethylene = dict["C₂H₄"]["henry coef [g/(g-bar)]"]
+		
+		println("H₂O/CO₂ selectivity = $(water/carbon_dioxide)")
+		println("H₂O/C₂H₄ selectivity = $(water/ethylene)")
+		println("C₂H₄/CO₂ selectivity = $(ethylene/carbon_dioxide)")
+		
+	end
+end
+
+# ╔═╡ 77344a53-dc8a-426a-b941-1b81638f1a38
+typeof(henry_data["ZIF-8"]["H₂O"])
+
+# ╔═╡ c94f8408-7fa9-45db-9508-d8a6d196704b
+henry_data["ZIF-8"]["H₂O"]
+
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
@@ -1608,5 +1639,10 @@ version = "3.5.0+0"
 # ╠═7c76b64b-e121-4cf8-9c6d-b876253ccf9a
 # ╠═6b7e4c1c-74fe-49f0-84e6-7f0023eb4cad
 # ╠═1ab4e12a-cc8a-45d3-9991-7f03d32d416a
+# ╠═68148010-05e0-45e9-86dd-4ae324ddb438
+# ╟─74e6609d-0ed8-4e52-b307-b68f8be9a8d5
+# ╠═814741cc-7b99-469d-8705-32a3ff02e46e
+# ╠═77344a53-dc8a-426a-b941-1b81638f1a38
+# ╠═c94f8408-7fa9-45db-9508-d8a6d196704b
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

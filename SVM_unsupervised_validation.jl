@@ -297,6 +297,9 @@ begin
 	viz_sⁱₖ_plot(sorted_sⁱₖ_vector, elbow_index)
 end
 
+# ╔═╡ b58720e8-c878-4c4e-9011-15800977239d
+
+
 # ╔═╡ 7083f478-a811-47e2-af0a-643338138add
 begin
 	#generate the optimal one-class support vector machine using optimized hyperparameters.
@@ -1845,6 +1848,7 @@ version = "3.5.0+0"
 # ╠═420daad4-afa2-4029-acee-29b25d3a0d5a
 # ╠═e3c361ba-bf24-4154-8d24-60c69bc2e884
 # ╠═ca104ced-6fbd-4ced-b21f-37045dd98b26
+# ╠═b58720e8-c878-4c4e-9011-15800977239d
 # ╠═7083f478-a811-47e2-af0a-643338138add
 # ╟─f1be79a4-e36e-480f-a575-70d3ee062a14
 # ╠═6591e930-8952-449a-8418-82a96b20fec9
