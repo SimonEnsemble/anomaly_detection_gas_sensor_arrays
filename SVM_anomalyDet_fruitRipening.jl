@@ -97,6 +97,9 @@ AnomalyDetection.viz_cm(svm, data_test, scaler_train)
 # ╔═╡ 6e278c3e-45a3-4aa8-b904-e3dfa73615d5
 AnomalyDetection.viz_decision_boundary(svm, scaler_train, data_test, 700, false)
 
+# ╔═╡ 12a6f9d0-f3db-4973-8c53-3a2953d78b5d
+AnomalyDetection.viz_decision_boundary(svm, scaler_train, data, 700, false)
+
 # ╔═╡ 8c426257-f4a5-4015-b39f-eab5e84d91ee
 begin
 	# check the f1 score to compare to other validation method(s)
@@ -140,6 +143,9 @@ AnomalyDetection.viz_cm(svm_2, data_test, scaler_train)
 # ╔═╡ f0cb9b40-0ed8-450a-8f03-4f16ca65fa77
 AnomalyDetection.viz_decision_boundary(svm_2, scaler_train, data_test, 700, false)
 
+# ╔═╡ e4723de4-3a82-4c15-9057-c20b331259f7
+AnomalyDetection.viz_decision_boundary(svm_2, scaler_train, data, 700, false)
+
 # ╔═╡ 55640b9c-9a0a-4d0d-8c29-e67a8228edc2
 begin
 	# check the f1 score to compare to other validation method(s)
@@ -179,8 +185,8 @@ end
 
 # ╔═╡ 773793c4-021a-4aa8-9b13-c27f94e694b0
 begin
-yy_pred = [1, 1, 1, -1, -1, 1, -1 ,-1]
-yy_true = [-1, -1, 1, 1, 1, 1, 1, -1]
+yy_pred = [ 1,  1, 1, -1, -1, 1, -1, -1]
+yy_true = [-1, -1, 1,  1,  1, 1,  1, -1]
 
 	# how many predicted as anomalous that are actually anomalous?
 	true_pstv = 1.0
@@ -1525,6 +1531,7 @@ version = "3.5.0+0"
 # ╠═7caed0d6-554f-44f4-8f91-cd5875299dcc
 # ╠═ee8029cf-c6a6-439f-b190-cb297e0ddb70
 # ╠═6e278c3e-45a3-4aa8-b904-e3dfa73615d5
+# ╠═12a6f9d0-f3db-4973-8c53-3a2953d78b5d
 # ╠═8c426257-f4a5-4015-b39f-eab5e84d91ee
 # ╠═4b1759a7-eba1-4de5-8d6a-38106f3301c9
 # ╟─51b0ebd4-1dec-4b35-bb15-cd3df906aca3
@@ -1532,6 +1539,7 @@ version = "3.5.0+0"
 # ╠═9a9262d4-02ff-4d82-bb7b-8584e8b79022
 # ╠═47d6c332-632c-4880-9708-59e6fa187c6c
 # ╠═f0cb9b40-0ed8-450a-8f03-4f16ca65fa77
+# ╠═e4723de4-3a82-4c15-9057-c20b331259f7
 # ╠═55640b9c-9a0a-4d0d-8c29-e67a8228edc2
 # ╠═11e286be-d3a9-4896-a90c-fdd05fc35073
 # ╠═f8dab032-e446-4e6e-8022-39ad3dbb1042
