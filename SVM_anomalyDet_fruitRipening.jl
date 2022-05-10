@@ -44,18 +44,30 @@ md"!!! example \"\"
 
 # ╔═╡ b2a5df8c-bbc6-487a-8ac5-9c55f78d259f
 begin
-	num_points = 150	
+	num_normal_train_points  = 100
+	num_anomaly_train_points = 0
+	num_normal_test_points   = 100
+	num_anomaly_test_points  = 5
+	#TODO: specify type of points
 
 	# generate synthetic training data
-	data = SyntheticDataGen.gen_data(num_points, 0, σ_H₂O, σ_m)
+	data = SyntheticDataGen.gen_data(num_normal_train_points, 
+									 num_anomaly_train_points, 
+									 σ_H₂O, 
+									 σ_m)
+	
 	X_train, y_train = AnomalyDetection.data_to_Xy(data)
-	scaler_train = StandardScaler().fit(X_train)
-	X_train_scaled = scaler_train.transform(X_train)
+	scaler_train 	 = StandardScaler().fit(X_train)
+	X_train_scaled   = scaler_train.transform(X_train)
 
 	# generate synthetic test data
-	data_test = SyntheticDataGen.gen_data(100, 5, σ_H₂O, σ_m)
+	data_test = SyntheticDataGen.gen_data(num_normal_test_points, 
+									 	  num_anomaly_test_points, 
+									 	  σ_H₂O, 
+									 	  σ_m)
+	
 	X_test, y_test = AnomalyDetection.data_to_Xy(data_test)
-	X_test_scaled = scaler_train.transform(X_test)
+	X_test_scaled  = scaler_train.transform(X_test)
 
 	data
 end
@@ -66,24 +78,10 @@ md"!!! example \"\"
 
 	uniform hypersphere of 'anomalies' around our data"
 
-# ╔═╡ bf920cb6-6e5f-473d-982f-623403650849
-begin
-	#identify the outer most data points on which to expand our hypershpere
-	R_sphere = maximum([norm(x) for x in eachrow(X_train_scaled)])
-	
-	#create the uniform hypersphere of data scaled to our data
-	X_sphere = AnomalyDetection.generate_uniform_vectors_in_hypersphere(500, R_sphere)
-
-	R_sphere
-end
-
-# ╔═╡ 48d8afeb-2df0-44d1-9eaa-f28184813ab4
-AnomalyDetection.viz_synthetic_anomaly_hypersphere(X_sphere, X_train_scaled)
-
-# ╔═╡ 7caed0d6-554f-44f4-8f91-cd5875299dcc
+# ╔═╡ e795005c-f5bc-4e09-a33d-ff23a5ce607d
 begin
 	# use a grid search method to find optimal ν and γ
-	ν_opt, γ_opt = AnomalyDetection.determine_ν_opt_γ_opt_hypersphere(X_train_scaled)
+	(ν_opt, γ_opt), X_sphere = AnomalyDetection.determine_ν_opt_γ_opt_hypersphere(X_train_scaled)
 
 	# train the anomaly detector
 	svm = AnomalyDetection.train_anomaly_detector(X_train_scaled, ν_opt, γ_opt)
@@ -91,14 +89,17 @@ begin
 	(ν_opt, γ_opt)
 end
 
+# ╔═╡ 48d8afeb-2df0-44d1-9eaa-f28184813ab4
+AnomalyDetection.viz_synthetic_anomaly_hypersphere(X_sphere, X_train_scaled)
+
 # ╔═╡ ee8029cf-c6a6-439f-b190-cb297e0ddb70
 AnomalyDetection.viz_cm(svm, data_test, scaler_train)
 
 # ╔═╡ 6e278c3e-45a3-4aa8-b904-e3dfa73615d5
-AnomalyDetection.viz_decision_boundary(svm, scaler_train, data_test, 700, false)
+AnomalyDetection.viz_decision_boundary(svm, scaler_train, data_test)
 
 # ╔═╡ 12a6f9d0-f3db-4973-8c53-3a2953d78b5d
-AnomalyDetection.viz_decision_boundary(svm, scaler_train, data, 700, false)
+AnomalyDetection.viz_decision_boundary(svm, scaler_train, data)
 
 # ╔═╡ 8c426257-f4a5-4015-b39f-eab5e84d91ee
 begin
@@ -111,7 +112,12 @@ begin
 	#visualization of the effects of sensor error and water vapor variance
 	σ_H₂O_vector = [0.0, 0.005, 0.05]
 	σ_m_vector   = [0.0, 0.00005, 0.0005]
-	AnomalyDetection.viz_sensorδ_waterσ_grid(σ_H₂O_vector, σ_m_vector)
+	AnomalyDetection.viz_sensorδ_waterσ_grid(σ_H₂O_vector, 
+											 σ_m_vector,
+											 num_normal_train_points,
+											 num_anomaly_train_points,
+											 num_normal_test_points,
+											 num_anomaly_test_points)
 end
 
 # ╔═╡ 51b0ebd4-1dec-4b35-bb15-cd3df906aca3
@@ -123,7 +129,7 @@ md"!!! example \"\"
 # ╔═╡ 6ceab194-4861-4be1-901c-6713db5a4204
 begin
 	# according to paper K is optimally 0.05 * number of data points
-	K = trunc(Int, 0.05 * num_points)
+	K = trunc(Int, 0.05 * num_normal_train_points)
 	
 	# use a density measure method to find optimal ν and γ
 	ν_opt_2, γ_opt_2 = AnomalyDetection.opt_ν_γ_by_density_measure_method(X_train_scaled, K)
@@ -141,10 +147,10 @@ AnomalyDetection.viz_density_measures(X_train_scaled, K)
 AnomalyDetection.viz_cm(svm_2, data_test, scaler_train)
 
 # ╔═╡ f0cb9b40-0ed8-450a-8f03-4f16ca65fa77
-AnomalyDetection.viz_decision_boundary(svm_2, scaler_train, data_test, 700, false)
+AnomalyDetection.viz_decision_boundary(svm_2, scaler_train, data_test)
 
 # ╔═╡ e4723de4-3a82-4c15-9057-c20b331259f7
-AnomalyDetection.viz_decision_boundary(svm_2, scaler_train, data, 700, false)
+AnomalyDetection.viz_decision_boundary(svm_2, scaler_train, data)
 
 # ╔═╡ 55640b9c-9a0a-4d0d-8c29-e67a8228edc2
 begin
@@ -159,7 +165,13 @@ f1_density
 f1_hypersphere
 
 # ╔═╡ ebd363f4-3929-4870-b5b8-2bae83b2789f
-AnomalyDetection.viz_sensorδ_waterσ_grid(σ_H₂O_vector, σ_m_vector, 2)
+	AnomalyDetection.viz_sensorδ_waterσ_grid(σ_H₂O_vector, 
+											 σ_m_vector,
+											 num_normal_train_points,
+											 num_anomaly_train_points,
+											 num_normal_test_points,
+											 num_anomaly_test_points,
+											 validation_method="knee")
 
 # ╔═╡ 3aab547c-8b00-48da-aa8e-3d51e804c5df
 md"!!! example \"\" 
@@ -1526,9 +1538,8 @@ version = "3.5.0+0"
 # ╟─32c8e7ce-113c-4606-a463-47d9802a2238
 # ╠═b2a5df8c-bbc6-487a-8ac5-9c55f78d259f
 # ╟─9873c6d8-84ba-47e5-adcb-4d0f30829227
-# ╠═bf920cb6-6e5f-473d-982f-623403650849
+# ╠═e795005c-f5bc-4e09-a33d-ff23a5ce607d
 # ╠═48d8afeb-2df0-44d1-9eaa-f28184813ab4
-# ╠═7caed0d6-554f-44f4-8f91-cd5875299dcc
 # ╠═ee8029cf-c6a6-439f-b190-cb297e0ddb70
 # ╠═6e278c3e-45a3-4aa8-b904-e3dfa73615d5
 # ╠═12a6f9d0-f3db-4973-8c53-3a2953d78b5d

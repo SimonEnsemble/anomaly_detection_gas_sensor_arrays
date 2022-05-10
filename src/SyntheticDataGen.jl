@@ -18,7 +18,7 @@ end
 
 # vapor pressure of water
 p_H₂O_vapor = 3.1690 * 0.01 # bar
-anomaly_labels = ["CO₂ buildup", "C₂H₄ buildup", "C₂H₄ off", "CO₂ & C₂H₄ buildup", "low humidity"]
+anomaly_labels = ["CO₂ buildup", "C₂H₄ buildup", "C₂H₄ off", "CO₂ & C₂H₄ buildup"]
 viable_labels = vcat(["normal"], anomaly_labels)
 gases = ["C₂H₄", "CO₂", "H₂O"]
 mofs = ["ZIF-71", "ZIF-8"]

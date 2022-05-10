@@ -33,8 +33,6 @@ optimize ν, γ via density measure.
 ****************************************************
 """
 
-
-
 """
 returns the optimized ν and γ given k neighbors
 """
@@ -123,14 +121,10 @@ returns optimal ν and γ using grid search and hypersphere of synthetic anomali
 λ weights the hyperparameters to favor false negatives or support vectors, default 0.5
 """
 function determine_ν_opt_γ_opt_hypersphere(X_train_scaled::Matrix{Float64};
-	num_outliers::Int=1000, λ::Float64=0.5)
+	num_outliers::Int=1000, λ::Float64=0.5, ν_range=0.01:0.01:0.26, γ_range=0.05:0.01:0.7)
 	# generate data in hypersphere
 	R_sphere = maximum([norm(x) for x in eachrow(X_train_scaled)])
 	X_sphere = generate_uniform_vectors_in_hypersphere(num_outliers, R_sphere)
-
-	# grid search for optimal ν, γ
-	ν_range = 0.01:0.01:0.26
-	γ_range = 0.05:0.01:0.7
 
 	opt_ν_γ = (0.0, 0.0)
 	Λ_opt = Inf
@@ -151,7 +145,7 @@ function determine_ν_opt_γ_opt_hypersphere(X_train_scaled::Matrix{Float64};
 	if opt_ν_γ[2] == γ_range[1] || opt_ν_γ[2] == γ_range[end]
 		@warn "grid search optimized at boundary... change γ range."
 	end
-	return opt_ν_γ
+	return opt_ν_γ, X_sphere
 end
 
 """
@@ -162,9 +156,8 @@ function viz_synthetic_anomaly_hypersphere(X_sphere::Matrix{Float64}, X_scaled::
 	ax = Axis(fig[1,1], aspect=DataAspect(), xlabel="m₁ scaled", ylabel="m₂ scaled")
 
 	scatter!(X_sphere[:, 1], X_sphere[:, 2], markersize = 10, color=:red, marker=:x, label="synthetic data")
-	scatter!(X_scaled[:, 1], X_scaled[:, 2],
-	markersize = 5, color = :darkgreen, label="normal")
-	xlims!(minimum(X_scaled[:, 1]) - 1, maximum(X_scaled[:, 1]) + 3)
+	scatter!(X_scaled[:, 1], X_scaled[:, 2], markersize = 5, color = :darkgreen, label="normal")
+	xlims!(minimum(X_sphere[:, 1]) - 0.5, maximum(X_scaled[:, 1]) + 3)
 	axislegend(position=:rb)
 	return fig
 end
@@ -172,7 +165,8 @@ end
 """
 error function to be minimized based on λ
 """
-function objective_function(X_train_scaled::Matrix{Float64}, X_sphere::Matrix{Float64}, ν::Float64, γ::Float64, λ::Float64=0.5)
+function objective_function(X_train_scaled::Matrix{Float64}, X_sphere::Matrix{Float64}, 
+							ν::Float64, γ::Float64, λ::Float64=0.5)
 	svm = AnomalyDetection.train_anomaly_detector(X_train_scaled, ν, γ)
 
 	# term 1: estimate of error on normal data as fraction support vectors
@@ -240,15 +234,48 @@ end
 """
 visualizes the confursion matrix by anomaly type
 """
+#TODO modularize into multiple functions compute cm, so that an axis can be input to be used in other places
 function viz_cm(svm, data_test::DataFrame, scaler)
 	all_labels = SyntheticDataGen.viable_labels
 	n_labels = length(all_labels)
+
+	cm = generate_cm(svm, data_test, scaler, all_labels)
+
+	fig = Figure()
+	ax = Axis(fig[1, 1],
+		  xticks=([1, 2], ["anomalous", "normal"]),
+		  yticks=([i for i=1:n_labels], all_labels),
+		  xticklabelrotation=45.0,
+		  ylabel="truth",
+		  xlabel="prediction"
+    )
+
+	@assert SyntheticDataGen.viable_labels[1] == "normal"
+	# anomalies
+	heatmap!(1:2, 2:n_labels, cm[:, 2:end],
+			      colormap=ColorSchemes.amp, colorrange=(0, maximum(cm[:, 2:end])))
+	# normal data
+	heatmap!(1:2, 1:1, reshape(cm[:, 1], (2, 1)),
+			      colormap=ColorSchemes.algae, colorrange=(0, maximum(cm[:, 1])))
+    for i = 1:2
+        for j = 1:length(all_labels)
+            text!("$(cm[i, j])",
+                  position=(i, j), align=(:center, :center), 
+                  color=cm[i, j] > sum(cm[:, j]) / 2 ? :white : :black)
+        end
+    end
+    # Colorbar(fig[1, 2], hm, label="# data points")
+    fig
+end
+
+function generate_cm(svm, data_test::DataFrame, scaler, labels)
+	n_labels = length(labels)
 
 	# confusion matrix. each row pertains to a label.
 	# col 1 = -1 predicted anomaly, col 2 = 1 predicted normal.
 	cm = zeros(Int, 2, n_labels)
 
-	for (l, label) in enumerate(all_labels)
+	for (l, label) in enumerate(labels)
 		# get all test data with this label
 		data_test_l = filter(row -> row["label"] == label, data_test)
 		# get feature matrix
@@ -265,58 +292,42 @@ function viz_cm(svm, data_test::DataFrame, scaler)
 	end
 	@assert sum(cm) == nrow(data_test)
 
-	fig = Figure()
-	ax = Axis(fig[1, 1],
-		  xticks=([1, 2], ["anomalous", "normal"]),
-		  yticks=([i for i=1:n_labels], all_labels),
-		  xticklabelrotation=45.0,
-		  ylabel="truth",
-		  xlabel="prediction"
-    )
-
-	@assert SyntheticDataGen.viable_labels[1] == "normal"
-	# anomalies
-	heatmap!(1:2, 2:6, cm[:, 2:end],
-			      colormap=ColorSchemes.amp, colorrange=(0, maximum(cm[:, 2:end])))
-	# normal data
-	heatmap!(1:2, 1:1, reshape(cm[:, 1], (2, 1)),
-			      colormap=ColorSchemes.algae, colorrange=(0, maximum(cm[:, 1])))
-    for i = 1:2
-        for j = 1:length(all_labels)
-            text!("$(cm[i, j])",
-                  position=(i, j), align=(:center, :center), 
-                  color=cm[i, j] > sum(cm[:, j]) / 2 ? :white : :black)
-        end
-    end
-    # Colorbar(fig[1, 2], hm, label="# data points")
-    fig
+	return cm
 end
 
 """
 visualizes a one class SVM decision contour given a particular nu, gamma and resolution.
 """
-function viz_decision_boundary(svm, scaler, data_test::DataFrame, res::Int=700, incl_low_humidity::Bool=false)
-	if incl_low_humidity
-    	X_test, _ = data_to_Xy(data_test)
-	else
-		data_test = deepcopy(filter(row -> row[:label] != "low humidity", data_test))
-		X_test, _ = data_to_Xy(data_test)
-	end
+function viz_decision_boundary(svm, scaler, data_test::DataFrame; res::Int=700)
+	X_test, _ = data_to_Xy(data_test)
 
 	xlims = (0.98 * minimum(X_test[:, 1]), 1.02 * maximum(X_test[:, 1]))
 	ylims = (0.98 * minimum(X_test[:, 2]), 1.02 * maximum(X_test[:, 2]))
 
-	# generate the grid
-	x₁s, x₂s, predictions = generate_response_grid(svm, scaler, xlims, ylims)
 	fig = Figure(resolution=(res, res))
-	
 	
 	ax = Axis(fig[1, 1], 
 			   xlabel = "m, " * mofs[1] * " [g/g]",
 			   ylabel = "m, " * mofs[2] * " [g/g]",
 			   aspect = DataAspect())
 
-	viz_responses!(ax, data_test)
+	viz_decision_boundary!(ax, svm, scaler, data_test, xlims, ylims)
+
+	fig
+end
+
+function viz_decision_boundary!(ax, 
+								svm, 
+								scaler,
+								data_test::DataFrame, 
+								xlims, 
+								ylims; 
+								incl_legend::Bool=true)
+
+	# generate the grid
+	x₁s, x₂s, predictions = generate_response_grid(svm, scaler, xlims, ylims)
+
+	viz_responses!(ax, data_test, incl_legend=incl_legend)
 	contour!(x₁s, 
 			 x₂s,
              predictions, 
@@ -324,8 +335,6 @@ function viz_decision_boundary(svm, scaler, data_test::DataFrame, res::Int=700, 
 			 color=:black,
 		     label="decision boundary"
 	) 
-	
-	fig
 end
 
 """
@@ -352,7 +361,7 @@ end
 """
 visualizes sensor response data by label
 """
-function viz_responses!(ax, data::DataFrame)
+function viz_responses!(ax, data::DataFrame; incl_legend::Bool=true)
 	for data_l in groupby(data, "label")
 		label = data_l[1, "label"]
 		scatter!(ax, data_l[:, "m $(mofs[1]) [g/g]"], data_l[:, "m $(mofs[2]) [g/g]"],
@@ -365,7 +374,9 @@ function viz_responses!(ax, data::DataFrame)
 		
     end
 
-    axislegend(ax, position=:rb)
+	if incl_legend
+    	axislegend(ax, position=:rb)
+	end
 end
 
 """
@@ -380,36 +391,25 @@ end
 
 """
 vizualizes effects of water variance and sensor error using validation:
-method 1: uniform hypersphere
+method 1: hypersphere
 method 2: knee
 """
-function viz_sensorδ_waterσ_grid(σ_H₂O::Vector{Float64}, σ_m::Vector{Float64}, method::Int=1)
-	@assert method==1 || method==2
+function viz_sensorδ_waterσ_grid(σ_H₂Os::Vector{Float64}, 
+								 σ_ms::Vector{Float64},
+								 num_normal_train::Int64,
+								 num_anomaly_train::Int64,
+								 num_normal_test::Int64,
+								 num_anomaly_test::Int64; 
+								 validation_method::String="hypersphere")
+	@assert validation_method=="hypersphere" || validation_method=="knee"
 
-	fig 					= Figure(resolution = (2400, 1200))
-	ideal_fig 				= fig[1, 1]
-	med_sensor_error_fig 	= fig[1, 2]
-	high_sensor_error_fig 	= fig[1, 3]
-	med_water_variance_fig 	= fig[2, 1]
-	high_water_variance_fig = fig[3, 1]
-
-	#set contour plot boundaries for high variance data
-	temp 	   		  = SyntheticDataGen.gen_data(200, 0, σ_H₂O[3], σ_m[3])
-	zif71_lims_high_σ = (0.98 * minimum(temp[:, "m ZIF-71 [g/g]"]), 
-				  		 1.02 * maximum(temp[:, "m ZIF-71 [g/g]"]))
-	zif8_lims_high_σ  = (0.98 * minimum(temp[:, "m ZIF-8 [g/g]"]), 
-				  		 1.02 * maximum(temp[:, "m ZIF-8 [g/g]"]))
-
-	#set contour plot boundaries for low variance data
-	temp2 	   		 = SyntheticDataGen.gen_data(200, 0, σ_H₂O[2], σ_m[2])
-	zif71_lims_low_σ = (0.98 * minimum(temp2[:, "m ZIF-71 [g/g]"]), 
-				  		1.02 * maximum(temp2[:, "m ZIF-71 [g/g]"]))
-	zif8_lims_low_σ  = (0.98 * minimum(temp2[:, "m ZIF-8 [g/g]"]), 
-				  		1.02 * maximum(temp2[:, "m ZIF-8 [g/g]"]))
-	
+	#establish axes and figs for 9x9 grid
+	fig  = Figure(resolution = (2400, 1200))
+	axes = [Axis(fig[i, j]) for i in 1:3, j in 1:3]
+	figs = [fig[i, j] for i in 1:3, j in 1:3]
 
 	#top sensor error labels σ_m
-	for (label, layout) in zip(["σₘ=$(σ_m[1])","σₘ=$(σ_m[2])", "σₘ=$(σ_m[3])"], [ideal_fig, med_sensor_error_fig, high_sensor_error_fig])
+	for (label, layout) in zip(["σₘ=$(σ_ms[1])","σₘ=$(σ_ms[2])", "σₘ=$(σ_ms[3])"], figs[1, 1:3])
     Label(layout[1, 1, Top()], 
 		  label,
           textsize = 40,
@@ -418,7 +418,7 @@ function viz_sensorδ_waterσ_grid(σ_H₂O::Vector{Float64}, σ_m::Vector{Float
 	end
 
 	#left water variance labels σ_H₂O
-	for (label, layout) in zip(["σH₂O=$(σ_H₂O[1])","σH₂O=$(σ_H₂O[2])", "σH₂O=$(σ_H₂O[3])"], [ideal_fig, med_water_variance_fig, high_water_variance_fig])
+	for (label, layout) in zip(["σH₂O=$(σ_H₂Os[1])","σH₂O=$(σ_H₂Os[2])", "σH₂O=$(σ_H₂Os[3])"], figs[1:3, 1])
 	Label(layout[1, 1, Left()], 
 	  	  label,
 		  textsize = 40,
@@ -427,41 +427,76 @@ function viz_sensorδ_waterσ_grid(σ_H₂O::Vector{Float64}, σ_m::Vector{Float
 	  	  rotation = pi/2)
 	end
 
-	#establish axes for 9x9 grid
-	axes = [Axis(fig[i, j]) for i in 1:3, j in 1:3]
+		#create test data and find max/min for plots
+		data_set_test = Dict()
 
-	for i = 1:3
-		for j = 1:3
+		zif71_lims_high_σ = [Inf, 0]
+		zif8_lims_high_σ  = [Inf, 0]
 
-			#generate test and training data
-			num_normal = 100
-			num_anomaly = 5
+		zif71_lims_low_σ = [Inf, 0]
+		zif8_lims_low_σ  = [Inf, 0]
 
-			dataTest  		 = SyntheticDataGen.gen_data(num_normal, num_anomaly, σ_H₂O[i], σ_m[j])
-			dataTrain 		 = SyntheticDataGen.gen_data(num_normal, 0, σ_H₂O[i], σ_m[j])
-			XTrain, yTrain   = AnomalyDetection.data_to_Xy(dataTrain)
-			XTest, yTest     = AnomalyDetection.data_to_Xy(dataTest)
-			scaler_temp		 = StandardScaler().fit(XTrain)
-			XTrainScaled 	 = scaler_temp.transform(XTrain)
-			XTestScaled 	 = scaler_temp.transform(XTest)
+		for (i, σ_H₂O) in enumerate(σ_H₂Os)
+			for (j, σ_m) in enumerate(σ_ms)
+				data_set_test[[i, j]] = SyntheticDataGen.gen_data(num_normal_test, num_anomaly_test, σ_H₂O, σ_m)
+					#low variance
+					if (i < 3) && (j < 3)
+						zif71_lims_low_σ = [minimum([minimum(data_set_test[[i, j]][:, "m ZIF-71 [g/g]"]), 
+													 zif71_lims_low_σ[1]]),
+											maximum([maximum(data_set_test[[i, j]][:, "m ZIF-71 [g/g]"]), 
+												     zif71_lims_low_σ[2]])]
+						zif8_lims_low_σ  = [minimum([minimum(data_set_test[[i, j]][:, "m ZIF-8 [g/g]"]), 
+													 zif8_lims_low_σ[1]]),
+											maximum([maximum(data_set_test[[i, j]][:, "m ZIF-8 [g/g]"]), 
+													 zif8_lims_low_σ[2]])]
+					#high variance
+					else
+						zif71_lims_high_σ = [minimum([minimum(data_set_test[[i, j]][:, "m ZIF-71 [g/g]"]), 
+													  zif71_lims_high_σ[1]]),
+											 maximum([maximum(data_set_test[[i, j]][:, "m ZIF-71 [g/g]"]), 
+													  zif71_lims_high_σ[2]])]
+						zif8_lims_high_σ  = [minimum([minimum(data_set_test[[i, j]][:, "m ZIF-8 [g/g]"]), 
+												      zif8_lims_high_σ[1]]),
+											 maximum([maximum(data_set_test[[i, j]][:, "m ZIF-8 [g/g]"]), 
+													  zif8_lims_high_σ[2]])]
+					end
+			end
+		end
+
+		zif71_lims_low_σ  = [0.98 * zif71_lims_low_σ[1], 1.02 * zif71_lims_low_σ[2]]
+		zif8_lims_low_σ   = [0.98 * zif8_lims_low_σ[1], 1.02 * zif8_lims_low_σ[2]]
+		zif71_lims_high_σ = [0.98 * zif71_lims_high_σ[1], 1.02 * zif71_lims_high_σ[2]]
+		zif8_lims_high_σ  = [0.98 * zif8_lims_high_σ[1], 1.02 * zif8_lims_high_σ[2]]
+
+
+
+	for (i, σ_H₂O) in enumerate(σ_H₂Os)
+		for (j, σ_m) in enumerate(σ_ms)
+
+			#generate test and training data, feature vectors, target vectors and standard scaler
+			data_train 		 = SyntheticDataGen.gen_data(num_normal_train, num_anomaly_train, σ_H₂O, σ_m)
+			X_train, y_train = AnomalyDetection.data_to_Xy(data_train)
+			X_test, y_test   = AnomalyDetection.data_to_Xy(data_set_test[[i, j]])
+			scaler			 = StandardScaler().fit(X_train)
+			X_train_scaled 	 = scaler.transform(X_train)
+			X_test_scaled 	 = scaler.transform(X_test)
 
 			#optimize hyperparameters and determine f1score
-			if method == 1
-				νOpt, γOpt = determine_ν_opt_γ_opt_hypersphere(XTrainScaled)
-			elseif method == 2
-				K = trunc(Int, num_normal*0.05)
-				νOpt, γOpt = opt_ν_γ_by_density_measure_method(XTrainScaled, K)
+			if validation_method == "hypersphere"
+				(ν_opt, γ_opt), _ = determine_ν_opt_γ_opt_hypersphere(X_train_scaled)
+			elseif validation_method == "knee"
+				K            = trunc(Int, num_normal_train*0.05)
+				ν_opt, γ_opt = opt_ν_γ_by_density_measure_method(X_train_scaled, K)
 			end
-			temp_svm   = AnomalyDetection.train_anomaly_detector(XTrainScaled, 
-																				 νOpt, 
-																				 γOpt)
-			yPred 	   = temp_svm.predict(XTestScaled)
-			f1score    = AnomalyDetection.performance_metric(yTest, yPred)
-			f1score    = truncate(f1score, 2)
+
+			svm      = AnomalyDetection.train_anomaly_detector(X_train_scaled, ν_opt, γ_opt)
+			y_pred 	 = svm.predict(X_test_scaled)
+			f1_score = AnomalyDetection.performance_metric(y_test, y_pred)
+			f1_score = truncate(f1_score, 2)
 
 			#draw a background box colored according to f1score
-			fig[i, j]  = Box(fig, color = (ColorSchemes.RdYlGn_4[f1score], 0.7))
-			axes[i, j].title = "f1 score = $(f1score)"
+			fig[i, j]        = Box(fig, color = (ColorSchemes.RdYlGn_4[f1_score], 0.7))
+			axes[i, j].title = "f1 score = $(f1_score)"
 			hidedecorations!(axes[i, j])
 
 			#scatter and contour plot position LEFT
@@ -479,37 +514,21 @@ function viz_sensorδ_waterσ_grid(σ_H₂O::Vector{Float64}, σ_m::Vector{Float
 			end
 			
 			ax = Axis(fig[i, j][1, 1], 
-					  xlabel = "m, " * mofs[1] * " [g/g]",
-					  ylabel = "m, " * mofs[2] * " [g/g]",
-					  aspect = 1,
-					  xticks = LinearTicks(3),
-					  yticks = LinearTicks(3),
+					  xlabel    = "m, " * mofs[1] * " [g/g]",
+					  ylabel    = "m, " * mofs[2] * " [g/g]",
+					  aspect    = 1,
+					  xticks    = LinearTicks(3),
+					  yticks    = LinearTicks(3),
 					  alignmode = Outside(10))
 
-			for data_l in groupby(dataTest, "label")
-				label = data_l[1, "label"]
-				
-				if label != "low humidity"
-					scatter!(ax, 
-							 data_l[:, "m $(mofs[1]) [g/g]"], 
-							 data_l[:, "m $(mofs[2]) [g/g]"],
-							 strokewidth=1,
-							 markersize=15,
-							 marker=label == "normal" ? :circle : :x,
-							 color=(:white, 0.0),
-							 strokecolor=SyntheticDataGen.label_to_color[label],
-							 label=label)
-				end
-			end
-			
-			x₁s, x₂s, predictions = AnomalyDetection.generate_response_grid(temp_svm, scaler_temp, zif71_lims, zif8_lims)
-		
-			contour!(ax, x₁s, 
-					 x₂s,
-					 predictions, 
-					 levels=[0.0], 
-					 color=:black,
-					 label="decision boundary") 
+	  
+			viz_decision_boundary!(ax, 
+								   svm, 
+								   scaler, 
+								   data_set_test[[i, j]], 
+								   zif71_lims, 
+								   zif8_lims, 
+								   incl_legend=false)
 
 			#confusion matrix position RIGHT
 			pos = fig[i, j][1, 2] 
@@ -517,26 +536,7 @@ function viz_sensorδ_waterσ_grid(σ_H₂O::Vector{Float64}, σ_m::Vector{Float
 			all_labels = SyntheticDataGen.viable_labels
 			n_labels   = length(all_labels)
 
-			# confusion matrix. each row pertains to a label.
-			# col 1 = -1 predicted anomaly, col 2 = 1 predicted normal.
-			cm = zeros(Int, 2, n_labels)
-			
-			for (l, label) in enumerate(all_labels)
-				# get all test data with this label
-				data_test_l = filter(row -> row["label"] == label, dataTest)
-				# get feature matrix
-				X_test_l, y_test_l = AnomalyDetection.data_to_Xy(data_test_l)
-				# scale
-				X_test_l_scaled = scaler_temp.transform(X_test_l)
-				# make predictions for this subset of test data
-				y_pred_l = temp_svm.predict(X_test_l_scaled)
-				# how many are predicted as anomaly?
-				cm[1, l] = sum(y_pred_l .== -1)
-				# how many predicted as normal?
-				cm[2, l] = sum(y_pred_l .== 1)
-			end
-
-			@assert sum(cm) == nrow(dataTest)
+			cm = generate_cm(svm, data_set_test[[i, j]], scaler, all_labels)
 
 			ax = Axis(fig[i, j][1, 2],
 			  	 	  xticks=([1, 2], ["anomalous", "normal"]),
@@ -550,7 +550,7 @@ function viz_sensorδ_waterσ_grid(σ_H₂O::Vector{Float64}, σ_m::Vector{Float
 
 			# anomalies
 			heatmap!(1:2, 
-					 2:6, 
+					 2:n_labels, 
 					 cm[:, 2:end], 
 					 colormap=ColorSchemes.amp, 
 					 colorrange=(0, maximum(cm[:, 2:end])))
@@ -573,7 +573,11 @@ function viz_sensorδ_waterσ_grid(σ_H₂O::Vector{Float64}, σ_m::Vector{Float
 		end
 	end
 
-	save("sensor_error_&_H2O_variance_plot.pdf", fig)
+	if validation_method == "hypersphere"
+		save("sensor_error_&_H2O_variance_plot_hypersphere.pdf", fig)
+	elseif validation_method == "knee"
+		save("sensor_error_&_H2O_variance_plot_knee.pdf", fig)
+	end
 	fig
 end
 
