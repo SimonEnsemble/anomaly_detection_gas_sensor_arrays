@@ -173,6 +173,87 @@ f1_hypersphere
 											 num_anomaly_test_points,
 											 validation_method="knee")
 
+# ╔═╡ bbeec9a5-6260-4e8a-a444-a22a59898d22
+md"!!! example \"\" 
+	exploring the effects of water composition variance and sensor error on f1 score"
+
+# ╔═╡ bac187ec-c6f3-4808-a710-050821e70a20
+function viz_f1_score_heatmap(σ_H₂O_max::Float64, σ_m_max::Float64; res::Int=10, validation_method="knee")
+	@assert validation_method=="hypersphere" || validation_method=="knee"
+	
+	#σ_H₂O_max = 0.1
+	#σ_m_max = 0.001
+
+	σ_H₂Os = 0:σ_H₂O_max/res:σ_H₂O_max
+	σ_ms = 0:σ_m_max/res:σ_m_max
+
+	num_normal_test = num_normal_train = 100
+	num_anomaly_train = 0
+	num_anomaly_test = 5
+
+	f1_score_grid = zeros(res+1, res+1)
+	
+
+	for (i, σ_H₂O) in enumerate(σ_H₂Os)
+		for (j, σ_m) in enumerate(σ_ms)
+			
+			data_test		 = SyntheticDataGen.gen_data(num_normal_test, num_anomaly_test, σ_H₂O, σ_m)
+			data_train 		 = SyntheticDataGen.gen_data(num_normal_train, num_anomaly_train, σ_H₂O, σ_m)
+			X_train, y_train = AnomalyDetection.data_to_Xy(data_train)
+			X_test, y_test   = AnomalyDetection.data_to_Xy(data_test)
+			scaler			 = StandardScaler().fit(X_train)
+			X_train_scaled 	 = scaler.transform(X_train)
+			X_test_scaled 	 = scaler.transform(X_test)
+
+			#optimize hyperparameters and determine f1score
+			if validation_method == "hypersphere"
+				(ν_opt, γ_opt), _ = AnomalyDetection.determine_ν_opt_γ_opt_hypersphere(X_train_scaled)
+			elseif validation_method == "knee"
+				K            = trunc(Int, num_normal_train*0.05)
+				ν_opt, γ_opt = AnomalyDetection.opt_ν_γ_by_density_measure_method(X_train_scaled, K)
+			end
+
+			svm      = AnomalyDetection.train_anomaly_detector(X_train_scaled, ν_opt, γ_opt)
+			y_pred 	 = svm.predict(X_test_scaled)
+			f1_score = AnomalyDetection.performance_metric(y_test, y_pred)
+
+			f1_score_grid[i, j] = f1_score
+
+		end
+	end
+
+	
+	f1_score_grid
+
+	fig = Figure()
+	
+	ax = Axis(fig[1, 1],
+		  xticks=(1:res+1, ["$(AnomalyDetection.truncate(i, 2))" for i=0:σ_H₂O_max/res:σ_H₂O_max]),
+		  yticks=(1:res+1, ["$(AnomalyDetection.truncate(i, 5))" for i=0:σ_m_max/res:σ_m_max]),
+		xticklabelrotation=45.0,
+		  ylabel="σ_m",
+		  xlabel="σ_H₂O"
+    )
+
+	hm = heatmap!(1:res+1, 1:res+1, f1_score_grid,
+			      colormap=ColorSchemes.RdYlGn_4, colorrange=(0.0, 1.0))
+	Colorbar(fig[1, 2], hm, label="f1 score")
+
+	if validation_method == "hypersphere"
+		save("f1_score_plot_hypersphere.pdf", fig)
+	elseif validation_method == "knee"
+		save("f1_score_plot_knee.pdf", fig)
+	end
+
+	fig
+end
+
+# ╔═╡ 96e0e439-2c35-4d05-b809-394ef67396e2
+viz_f1_score_heatmap(0.1, 0.0001, res=10) #knee method
+
+# ╔═╡ da354a98-1d11-4fb1-a6ee-20930ad66737
+viz_f1_score_heatmap(0.1, 0.0001, res=10, validation_method="hypersphere") #hypersphere method
+
 # ╔═╡ 3aab547c-8b00-48da-aa8e-3d51e804c5df
 md"!!! example \"\" 
 	f1 score testing"
@@ -212,6 +293,9 @@ yy_true = [-1, -1, 1,  1,  1, 1,  1, -1]
 	println("sklearn = $(f1_score(-yy_true, -yy_pred))")
 	
 end
+
+# ╔═╡ 1eb89257-cb13-4033-afc2-93dbbb400fc1
+
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -1555,9 +1639,14 @@ version = "3.5.0+0"
 # ╠═11e286be-d3a9-4896-a90c-fdd05fc35073
 # ╠═f8dab032-e446-4e6e-8022-39ad3dbb1042
 # ╠═ebd363f4-3929-4870-b5b8-2bae83b2789f
+# ╟─bbeec9a5-6260-4e8a-a444-a22a59898d22
+# ╠═bac187ec-c6f3-4808-a710-050821e70a20
+# ╠═96e0e439-2c35-4d05-b809-394ef67396e2
+# ╠═da354a98-1d11-4fb1-a6ee-20930ad66737
 # ╟─3aab547c-8b00-48da-aa8e-3d51e804c5df
 # ╠═923c9837-82ab-4071-b716-faa3565fa327
 # ╠═a1843a87-a8d3-40ab-9959-3e14d520a4d1
 # ╠═773793c4-021a-4aa8-9b13-c27f94e694b0
+# ╠═1eb89257-cb13-4033-afc2-93dbbb400fc1
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
