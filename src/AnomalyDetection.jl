@@ -1,6 +1,6 @@
 module AnomalyDetection
 
-using ScikitLearn, DataFrames, CairoMakie, ColorSchemes, LinearAlgebra, Statistics
+using ScikitLearn, DataFrames, CairoMakie, ColorSchemes, LinearAlgebra, Statistics, Random
 SyntheticDataGen = include("SyntheticDataGen.jl")
 
 @sk_import svm : OneClassSVM
@@ -121,10 +121,11 @@ returns optimal ν and γ using grid search and hypersphere of synthetic anomali
 λ weights the hyperparameters to favor false negatives or support vectors, default 0.5
 """
 function determine_ν_opt_γ_opt_hypersphere(X_train_scaled::Matrix{Float64};
-	num_outliers::Int=1000, λ::Float64=0.5, ν_range=0.01:0.01:0.26, γ_range=0.05:0.01:0.7)
+	num_outliers::Int=500, λ::Float64=0.5, ν_range=0.1:0.1:0.3, γ_range=0.1:0.1:0.5, call_count=1)
 	# generate data in hypersphere
 	R_sphere = maximum([norm(x) for x in eachrow(X_train_scaled)])
 	X_sphere = generate_uniform_vectors_in_hypersphere(num_outliers, R_sphere)
+	boundary_flags = Dict([("ν_lower", false), ("ν_upper", false), ("γ_lower", false), ("γ_upper", false)])
 
 	opt_ν_γ = (0.0, 0.0)
 	Λ_opt = Inf
@@ -139,12 +140,49 @@ function determine_ν_opt_γ_opt_hypersphere(X_train_scaled::Matrix{Float64};
 		end
 	end
 
-	if opt_ν_γ[1] == ν_range[1] || opt_ν_γ[1] == ν_range[end]
-		@warn "grid search optimized at boundary... change ν range."
+	if opt_ν_γ[1] == ν_range[1]
+		#@warn "grid search optimized at boundary... change ν range."
+		boundary_flags["ν_lower_flag"] = true
+	elseif opt_ν_γ[1] == ν_range[end]
+		boundary_flags["ν_upper_flag"] = true
 	end
-	if opt_ν_γ[2] == γ_range[1] || opt_ν_γ[2] == γ_range[end]
-		@warn "grid search optimized at boundary... change γ range."
+	if opt_ν_γ[2] == γ_range[1] 
+		#@warn "grid search optimized at boundary... change γ range."
+		boundary_flags["γ_lower_flag"] = true
+	elseif opt_ν_γ[2] == γ_range[end]
+		boundary_flags["γ_upper_flag"] = true
 	end
+
+	flag_array = [(k, v) for (k, v) in boundary_flags]
+	shuffle!(flag_array)
+	call_count = call_count+1
+
+	#if the grid search optimizes at the boundary, readjust range and
+	#recursively call optimization procedure.
+	for (key, value) in flag_array
+		if call_count >=15
+			break
+		end
+		if key == "ν_lower_flag" && value
+			ν_range = (0.5 * ν_range[1]):(0.2 * ν_range[1]):(1.5 * ν_range[1])
+			opt_ν_γ, X_sphere = determine_ν_opt_γ_opt_hypersphere(X_train_scaled, num_outliers=num_outliers, λ=λ, ν_range=ν_range, γ_range=γ_range, call_count=call_count)
+			break
+		elseif key == "ν_upper_flag" && value
+			ν_range = (0.5 * ν_range[end]):(0.2 * ν_range[end]):(1.5 * ν_range[end])
+			opt_ν_γ, X_sphere = determine_ν_opt_γ_opt_hypersphere(X_train_scaled, num_outliers=num_outliers, λ=λ, ν_range=ν_range, γ_range=γ_range, call_count=call_count)
+			break
+		elseif key == "γ_lower_flag" && value
+			γ_range = (0.5 * γ_range[1]):(0.2 * γ_range[1]):(1.5 * γ_range[1])
+			opt_ν_γ, X_sphere = determine_ν_opt_γ_opt_hypersphere(X_train_scaled, num_outliers=num_outliers, λ=λ, ν_range=ν_range, γ_range=γ_range, call_count=call_count)
+			break
+		elseif key == "γ_upper_flag" && value
+			γ_range = (0.5 * γ_range[end]):(0.2 * γ_range[end]):(1.5 * γ_range[end])
+			opt_ν_γ, X_sphere = determine_ν_opt_γ_opt_hypersphere(X_train_scaled, num_outliers=num_outliers, λ=λ, ν_range=ν_range, γ_range=γ_range, call_count=call_count)
+			break
+		end
+	end
+
+
 	return opt_ν_γ, X_sphere
 end
 
@@ -203,6 +241,28 @@ function gen_uniform_vector_in_hypersphere()
    else
 	   return x
    end
+end
+
+function gen_ν_γ_optimization_range(X_scaled::Matrix; σ_X::Float64=1.0)
+	#first step, define some guess for a temp ideal nu and gamma range
+	ν_range_temp = 0.01:0.03:0.1
+	γ_range_temp = 0.1:0.3:1.0
+
+	#run the optimization procedure once using this temp range to find a median for our range
+	(γ_median, ν_median), _ = determine_ν_opt_γ_opt_hypersphere(X_scaled, ν_range=ν_range_temp, γ_range=γ_range_temp)
+
+	#create a new fine range around the returned optimal nu and gamma values and use this as the median for our new range
+	γ_range = (0.5 * γ_median):(0.2 * γ_median):(1.5 * γ_median)
+
+	#catch limitation of the nu hyperparameter (ν can't be greater than or equal to 1)
+	if ν_median >= 0.66
+		ν_max = 0.99
+	else
+		ν_max = 1.5 * ν_median
+	end
+	ν_range = (0.5 * ν_median):(0.2 * ν_median):(ν_max)
+
+	return ν_range, γ_range
 end
 
 
@@ -483,7 +543,8 @@ function viz_sensorδ_waterσ_grid(σ_H₂Os::Vector{Float64},
 
 			#optimize hyperparameters and determine f1score
 			if validation_method == "hypersphere"
-				(ν_opt, γ_opt), _ = determine_ν_opt_γ_opt_hypersphere(X_train_scaled)
+				ν_range, γ_range = gen_ν_γ_optimization_range(X_train_scaled)
+				(ν_opt, γ_opt), _ = determine_ν_opt_γ_opt_hypersphere(X_train_scaled, ν_range=ν_range, γ_range=γ_range, λ=0.4)
 			elseif validation_method == "knee"
 				K            = trunc(Int, num_normal_train*0.05)
 				ν_opt, γ_opt = opt_ν_γ_by_density_measure_method(X_train_scaled, K)

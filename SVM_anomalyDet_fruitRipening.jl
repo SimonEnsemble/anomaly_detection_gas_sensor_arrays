@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.2
+# v0.19.4
 
 using Markdown
 using InteractiveUtils
@@ -47,8 +47,7 @@ begin
 	num_normal_train_points  = 100
 	num_anomaly_train_points = 0
 	num_normal_test_points   = 100
-	num_anomaly_test_points  = 5
-	#TODO: specify type of points
+	num_anomaly_test_points  = 10
 
 	# generate synthetic training data
 	data = SyntheticDataGen.gen_data(num_normal_train_points, 
@@ -78,16 +77,36 @@ md"!!! example \"\"
 
 	uniform hypersphere of 'anomalies' around our data"
 
+# ╔═╡ 903cce61-889a-437d-b33d-383f2d95d73c
+shuffle
+
 # ╔═╡ e795005c-f5bc-4e09-a33d-ff23a5ce607d
 begin
 	# use a grid search method to find optimal ν and γ
 	(ν_opt, γ_opt), X_sphere = AnomalyDetection.determine_ν_opt_γ_opt_hypersphere(X_train_scaled)
 
-	# train the anomaly detector
-	svm = AnomalyDetection.train_anomaly_detector(X_train_scaled, ν_opt, γ_opt)
-
 	(ν_opt, γ_opt)
 end
+
+# ╔═╡ eface5b9-30fc-43ff-b672-50afeb39ca5b
+begin
+	# use a grid search method to find optimal ν and γ
+	ν_range, γ_range = AnomalyDetection.gen_ν_γ_optimization_range(X_train_scaled)
+	
+	(ν_opt2, γ_opt2), _ = AnomalyDetection.determine_ν_opt_γ_opt_hypersphere(X_train_scaled, ν_range=ν_range, γ_range=γ_range)
+
+	(ν_opt2, γ_opt2)
+end
+
+# ╔═╡ 464b834c-2db8-424d-8ff8-d2cbc7e26b26
+begin
+# train the anomaly detector
+	svm = AnomalyDetection.train_anomaly_detector(X_train_scaled, ν_opt2, γ_opt2)
+	#svm = AnomalyDetection.train_anomaly_detector(X_train_scaled, ν_opt, γ_opt)
+end
+
+# ╔═╡ f21548ad-c8f3-4d14-b6e5-4475a24cc75f
+
 
 # ╔═╡ 48d8afeb-2df0-44d1-9eaa-f28184813ab4
 AnomalyDetection.viz_synthetic_anomaly_hypersphere(X_sphere, X_train_scaled)
@@ -117,8 +136,27 @@ begin
 											 num_normal_train_points,
 											 num_anomaly_train_points,
 											 num_normal_test_points,
-											 num_anomaly_test_points)
+											 num_anomaly_test_points,
+											 validation_method="hypersphere")
 end
+
+# ╔═╡ 23706d4f-6180-4bbd-ba69-5f7c6054afb2
+begin
+a = 0.01:0.01:0.26
+0.1*a[1]
+end
+
+# ╔═╡ 7f5ea28a-a89d-46d7-bcab-abc289c52b64
+(0.1*a[1]):(0.1*a[1]):a[1]
+
+# ╔═╡ 1840049d-caed-45dc-9edf-07463042e6a0
+length(0.05:0.01:0.7)
+
+# ╔═╡ f8824ea6-cffa-43af-a776-db952ab3cb71
+abcd = collect(0.5 * 1:0.1 * 1:1.5 * 1)
+
+# ╔═╡ 2c34d86a-8908-4690-9e21-0a92071a0b70
+size(zeros(10,10),1)
 
 # ╔═╡ 51b0ebd4-1dec-4b35-bb15-cd3df906aca3
 md"!!! example \"\" 
@@ -207,7 +245,8 @@ function viz_f1_score_heatmap(σ_H₂O_max::Float64, σ_m_max::Float64; res::Int
 
 			#optimize hyperparameters and determine f1score
 			if validation_method == "hypersphere"
-				(ν_opt, γ_opt), _ = AnomalyDetection.determine_ν_opt_γ_opt_hypersphere(X_train_scaled)
+				ν_range, γ_range = AnomalyDetection.gen_ν_γ_optimization_range(X_train_scaled)
+				(ν_opt, γ_opt), _ = AnomalyDetection.determine_ν_opt_γ_opt_hypersphere(X_train_scaled, ν_range=ν_range, γ_range=γ_range, λ=0.4)
 			elseif validation_method == "knee"
 				K            = trunc(Int, num_normal_train*0.05)
 				ν_opt, γ_opt = AnomalyDetection.opt_ν_γ_by_density_measure_method(X_train_scaled, K)
@@ -231,8 +270,8 @@ function viz_f1_score_heatmap(σ_H₂O_max::Float64, σ_m_max::Float64; res::Int
 		  xticks=(1:res+1, ["$(AnomalyDetection.truncate(i, 2))" for i=0:σ_H₂O_max/res:σ_H₂O_max]),
 		  yticks=(1:res+1, ["$(AnomalyDetection.truncate(i, 5))" for i=0:σ_m_max/res:σ_m_max]),
 		xticklabelrotation=45.0,
-		  ylabel="σ_m",
-		  xlabel="σ_H₂O"
+		  ylabel="σ_m [g/g]",
+		  xlabel="σ_H₂O [relative humidity]"
     )
 
 	hm = heatmap!(1:res+1, 1:res+1, f1_score_grid,
@@ -249,10 +288,18 @@ function viz_f1_score_heatmap(σ_H₂O_max::Float64, σ_m_max::Float64; res::Int
 end
 
 # ╔═╡ 96e0e439-2c35-4d05-b809-394ef67396e2
-viz_f1_score_heatmap(0.1, 0.0001, res=10) #knee method
+viz_f1_score_heatmap(0.1, 0.0001, res=10, validation_method="knee") #knee method
 
 # ╔═╡ da354a98-1d11-4fb1-a6ee-20930ad66737
 viz_f1_score_heatmap(0.1, 0.0001, res=10, validation_method="hypersphere") #hypersphere method
+
+# ╔═╡ e6bdf599-e022-475d-b119-ded006d43774
+
+
+# ╔═╡ 6d9c5389-4a9f-434e-97ff-56c20d368a49
+#TODO: optimize hyperparameter validation using intelligent reasoning for nu and gamma values such as knee or  definition of gamma. reduce the number of values iterating over to speed up processing.
+#The goal is to do 100 or so runs per grid value in order to obtain an average f1 score instead of a single run which is providing chaotic results.
+#Plot example σ_m vs f1 score for a particular H2O variance and color by standard deviation... possibly include multiple H20 variances for a good visual on std deviation.
 
 # ╔═╡ 3aab547c-8b00-48da-aa8e-3d51e804c5df
 md"!!! example \"\" 
@@ -275,6 +322,12 @@ begin
 
 	#perfect!
 end
+
+# ╔═╡ 211e8b05-6525-448e-80f2-f093e7488beb
+f1(2, 15, 18)
+
+# ╔═╡ b62fd403-cf0d-4ab5-94cf-291cefb0bbbc
+f1(3, 17, 17)
 
 # ╔═╡ 773793c4-021a-4aa8-9b13-c27f94e694b0
 begin
@@ -1622,13 +1675,22 @@ version = "3.5.0+0"
 # ╟─32c8e7ce-113c-4606-a463-47d9802a2238
 # ╠═b2a5df8c-bbc6-487a-8ac5-9c55f78d259f
 # ╟─9873c6d8-84ba-47e5-adcb-4d0f30829227
+# ╠═903cce61-889a-437d-b33d-383f2d95d73c
 # ╠═e795005c-f5bc-4e09-a33d-ff23a5ce607d
+# ╠═eface5b9-30fc-43ff-b672-50afeb39ca5b
+# ╠═464b834c-2db8-424d-8ff8-d2cbc7e26b26
+# ╠═f21548ad-c8f3-4d14-b6e5-4475a24cc75f
 # ╠═48d8afeb-2df0-44d1-9eaa-f28184813ab4
 # ╠═ee8029cf-c6a6-439f-b190-cb297e0ddb70
 # ╠═6e278c3e-45a3-4aa8-b904-e3dfa73615d5
 # ╠═12a6f9d0-f3db-4973-8c53-3a2953d78b5d
 # ╠═8c426257-f4a5-4015-b39f-eab5e84d91ee
 # ╠═4b1759a7-eba1-4de5-8d6a-38106f3301c9
+# ╠═23706d4f-6180-4bbd-ba69-5f7c6054afb2
+# ╠═7f5ea28a-a89d-46d7-bcab-abc289c52b64
+# ╠═1840049d-caed-45dc-9edf-07463042e6a0
+# ╠═f8824ea6-cffa-43af-a776-db952ab3cb71
+# ╠═2c34d86a-8908-4690-9e21-0a92071a0b70
 # ╟─51b0ebd4-1dec-4b35-bb15-cd3df906aca3
 # ╠═6ceab194-4861-4be1-901c-6713db5a4204
 # ╠═9a9262d4-02ff-4d82-bb7b-8584e8b79022
@@ -1643,9 +1705,13 @@ version = "3.5.0+0"
 # ╠═bac187ec-c6f3-4808-a710-050821e70a20
 # ╠═96e0e439-2c35-4d05-b809-394ef67396e2
 # ╠═da354a98-1d11-4fb1-a6ee-20930ad66737
+# ╠═e6bdf599-e022-475d-b119-ded006d43774
+# ╠═6d9c5389-4a9f-434e-97ff-56c20d368a49
 # ╟─3aab547c-8b00-48da-aa8e-3d51e804c5df
 # ╠═923c9837-82ab-4071-b716-faa3565fa327
 # ╠═a1843a87-a8d3-40ab-9959-3e14d520a4d1
+# ╠═211e8b05-6525-448e-80f2-f093e7488beb
+# ╠═b62fd403-cf0d-4ab5-94cf-291cefb0bbbc
 # ╠═773793c4-021a-4aa8-9b13-c27f94e694b0
 # ╠═1eb89257-cb13-4033-afc2-93dbbb400fc1
 # ╟─00000000-0000-0000-0000-000000000001
