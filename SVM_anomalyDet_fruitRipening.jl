@@ -234,29 +234,34 @@ function viz_f1_score_heatmap(σ_H₂O_max::Float64, σ_m_max::Float64; res::Int
 
 	for (i, σ_H₂O) in enumerate(σ_H₂Os)
 		for (j, σ_m) in enumerate(σ_ms)
+			f1_avg = 0.0
 			
-			data_test		 = SyntheticDataGen.gen_data(num_normal_test, num_anomaly_test, σ_H₂O, σ_m)
-			data_train 		 = SyntheticDataGen.gen_data(num_normal_train, num_anomaly_train, σ_H₂O, σ_m)
-			X_train, y_train = AnomalyDetection.data_to_Xy(data_train)
-			X_test, y_test   = AnomalyDetection.data_to_Xy(data_test)
-			scaler			 = StandardScaler().fit(X_train)
-			X_train_scaled 	 = scaler.transform(X_train)
-			X_test_scaled 	 = scaler.transform(X_test)
-
-			#optimize hyperparameters and determine f1score
-			if validation_method == "hypersphere"
-				ν_range, γ_range = AnomalyDetection.gen_ν_γ_optimization_range(X_train_scaled)
-				(ν_opt, γ_opt), _ = AnomalyDetection.determine_ν_opt_γ_opt_hypersphere(X_train_scaled, ν_range=ν_range, γ_range=γ_range, λ=0.4)
-			elseif validation_method == "knee"
-				K            = trunc(Int, num_normal_train*0.05)
-				ν_opt, γ_opt = AnomalyDetection.opt_ν_γ_by_density_measure_method(X_train_scaled, K)
+			for k = 1:10
+				data_test		 = SyntheticDataGen.gen_data(num_normal_test, num_anomaly_test, σ_H₂O, σ_m)
+				data_train 		 = SyntheticDataGen.gen_data(num_normal_train, num_anomaly_train, σ_H₂O, σ_m)
+				X_train, y_train = AnomalyDetection.data_to_Xy(data_train)
+				X_test, y_test   = AnomalyDetection.data_to_Xy(data_test)
+				scaler			 = StandardScaler().fit(X_train)
+				X_train_scaled 	 = scaler.transform(X_train)
+				X_test_scaled 	 = scaler.transform(X_test)
+	
+				#optimize hyperparameters and determine f1score
+				if validation_method == "hypersphere"
+					ν_range, γ_range = AnomalyDetection.gen_ν_γ_optimization_range(X_train_scaled)
+					(ν_opt, γ_opt), _ = AnomalyDetection.determine_ν_opt_γ_opt_hypersphere(X_train_scaled, ν_range=ν_range, γ_range=γ_range, λ=0.4)
+				elseif validation_method == "knee"
+					K            = trunc(Int, num_normal_train*0.05)
+					ν_opt, γ_opt = AnomalyDetection.opt_ν_γ_by_density_measure_method(X_train_scaled, K)
+				end
+	
+				svm      = AnomalyDetection.train_anomaly_detector(X_train_scaled, ν_opt, γ_opt)
+				y_pred 	 = svm.predict(X_test_scaled)
+				f1_score = AnomalyDetection.performance_metric(y_test, y_pred)
+	
+				f1_avg += f1_score
 			end
-
-			svm      = AnomalyDetection.train_anomaly_detector(X_train_scaled, ν_opt, γ_opt)
-			y_pred 	 = svm.predict(X_test_scaled)
-			f1_score = AnomalyDetection.performance_metric(y_test, y_pred)
-
-			f1_score_grid[i, j] = f1_score
+			
+			f1_score_grid[i, j] = f1_avg/(10)
 
 		end
 	end

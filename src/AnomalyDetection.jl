@@ -168,7 +168,12 @@ function determine_ν_opt_γ_opt_hypersphere(X_train_scaled::Matrix{Float64};
 			opt_ν_γ, X_sphere = determine_ν_opt_γ_opt_hypersphere(X_train_scaled, num_outliers=num_outliers, λ=λ, ν_range=ν_range, γ_range=γ_range, call_count=call_count)
 			break
 		elseif key == "ν_upper_flag" && value
-			ν_range = (0.5 * ν_range[end]):(0.2 * ν_range[end]):(1.5 * ν_range[end])
+			if ν_range[end] >= 0.66
+				ν_max = 0.99
+			else
+				ν_max = 1.5 * ν_range[end]
+			end
+			ν_range = (0.5 * ν_range[end]):(0.2 * ν_range[end]):(ν_max)
 			opt_ν_γ, X_sphere = determine_ν_opt_γ_opt_hypersphere(X_train_scaled, num_outliers=num_outliers, λ=λ, ν_range=ν_range, γ_range=γ_range, call_count=call_count)
 			break
 		elseif key == "γ_lower_flag" && value
