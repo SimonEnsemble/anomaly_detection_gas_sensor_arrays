@@ -17,6 +17,60 @@ label_to_int = Dict(zip(anomaly_labels, [-1 for i = 1:length(anomaly_labels)]))
 label_to_int["normal"]    = 1
 label_to_int["anomalous"] = -1
 
+mutable struct DataSet
+	Data_train::DataFrame
+	
+	X_train::Matrix{Float64}
+	X_train_scaled::Matrix{Float64}
+	y_train::Vector{Int64}
+
+	Data_test::DataFrame
+
+	X_test::Matrix{Float64}
+	X_test_scaled::Matrix{Float64}
+	y_test::Vector{Int64}
+
+	scaler
+end
+
+function setup_dataset(num_normal_train_points,
+				 	   num_anomaly_train_points,
+					   num_normal_test_points,
+					   num_anomaly_test_points,
+	 				   σ_H₂O, 
+					   σ_m)
+	# generate synthetic training data
+	data_train = SyntheticDataGen.gen_data(num_normal_train_points, 
+									num_anomaly_train_points, 
+									σ_H₂O, 
+									σ_m)
+
+	X_train, y_train = AnomalyDetection.data_to_Xy(data_train)
+	scaler      	 = StandardScaler().fit(X_train)
+	X_train_scaled   = scaler.transform(X_train)
+
+	# generate synthetic test data
+	data_test = SyntheticDataGen.gen_data(num_normal_test_points, 
+							num_anomaly_test_points, 
+							σ_H₂O, 
+							σ_m)
+
+	X_test, y_test = AnomalyDetection.data_to_Xy(data_test)
+	X_test_scaled  = scaler.transform(X_test)
+
+	# set up struct
+	data_set = DataSet(data_train, 
+					   X_train, 
+					   X_train_scaled, 
+					   y_train, 
+					   data_test,
+					   X_test, 
+					   X_test_scaled,
+					   y_test,
+					   scaler)
+	return data_set
+end
+
 function data_to_Xy(data::DataFrame)
 	# X: (n_samples, n_features)
 	X = Matrix(data[:, "m " .* mofs .* " [g/g]"])
@@ -132,6 +186,11 @@ function determine_ν_opt_γ_opt_hypersphere(X_train_scaled::Matrix{Float64};
 
 	for (i, ν) in enumerate(ν_range)
 		for (j, γ) in enumerate(γ_range)
+			if ν > 1.0
+				ν = 1.0
+			elseif ν <= 0.0
+				ν = 10^(-5)
+			end
 			Λ = objective_function(X_train_scaled, X_sphere, ν, γ, λ)
 			if Λ < Λ_opt
 				Λ_opt = deepcopy(Λ)
@@ -155,25 +214,24 @@ function determine_ν_opt_γ_opt_hypersphere(X_train_scaled::Matrix{Float64};
 
 	flag_array = [(k, v) for (k, v) in boundary_flags]
 	shuffle!(flag_array)
-	call_count = call_count+1
+	call_count += 1
 
 	#if the grid search optimizes at the boundary, readjust range and
 	#recursively call optimization procedure.
 	for (key, value) in flag_array
-		if call_count >=15
-			break
+		if call_count >=5
+			return opt_ν_γ, X_sphere
 		end
 		if key == "ν_lower_flag" && value
 			ν_range = (0.5 * ν_range[1]):(0.2 * ν_range[1]):(1.5 * ν_range[1])
 			opt_ν_γ, X_sphere = determine_ν_opt_γ_opt_hypersphere(X_train_scaled, num_outliers=num_outliers, λ=λ, ν_range=ν_range, γ_range=γ_range, call_count=call_count)
 			break
 		elseif key == "ν_upper_flag" && value
-			if ν_range[end] >= 0.66
-				ν_max = 0.99
+			if ν_range[end] >= 0.666
+				ν_range = (0.5 * ν_range[end]):(0.2 * ν_range[end]):(1.0)
 			else
-				ν_max = 1.5 * ν_range[end]
+				ν_range = (0.5 * ν_range[end]):(0.2 * ν_range[end]):(1.5 * ν_range[end])
 			end
-			ν_range = (0.5 * ν_range[end]):(0.2 * ν_range[end]):(ν_max)
 			opt_ν_γ, X_sphere = determine_ν_opt_γ_opt_hypersphere(X_train_scaled, num_outliers=num_outliers, λ=λ, ν_range=ν_range, γ_range=γ_range, call_count=call_count)
 			break
 		elseif key == "γ_lower_flag" && value
@@ -186,7 +244,6 @@ function determine_ν_opt_γ_opt_hypersphere(X_train_scaled::Matrix{Float64};
 			break
 		end
 	end
-
 
 	return opt_ν_γ, X_sphere
 end
@@ -539,25 +596,21 @@ function viz_sensorδ_waterσ_grid(σ_H₂Os::Vector{Float64},
 		for (j, σ_m) in enumerate(σ_ms)
 
 			#generate test and training data, feature vectors, target vectors and standard scaler
-			data_train 		 = SyntheticDataGen.gen_data(num_normal_train, num_anomaly_train, σ_H₂O, σ_m)
-			X_train, y_train = AnomalyDetection.data_to_Xy(data_train)
-			X_test, y_test   = AnomalyDetection.data_to_Xy(data_set_test[[i, j]])
-			scaler			 = StandardScaler().fit(X_train)
-			X_train_scaled 	 = scaler.transform(X_train)
-			X_test_scaled 	 = scaler.transform(X_test)
+			data = setup_dataset(num_normal_train, num_anomaly_train, num_normal_test, num_anomaly_test, σ_H₂O, σ_m)
 
 			#optimize hyperparameters and determine f1score
 			if validation_method == "hypersphere"
-				ν_range, γ_range = gen_ν_γ_optimization_range(X_train_scaled)
-				(ν_opt, γ_opt), _ = determine_ν_opt_γ_opt_hypersphere(X_train_scaled, ν_range=ν_range, γ_range=γ_range, λ=0.4)
+				λ = 0.6
+				ν_range, γ_range = gen_ν_γ_optimization_range(data.X_train_scaled)
+				(ν_opt, γ_opt), _ = determine_ν_opt_γ_opt_hypersphere(data.X_train_scaled, ν_range=ν_range, γ_range=γ_range, λ=λ)
 			elseif validation_method == "knee"
 				K            = trunc(Int, num_normal_train*0.05)
-				ν_opt, γ_opt = opt_ν_γ_by_density_measure_method(X_train_scaled, K)
+				ν_opt, γ_opt = opt_ν_γ_by_density_measure_method(data.X_train_scaled, K)
 			end
 
-			svm      = AnomalyDetection.train_anomaly_detector(X_train_scaled, ν_opt, γ_opt)
-			y_pred 	 = svm.predict(X_test_scaled)
-			f1_score = AnomalyDetection.performance_metric(y_test, y_pred)
+			svm      = AnomalyDetection.train_anomaly_detector(data.X_train_scaled, ν_opt, γ_opt)
+			y_pred 	 = svm.predict(data.X_test_scaled)
+			f1_score = AnomalyDetection.performance_metric(data.y_test, y_pred)
 			f1_score = truncate(f1_score, 2)
 
 			#draw a background box colored according to f1score
@@ -590,7 +643,7 @@ function viz_sensorδ_waterσ_grid(σ_H₂Os::Vector{Float64},
 	  
 			viz_decision_boundary!(ax, 
 								   svm, 
-								   scaler, 
+								   data.scaler, 
 								   data_set_test[[i, j]], 
 								   zif71_lims, 
 								   zif8_lims, 
@@ -602,7 +655,7 @@ function viz_sensorδ_waterσ_grid(σ_H₂Os::Vector{Float64},
 			all_labels = SyntheticDataGen.viable_labels
 			n_labels   = length(all_labels)
 
-			cm = generate_cm(svm, data_set_test[[i, j]], scaler, all_labels)
+			cm = generate_cm(svm, data_set_test[[i, j]], data.scaler, all_labels)
 
 			ax = Axis(fig[i, j][1, 2],
 			  	 	  xticks=([1, 2], ["anomalous", "normal"]),
@@ -644,6 +697,83 @@ function viz_sensorδ_waterσ_grid(σ_H₂Os::Vector{Float64},
 	elseif validation_method == "knee"
 		save("sensor_error_&_H2O_variance_plot_knee.pdf", fig)
 	end
+	fig
+end
+
+"""
+vizualizes a res x res plot of f1 scores as a heatmap of the two validation methods:
+method 1: hypersphere
+method 2: knee
+"""
+function viz_f1_score_heatmap(σ_H₂O_max::Float64, σ_m_max::Float64; res::Int=10, validation_method="knee", N_avg::Int=10)
+	@assert validation_method=="hypersphere" || validation_method=="knee"
+	
+	#σ_H₂O_max = 0.1
+	#σ_m_max = 0.001
+
+	σ_H₂Os = 0:σ_H₂O_max/res:σ_H₂O_max
+	σ_ms = 0:σ_m_max/res:σ_m_max
+
+	num_normal_test_points = num_normal_train_points = 100
+	num_anomaly_train_points = 0
+	num_anomaly_test_points = 5
+
+	f1_score_grid = zeros(res+1, res+1)
+	
+
+	for (i, σ_H₂O) in enumerate(σ_H₂Os)
+		for (j, σ_m) in enumerate(σ_ms)
+			f1_avg = 0.0
+			
+			for k = 1:N_avg
+				data = AnomalyDetection.setup_dataset(num_normal_train_points,
+										  num_anomaly_train_points,
+										  num_normal_test_points,
+										  num_anomaly_test_points,
+								 		  σ_H₂O, 
+										  σ_m)
+	
+				#optimize hyperparameters and determine f1score
+				if validation_method == "hypersphere"
+					ν_range, γ_range = AnomalyDetection.gen_ν_γ_optimization_range(data.X_train_scaled)
+					(ν_opt, γ_opt), _ = AnomalyDetection.determine_ν_opt_γ_opt_hypersphere(data.X_train_scaled, ν_range=ν_range, γ_range=γ_range, λ=0.6)
+				elseif validation_method == "knee"
+					K            = trunc(Int, num_normal_train_points*0.05)
+					ν_opt, γ_opt = AnomalyDetection.opt_ν_γ_by_density_measure_method(data.X_train_scaled, K)
+				end
+	
+				svm      = AnomalyDetection.train_anomaly_detector(data.X_train_scaled, ν_opt, γ_opt)
+				y_pred 	 = svm.predict(data.X_test_scaled)
+				f1_score = AnomalyDetection.performance_metric(data.y_test, y_pred)
+	
+				f1_avg += f1_score
+			end
+			
+			f1_score_grid[i, j] = f1_avg/N_avg
+
+		end
+	end
+
+	fig = Figure()
+	
+	ax = Axis(fig[1, 1],
+		  xticks=(1:res+1, ["$(AnomalyDetection.truncate(i, 2))" for i=0:σ_H₂O_max/res:σ_H₂O_max]),
+		  yticks=(1:res+1, ["$(AnomalyDetection.truncate(i, 5))" for i=0:σ_m_max/res:σ_m_max]),
+		  xticklabelrotation=45.0,
+		  ylabel="σ_m [g/g]",
+		  xlabel="σ_H₂O [relative humidity]"
+    )
+
+	hm = heatmap!(1:res+1, 1:res+1, f1_score_grid,
+			      colormap=ColorSchemes.RdYlGn_4, colorrange=(0.0, 1.0))
+	Colorbar(fig[1, 2], hm, label="f1 score")
+
+	if validation_method == "hypersphere"
+		save("f1_score_plot_hypersphere.pdf", fig)
+	elseif validation_method == "knee"
+		save("f1_score_plot_knee.pdf", fig)
+	end
+
 	fig
 end
 
