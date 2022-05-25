@@ -160,12 +160,6 @@ begin
 	end
 end
 
-# ╔═╡ 3f6d24a7-186c-4268-b755-67f94f222637
-collect(0.0:0.07:1.0)
-
-# ╔═╡ 27620733-3df8-4eaf-8d98-b14381a46f9c
-1.5*0.666665
-
 # ╔═╡ 1d29b57f-bfaa-4afc-b1f6-5d35ea395eee
 begin
 	#visualization of ideal lambda values for medium error/variance
@@ -1729,8 +1723,6 @@ version = "3.5.0+0"
 # ╠═12a6f9d0-f3db-4973-8c53-3a2953d78b5d
 # ╠═8c426257-f4a5-4015-b39f-eab5e84d91ee
 # ╠═56b25bd2-f48f-49d9-8096-6a17891053d5
-# ╠═3f6d24a7-186c-4268-b755-67f94f222637
-# ╠═27620733-3df8-4eaf-8d98-b14381a46f9c
 # ╠═1d29b57f-bfaa-4afc-b1f6-5d35ea395eee
 # ╠═7e4bee96-dc4d-4b02-bb2a-a2f917b4c253
 # ╠═4b1759a7-eba1-4de5-8d6a-38106f3301c9
