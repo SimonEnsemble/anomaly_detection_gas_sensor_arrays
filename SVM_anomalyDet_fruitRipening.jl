@@ -72,7 +72,7 @@ begin
 	# use a grid search method to find optimal ν and γ
 	ν_range, γ_range = AnomalyDetection.gen_ν_γ_optimization_range(data_set.X_train_scaled)
 	
-	(ν_opt, γ_opt), _ = AnomalyDetection.determine_ν_opt_γ_opt_hypersphere(data_set.X_train_scaled, ν_range=ν_range, γ_range=γ_range, λ=0.6)
+	(ν_opt, γ_opt), X_sphere = AnomalyDetection.determine_ν_opt_γ_opt_hypersphere(data_set.X_train_scaled, ν_range=ν_range, γ_range=γ_range, λ=0.6)
 
 	(ν_opt, γ_opt)
 end
@@ -85,7 +85,7 @@ svm = AnomalyDetection.train_anomaly_detector(data_set.X_train_scaled, ν_opt, �
 
 
 # ╔═╡ 48d8afeb-2df0-44d1-9eaa-f28184813ab4
-#AnomalyDetection.viz_synthetic_anomaly_hypersphere(X_sphere, X_train_scaled)
+AnomalyDetection.viz_synthetic_anomaly_hypersphere(X_sphere, data_set.X_train_scaled)
 
 # ╔═╡ 6e278c3e-45a3-4aa8-b904-e3dfa73615d5
 AnomalyDetection.viz_decision_boundary(svm, data_set.scaler, data_set.Data_test)
@@ -160,13 +160,30 @@ begin
 	end
 end
 
+# ╔═╡ 4901d44b-c703-4195-8317-4c7f136c6854
+begin
+	#visualization of ideal lambda values for zero error/variance
+	lambda_plot(num_normal_train_points,
+			    num_anomaly_train_points,
+			    num_normal_test_points,
+			    num_anomaly_test_points, 
+			    σ_H₂O=0.0, 
+				σ_m=0.0, 
+				res=25, 
+				runs=10)
+end
+
 # ╔═╡ 1d29b57f-bfaa-4afc-b1f6-5d35ea395eee
 begin
 	#visualization of ideal lambda values for medium error/variance
 	lambda_plot(num_normal_train_points,
 			    num_anomaly_train_points,
 			    num_normal_test_points,
-			    num_anomaly_test_points, σ_H₂O=0.005, σ_m=0.00005, res=40, runs=100)
+			    num_anomaly_test_points, 
+				σ_H₂O=0.005, 
+				σ_m=0.00005, 
+				res=25, 
+				runs=10)
 end
 
 # ╔═╡ 7e4bee96-dc4d-4b02-bb2a-a2f917b4c253
@@ -175,7 +192,24 @@ begin
 	lambda_plot(num_normal_train_points,
 			    num_anomaly_train_points,
 			    num_normal_test_points,
-			    num_anomaly_test_points, σ_H₂O=0.05, σ_m=0.0005, res=40, runs=100)
+			    num_anomaly_test_points, 
+				σ_H₂O=0.05, 
+				σ_m=0.0005, 
+				res=25, 
+				runs=10)
+end
+
+# ╔═╡ 5aaca4e0-354e-40b9-9753-a49ad330136b
+begin
+	#visualization of ideal lambda values for zero sensor error but high water variance.
+	lambda_plot(num_normal_train_points,
+			    num_anomaly_train_points,
+			    num_normal_test_points,
+			    num_anomaly_test_points, 
+				σ_H₂O=0.05, 
+				σ_m=0.0, 
+				res=25, 
+				runs=10)
 end
 
 # ╔═╡ 4b1759a7-eba1-4de5-8d6a-38106f3301c9
@@ -1723,8 +1757,10 @@ version = "3.5.0+0"
 # ╠═12a6f9d0-f3db-4973-8c53-3a2953d78b5d
 # ╠═8c426257-f4a5-4015-b39f-eab5e84d91ee
 # ╠═56b25bd2-f48f-49d9-8096-6a17891053d5
+# ╠═4901d44b-c703-4195-8317-4c7f136c6854
 # ╠═1d29b57f-bfaa-4afc-b1f6-5d35ea395eee
 # ╠═7e4bee96-dc4d-4b02-bb2a-a2f917b4c253
+# ╠═5aaca4e0-354e-40b9-9753-a49ad330136b
 # ╠═4b1759a7-eba1-4de5-8d6a-38106f3301c9
 # ╟─51b0ebd4-1dec-4b35-bb15-cd3df906aca3
 # ╠═6ceab194-4861-4be1-901c-6713db5a4204
