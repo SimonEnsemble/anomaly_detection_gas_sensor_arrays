@@ -18,13 +18,13 @@ label_to_int["normal"]    = 1
 label_to_int["anomalous"] = -1
 
 mutable struct DataSet
-	Data_train::DataFrame
+	data_train::DataFrame
 	
 	X_train::Matrix{Float64}
 	X_train_scaled::Matrix{Float64}
 	y_train::Vector{Int64}
 
-	Data_test::DataFrame
+	data_test::DataFrame
 
 	X_test::Matrix{Float64}
 	X_test_scaled::Matrix{Float64}
@@ -175,14 +175,14 @@ returns optimal ν and γ using grid search and hypersphere of synthetic anomali
 λ weights the hyperparameters to favor false negatives or support vectors, default 0.5
 """
 function determine_ν_opt_γ_opt_hypersphere(X_train_scaled::Matrix{Float64};
-	num_outliers::Int=500, λ::Float64=0.5, ν_range=0.1:0.1:0.3, γ_range=0.1:0.1:0.5, call_count=1)
+	num_outliers::Int=500, λ::Float64=0.5, ν_range=0.1:0.1:0.3, γ_range=0.1:0.1:0.5)
 	# generate data in hypersphere
 	R_sphere = maximum([norm(x) for x in eachrow(X_train_scaled)])
 	X_sphere = generate_uniform_vectors_in_hypersphere(num_outliers, R_sphere)
-	boundary_flags = Dict([("ν_lower", false), ("ν_upper", false), ("γ_lower", false), ("γ_upper", false)])
 
 	opt_ν_γ = (0.0, 0.0)
 	Λ_opt = Inf
+	max_num_inside = 0
 
 	for (i, ν) in enumerate(ν_range)
 		for (j, γ) in enumerate(γ_range)
@@ -191,7 +191,30 @@ function determine_ν_opt_γ_opt_hypersphere(X_train_scaled::Matrix{Float64};
 			elseif ν <= 0.0
 				ν = 10^(-5)
 			end
+			#=
 			Λ = objective_function(X_train_scaled, X_sphere, ν, γ, λ)
+			if Λ < Λ_opt
+				Λ_opt = deepcopy(Λ)
+				opt_ν_γ = (ν, γ)
+			end	
+			=#
+			svm = AnomalyDetection.train_anomaly_detector(X_train_scaled, ν, γ)
+			y_sphere   = svm.predict(X_sphere)
+			num_inside = sum(y_sphere .== 1)
+			if num_inside > max_num_inside
+				max_num_inside = num_inside
+			end
+		end
+	end
+
+	for (i, ν) in enumerate(ν_range)
+		for (j, γ) in enumerate(γ_range)
+			if ν > 1.0
+				ν = 1.0
+			elseif ν <= 0.0
+				ν = 10^(-5)
+			end
+			Λ = objective_function_scaled(X_train_scaled, X_sphere, ν, γ,max_num_inside, λ=λ)
 			if Λ < Λ_opt
 				Λ_opt = deepcopy(Λ)
 				opt_ν_γ = (ν, γ)
@@ -200,49 +223,14 @@ function determine_ν_opt_γ_opt_hypersphere(X_train_scaled::Matrix{Float64};
 	end
 
 	if opt_ν_γ[1] == ν_range[1]
-		#@warn "grid search optimized at boundary... change ν range."
-		boundary_flags["ν_lower_flag"] = true
+		@warn "grid search optimized at lower ν boundary."
 	elseif opt_ν_γ[1] == ν_range[end]
-		boundary_flags["ν_upper_flag"] = true
+		@warn "grid search optimized at upper ν boundary."
 	end
 	if opt_ν_γ[2] == γ_range[1] 
-		#@warn "grid search optimized at boundary... change γ range."
-		boundary_flags["γ_lower_flag"] = true
+		@warn "grid search optimized at lower γ boundary."
 	elseif opt_ν_γ[2] == γ_range[end]
-		boundary_flags["γ_upper_flag"] = true
-	end
-
-	flag_array = [(k, v) for (k, v) in boundary_flags]
-	shuffle!(flag_array)
-	call_count += 1
-
-	#if the grid search optimizes at the boundary, readjust range and
-	#recursively call optimization procedure.
-	for (key, value) in flag_array
-		if call_count >=5
-			return opt_ν_γ, X_sphere
-		end
-		if key == "ν_lower_flag" && value
-			ν_range = (0.5 * ν_range[1]):(0.2 * ν_range[1]):(1.5 * ν_range[1])
-			opt_ν_γ, X_sphere = determine_ν_opt_γ_opt_hypersphere(X_train_scaled, num_outliers=num_outliers, λ=λ, ν_range=ν_range, γ_range=γ_range, call_count=call_count)
-			break
-		elseif key == "ν_upper_flag" && value
-			if ν_range[end] >= 0.666
-				ν_range = (0.5 * ν_range[end]):(0.2 * ν_range[end]):(1.0)
-			else
-				ν_range = (0.5 * ν_range[end]):(0.2 * ν_range[end]):(1.5 * ν_range[end])
-			end
-			opt_ν_γ, X_sphere = determine_ν_opt_γ_opt_hypersphere(X_train_scaled, num_outliers=num_outliers, λ=λ, ν_range=ν_range, γ_range=γ_range, call_count=call_count)
-			break
-		elseif key == "γ_lower_flag" && value
-			γ_range = (0.5 * γ_range[1]):(0.2 * γ_range[1]):(1.5 * γ_range[1])
-			opt_ν_γ, X_sphere = determine_ν_opt_γ_opt_hypersphere(X_train_scaled, num_outliers=num_outliers, λ=λ, ν_range=ν_range, γ_range=γ_range, call_count=call_count)
-			break
-		elseif key == "γ_upper_flag" && value
-			γ_range = (0.5 * γ_range[end]):(0.2 * γ_range[end]):(1.5 * γ_range[end])
-			opt_ν_γ, X_sphere = determine_ν_opt_γ_opt_hypersphere(X_train_scaled, num_outliers=num_outliers, λ=λ, ν_range=ν_range, γ_range=γ_range, call_count=call_count)
-			break
-		end
+		@warn "grid search optimized at upper γ boundary."
 	end
 
 	return opt_ν_γ, X_sphere
@@ -266,7 +254,7 @@ end
 error function to be minimized based on λ
 """
 function objective_function(X_train_scaled::Matrix{Float64}, X_sphere::Matrix{Float64}, 
-							ν::Float64, γ::Float64, λ::Float64=0.5)
+							ν::Float64, γ::Float64; λ::Float64=0.5)
 	svm = AnomalyDetection.train_anomaly_detector(X_train_scaled, ν, γ)
 
 	# term 1: estimate of error on normal data as fraction support vectors
@@ -278,6 +266,23 @@ function objective_function(X_train_scaled::Matrix{Float64}, X_sphere::Matrix{Fl
 	fraction_inside = num_inside / length(y_sphere)
 
 	return λ * fraction_svs + (1 - λ) * fraction_inside
+end
+
+function objective_function_scaled(X_train_scaled::Matrix{Float64}, X_sphere::Matrix{Float64}, 
+	ν::Float64, γ::Float64, max_inside_contour::Int; λ::Float64=0.5)
+svm = AnomalyDetection.train_anomaly_detector(X_train_scaled, ν, γ)
+
+# term 1: estimate of error on normal data as fraction support vectors
+fraction_svs = svm.n_support_[1] / size(X_train_scaled)[1]
+
+# term 2: estimating the volume inside the decision boundary
+y_sphere   		= svm.predict(X_sphere)
+num_inside 		= sum(y_sphere .== 1)
+
+#instead of dividing by the total in the sphere, divide by the maximum inside a trained svm
+fraction_inside = num_inside / max_inside_contour
+
+return λ * fraction_svs + (1 - λ) * fraction_inside
 end
 
 """
@@ -309,6 +314,7 @@ function gen_ν_γ_optimization_range(X_scaled::Matrix; σ_X::Float64=1.0)
 	#first step, define some guess for a temp ideal nu and gamma range
 	ν_range_temp = 0.01:0.03:0.1
 	γ_range_temp = 0.1:0.3:1.0
+	#=
 
 	#run the optimization procedure once using this temp range to find a median for our range
 	(γ_median, ν_median), _ = determine_ν_opt_γ_opt_hypersphere(X_scaled, ν_range=ν_range_temp, γ_range=γ_range_temp)
@@ -323,8 +329,9 @@ function gen_ν_γ_optimization_range(X_scaled::Matrix; σ_X::Float64=1.0)
 		ν_max = 1.5 * ν_median
 	end
 	ν_range = (0.5 * ν_median):(0.2 * ν_median):(ν_max)
+	=#
 
-	return ν_range, γ_range
+	return ν_range_temp, γ_range_temp
 end
 
 
@@ -705,7 +712,7 @@ vizualizes a res x res plot of f1 scores as a heatmap of the two validation meth
 method 1: hypersphere
 method 2: knee
 """
-function viz_f1_score_heatmap(σ_H₂O_max::Float64, σ_m_max::Float64; res::Int=10, validation_method="knee", N_avg::Int=10)
+function viz_f1_score_heatmap(σ_H₂O_max::Float64, σ_m_max::Float64; res::Int=10, validation_method="knee", N_avg::Int=10, λ=0.6)
 	@assert validation_method=="hypersphere" || validation_method=="knee"
 	
 	#σ_H₂O_max = 0.1
@@ -736,7 +743,7 @@ function viz_f1_score_heatmap(σ_H₂O_max::Float64, σ_m_max::Float64; res::Int
 				#optimize hyperparameters and determine f1score
 				if validation_method == "hypersphere"
 					ν_range, γ_range = AnomalyDetection.gen_ν_γ_optimization_range(data.X_train_scaled)
-					(ν_opt, γ_opt), _ = AnomalyDetection.determine_ν_opt_γ_opt_hypersphere(data.X_train_scaled, ν_range=ν_range, γ_range=γ_range, λ=0.6)
+					(ν_opt, γ_opt), _ = AnomalyDetection.determine_ν_opt_γ_opt_hypersphere(data.X_train_scaled, ν_range=ν_range, γ_range=γ_range, λ=λ)
 				elseif validation_method == "knee"
 					K            = trunc(Int, num_normal_train_points*0.05)
 					ν_opt, γ_opt = AnomalyDetection.opt_ν_γ_by_density_measure_method(data.X_train_scaled, K)
@@ -774,6 +781,61 @@ function viz_f1_score_heatmap(σ_H₂O_max::Float64, σ_m_max::Float64; res::Int
 		save("f1_score_plot_knee.pdf", fig)
 	end
 
+	fig
+end
+
+
+
+"""
+vizualizes the f1 scores of the range of potential λ values by averaging the number of runs
+and performing a rolling average of every 3 points for smoothing then identifies the λ value that
+corresponds to the highest f1 score.
+"""
+function lambda_plot(num_normal_train_points::Int,
+					num_anomaly_train_points::Int,
+					num_normal_test_points::Int,
+					num_anomaly_test_points::Int;
+					σ_H₂O::Float64=0.005, 
+					σ_m::Float64=0.00005, 
+					res::Int=50, 
+					runs::Int=20)
+	
+	avg_f1_scores = zeros(res)
+	λ_min 		  = 0
+	λ_max 		  = 1.0
+	λs 			  = [λ_min + ((λ_max-λ_min) * i-1) / (res) for i=1:res]
+	
+	for j=1:runs
+		data_set = AnomalyDetection.setup_dataset(num_normal_train_points,
+								num_anomaly_train_points,
+								num_normal_test_points,
+								num_anomaly_test_points,
+								σ_H₂O, 
+								σ_m)
+
+		for (i, λ) in enumerate(λs)
+			ν_range, γ_range = AnomalyDetection.gen_ν_γ_optimization_range(data_set.X_train_scaled)
+			(ν_opt, γ_opt), _ = AnomalyDetection.determine_ν_opt_γ_opt_hypersphere(data_set.X_train_scaled, λ=λ, ν_range=ν_range, γ_range=γ_range)
+			svm = AnomalyDetection.train_anomaly_detector(data_set.X_train_scaled, ν_opt, γ_opt)
+			f1_score = AnomalyDetection.performance_metric(data_set.y_test, svm.predict(data_set.X_test_scaled))
+			avg_f1_scores[i] += f1_score
+		end
+	end
+
+	#calculate rolling average of the average f1 scores and ID λ opt
+	avg_f1_scores = avg_f1_scores./runs
+	rolling_avg_f1 = [mean([avg_f1_scores[j] for j=(i-1):(i+1)]) for i=2:res-1]
+	λ_opt = λs[argmax(rolling_avg_f1)+1]
+	λ_opt = AnomalyDetection.truncate(λ_opt, 2)
+
+	
+	#Plot
+	fig = Figure()
+	ax = Axis(fig[1, 1], ylabel="f1 score", xlabel="λ", xticks=λ_min:0.1:(λ_max+0.1), title="σ_H₂O=$σ_H₂O, σ_m=$σ_m") 
+	lines!([λs[i] for i=2:res-1], rolling_avg_f1, label="avg f1 score")
+	lines!([λ_opt, λ_opt], [minimum(rolling_avg_f1), maximum(rolling_avg_f1)], linestyle=:dash, label="λ opt=$λ_opt")
+	axislegend(ax, position=:rb)
+	save("λ_opt_plot_σ_H₂O=$(σ_H₂O)_σ_m=$(σ_m).pdf", fig)
 	fig
 end
 

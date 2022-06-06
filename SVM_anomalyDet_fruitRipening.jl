@@ -47,7 +47,7 @@ begin
 	num_normal_train_points  = 100
 	num_anomaly_train_points = 0
 	num_normal_test_points   = 100
-	num_anomaly_test_points  = 10
+	num_anomaly_test_points  = 5
 	
 	data_set = AnomalyDetection.setup_dataset(num_normal_train_points,
 										  num_anomaly_train_points,
@@ -88,129 +88,65 @@ svm = AnomalyDetection.train_anomaly_detector(data_set.X_train_scaled, ν_opt, �
 AnomalyDetection.viz_synthetic_anomaly_hypersphere(X_sphere, data_set.X_train_scaled)
 
 # ╔═╡ 6e278c3e-45a3-4aa8-b904-e3dfa73615d5
-AnomalyDetection.viz_decision_boundary(svm, data_set.scaler, data_set.Data_test)
+AnomalyDetection.viz_decision_boundary(svm, data_set.scaler, data_set.data_test)
 
 # ╔═╡ ee8029cf-c6a6-439f-b190-cb297e0ddb70
-AnomalyDetection.viz_cm(svm, data_set.Data_test, data_set.scaler)
+AnomalyDetection.viz_cm(svm, data_set.data_test, data_set.scaler)
 
 # ╔═╡ 12a6f9d0-f3db-4973-8c53-3a2953d78b5d
-AnomalyDetection.viz_decision_boundary(svm, data_set.scaler, data_set.Data_train)
+AnomalyDetection.viz_decision_boundary(svm, data_set.scaler, data_set.data_train)
 
 # ╔═╡ 8c426257-f4a5-4015-b39f-eab5e84d91ee
 # check the f1 score to compare to other validation method(s)
 f1_hypersphere = AnomalyDetection.performance_metric(data_set.y_test, svm.predict(data_set.X_test_scaled))
 
-# ╔═╡ 56b25bd2-f48f-49d9-8096-6a17891053d5
-begin
-	#f1 score comparison based on λ values.
-	function lambda_plot(num_normal_train_points::Int,
-						 num_anomaly_train_points::Int,
-						 num_normal_test_points::Int,
-						 num_anomaly_test_points::Int;
-						 σ_H₂O::Float64=0.005, σ_m::Float64=0.00005, res::Int=50, 
-   						 runs::Int=20)
-		
-		avg_f1_scores = zeros(res)
-		λ_min 		  = 0
-		λ_max 		  = 1.0
-		λs 			  = [λ_min + ((λ_max-λ_min) * i-1) / (res) for i=1:res]
-		
-		for j=1:runs
-			data_set = AnomalyDetection.setup_dataset(num_normal_train_points,
-								  num_anomaly_train_points,
-								  num_normal_test_points,
-								  num_anomaly_test_points,
-								  σ_H₂O, 
-								  σ_m)
-	
-			for (i, λ) in enumerate(λs)
-				ν_range, γ_range = AnomalyDetection.gen_ν_γ_optimization_range(data_set.X_train_scaled)
-		
-				(ν_opt, γ_opt), _ = AnomalyDetection.determine_ν_opt_γ_opt_hypersphere(data_set.X_train_scaled, λ=λ, ν_range=ν_range, γ_range=γ_range)
-	
-				svm = AnomalyDetection.train_anomaly_detector(data_set.X_train_scaled, ν_opt, γ_opt)
-				
-				f1_score = AnomalyDetection.performance_metric(data_set.y_test, svm.predict(data_set.X_test_scaled))
-	
-				avg_f1_scores[i] += f1_score
-			end
-			
-		end
-
-		#calculate rolling average of the average f1 scores and ID λ opt
-		avg_f1_scores = avg_f1_scores./runs
-		rolling_avg_f1 = [mean([avg_f1_scores[j] for j=(i-1):(i+1)]) for i=2:res-1]
-		λ_opt = λs[argmax(rolling_avg_f1)+1]
-		λ_opt = AnomalyDetection.truncate(λ_opt, 2)
-
-		
-		#Plot
-		fig = Figure()
-
-		ax = Axis(fig[1, 1], ylabel="f1 score", xlabel="λ", xticks=λ_min:0.1:(λ_max+0.1), title="σ_H₂O=$σ_H₂O, σ_m=$σ_m") 
-
-		lines!([λs[i] for i=2:res-1], rolling_avg_f1, label="avg f1 score")
-
-		lines!([λ_opt, λ_opt], [minimum(rolling_avg_f1), maximum(rolling_avg_f1)], linestyle=:dash, label="λ opt=$λ_opt")
-
-		axislegend(ax, position=:rb)
-
-		save("λ_opt_plot_σ_H₂O=$(σ_H₂O)_σ_m=$(σ_m).pdf", fig)
-		fig
-	end
-end
-
 # ╔═╡ 4901d44b-c703-4195-8317-4c7f136c6854
 begin
 	#visualization of ideal lambda values for zero error/variance
-	lambda_plot(num_normal_train_points,
-			    num_anomaly_train_points,
-			    num_normal_test_points,
-			    num_anomaly_test_points, 
-			    σ_H₂O=0.0, 
-				σ_m=0.0, 
-				res=25, 
-				runs=10)
+	#=
+	AnomalyDetection.lambda_plot(num_normal_train_points,
+							    num_anomaly_train_points,
+							    num_normal_test_points,
+							    num_anomaly_test_points, 
+							    σ_H₂O=0.0, 
+								σ_m=0.0, 
+								res=25, 
+								runs=100)
+	=#
 end
 
 # ╔═╡ 1d29b57f-bfaa-4afc-b1f6-5d35ea395eee
 begin
 	#visualization of ideal lambda values for medium error/variance
-	lambda_plot(num_normal_train_points,
-			    num_anomaly_train_points,
-			    num_normal_test_points,
-			    num_anomaly_test_points, 
-				σ_H₂O=0.005, 
-				σ_m=0.00005, 
-				res=25, 
-				runs=10)
+	#=
+	AnomalyDetection.lambda_plot(num_normal_train_points,
+							    num_anomaly_train_points,
+							    num_normal_test_points,
+							    num_anomaly_test_points, 
+								σ_H₂O=0.005, 
+								σ_m=0.00005, 
+								res=25, 
+								runs=100)
+	=#
 end
 
 # ╔═╡ 7e4bee96-dc4d-4b02-bb2a-a2f917b4c253
 begin
 	#visualization of ideal lambda values for high error/variance
-	lambda_plot(num_normal_train_points,
-			    num_anomaly_train_points,
-			    num_normal_test_points,
-			    num_anomaly_test_points, 
-				σ_H₂O=0.05, 
-				σ_m=0.0005, 
-				res=25, 
-				runs=10)
+	#=
+	AnomalyDetection.lambda_plot(num_normal_train_points,
+							    num_anomaly_train_points,
+							    num_normal_test_points,
+							    num_anomaly_test_points, 
+								σ_H₂O=0.05, 
+								σ_m=0.0005, 
+								res=25, 
+								runs=100)
+	=#
 end
 
-# ╔═╡ 5aaca4e0-354e-40b9-9753-a49ad330136b
-begin
-	#visualization of ideal lambda values for zero sensor error but high water variance.
-	lambda_plot(num_normal_train_points,
-			    num_anomaly_train_points,
-			    num_normal_test_points,
-			    num_anomaly_test_points, 
-				σ_H₂O=0.05, 
-				σ_m=0.0, 
-				res=25, 
-				runs=10)
-end
+# ╔═╡ 30c8a41d-a1e3-4615-b6f0-69dce2a993c2
+
 
 # ╔═╡ 4b1759a7-eba1-4de5-8d6a-38106f3301c9
 begin
@@ -250,13 +186,13 @@ end
 AnomalyDetection.viz_density_measures(data_set.X_train_scaled, K)
 
 # ╔═╡ 47d6c332-632c-4880-9708-59e6fa187c6c
-AnomalyDetection.viz_cm(svm_2, data_set.Data_test, data_set.scaler)
+AnomalyDetection.viz_cm(svm_2, data_set.data_test, data_set.scaler)
 
 # ╔═╡ f0cb9b40-0ed8-450a-8f03-4f16ca65fa77
-AnomalyDetection.viz_decision_boundary(svm_2, data_set.scaler, data_set.Data_test)
+AnomalyDetection.viz_decision_boundary(svm_2, data_set.scaler, data_set.data_test)
 
 # ╔═╡ e4723de4-3a82-4c15-9057-c20b331259f7
-AnomalyDetection.viz_decision_boundary(svm_2, data_set.scaler, data_set.Data_train)
+AnomalyDetection.viz_decision_boundary(svm_2, data_set.scaler, data_set.data_train)
 
 # ╔═╡ 55640b9c-9a0a-4d0d-8c29-e67a8228edc2
 begin
@@ -283,95 +219,23 @@ f1_hypersphere
 md"!!! example \"\" 
 	exploring the effects of water composition variance and sensor error on f1 score"
 
-# ╔═╡ bac187ec-c6f3-4808-a710-050821e70a20
-function viz_f1_score_heatmap(σ_H₂O_max::Float64, σ_m_max::Float64; res::Int=10, validation_method="knee", N_avg::Int=10)
-	@assert validation_method=="hypersphere" || validation_method=="knee"
-	
-	#σ_H₂O_max = 0.1
-	#σ_m_max = 0.001
-
-	σ_H₂Os = 0:σ_H₂O_max/res:σ_H₂O_max
-	σ_ms = 0:σ_m_max/res:σ_m_max
-
-	num_normal_test = num_normal_train = 100
-	num_anomaly_train = 0
-	num_anomaly_test = 5
-
-	f1_score_grid = zeros(res+1, res+1)
-	
-
-	for (i, σ_H₂O) in enumerate(σ_H₂Os)
-		for (j, σ_m) in enumerate(σ_ms)
-			f1_avg = 0.0
-			
-			for k = 1:N_avg
-				data = AnomalyDetection.setup_dataset(num_normal_train_points,
-										  num_anomaly_train_points,
-										  num_normal_test_points,
-										  num_anomaly_test_points,
-								 		  σ_H₂O, 
-										  σ_m)
-	
-				#optimize hyperparameters and determine f1score
-				if validation_method == "hypersphere"
-					ν_range, γ_range = AnomalyDetection.gen_ν_γ_optimization_range(data.X_train_scaled)
-					(ν_opt, γ_opt), _ = AnomalyDetection.determine_ν_opt_γ_opt_hypersphere(data.X_train_scaled, ν_range=ν_range, γ_range=γ_range, λ=0.3)
-				elseif validation_method == "knee"
-					K            = trunc(Int, num_normal_train*0.05)
-					ν_opt, γ_opt = AnomalyDetection.opt_ν_γ_by_density_measure_method(data.X_train_scaled, K)
-				end
-	
-				svm      = AnomalyDetection.train_anomaly_detector(data.X_train_scaled, ν_opt, γ_opt)
-				y_pred 	 = svm.predict(data.X_test_scaled)
-				f1_score = AnomalyDetection.performance_metric(data.y_test, y_pred)
-	
-				f1_avg += f1_score
-			end
-			
-			f1_score_grid[i, j] = f1_avg/N_avg
-
-		end
-	end
-
-	
-	f1_score_grid
-
-	fig = Figure()
-	
-	ax = Axis(fig[1, 1],
-		  xticks=(1:res+1, ["$(AnomalyDetection.truncate(i, 2))" for i=0:σ_H₂O_max/res:σ_H₂O_max]),
-		  yticks=(1:res+1, ["$(AnomalyDetection.truncate(i, 5))" for i=0:σ_m_max/res:σ_m_max]),
-		xticklabelrotation=45.0,
-		  ylabel="σ_m [g/g]",
-		  xlabel="σ_H₂O [relative humidity]"
-    )
-
-	hm = heatmap!(1:res+1, 1:res+1, f1_score_grid,
-			      colormap=ColorSchemes.RdYlGn_4, colorrange=(0.0, 1.0))
-	Colorbar(fig[1, 2], hm, label="f1 score")
-
-	if validation_method == "hypersphere"
-		save("f1_score_plot_hypersphere.pdf", fig)
-	elseif validation_method == "knee"
-		save("f1_score_plot_knee.pdf", fig)
-	end
-
-	fig
-end
-
 # ╔═╡ 96e0e439-2c35-4d05-b809-394ef67396e2
 AnomalyDetection.viz_f1_score_heatmap(0.05, 0.0001, res=10, validation_method="knee") #knee method
 
-# ╔═╡ da354a98-1d11-4fb1-a6ee-20930ad66737
-AnomalyDetection.viz_f1_score_heatmap(0.05, 0.0001, res=10, validation_method="hypersphere") #hypersphere method
+# ╔═╡ 1d946d7d-7b73-404e-b7c4-12958823e854
+AnomalyDetection.viz_f1_score_heatmap(0.05, 0.0001, res=10, validation_method="hypersphere", λ=0.1)
+
+# ╔═╡ 6fed3cf9-b381-4594-bc58-0cfd469ae1c3
+AnomalyDetection.viz_f1_score_heatmap(0.05, 0.0001, res=10, validation_method="hypersphere", λ=0.9)
+
+# ╔═╡ 00d90c63-6f3e-4906-ad35-ba999439e253
+AnomalyDetection.viz_f1_score_heatmap(0.05, 0.0001, res=10, validation_method="hypersphere", λ=0.5)
 
 # ╔═╡ e6bdf599-e022-475d-b119-ded006d43774
 
 
 # ╔═╡ 6d9c5389-4a9f-434e-97ff-56c20d368a49
 #TODO: optimize hyperparameter validation using intelligent reasoning for nu and gamma values such as knee or  definition of gamma. reduce the number of values iterating over to speed up processing.
-#The goal is to do 100 or so runs per grid value in order to obtain an average f1 score instead of a single run which is providing chaotic results.
-#Plot example σ_m vs f1 score for a particular H2O variance and color by standard deviation... possibly include multiple H20 variances for a good visual on std deviation.
 
 # ╔═╡ 3aab547c-8b00-48da-aa8e-3d51e804c5df
 md"!!! example \"\" 
@@ -1756,11 +1620,10 @@ version = "3.5.0+0"
 # ╠═ee8029cf-c6a6-439f-b190-cb297e0ddb70
 # ╠═12a6f9d0-f3db-4973-8c53-3a2953d78b5d
 # ╠═8c426257-f4a5-4015-b39f-eab5e84d91ee
-# ╠═56b25bd2-f48f-49d9-8096-6a17891053d5
 # ╠═4901d44b-c703-4195-8317-4c7f136c6854
 # ╠═1d29b57f-bfaa-4afc-b1f6-5d35ea395eee
 # ╠═7e4bee96-dc4d-4b02-bb2a-a2f917b4c253
-# ╠═5aaca4e0-354e-40b9-9753-a49ad330136b
+# ╠═30c8a41d-a1e3-4615-b6f0-69dce2a993c2
 # ╠═4b1759a7-eba1-4de5-8d6a-38106f3301c9
 # ╟─51b0ebd4-1dec-4b35-bb15-cd3df906aca3
 # ╠═6ceab194-4861-4be1-901c-6713db5a4204
@@ -1773,9 +1636,10 @@ version = "3.5.0+0"
 # ╠═f8dab032-e446-4e6e-8022-39ad3dbb1042
 # ╠═ebd363f4-3929-4870-b5b8-2bae83b2789f
 # ╟─bbeec9a5-6260-4e8a-a444-a22a59898d22
-# ╠═bac187ec-c6f3-4808-a710-050821e70a20
 # ╠═96e0e439-2c35-4d05-b809-394ef67396e2
-# ╠═da354a98-1d11-4fb1-a6ee-20930ad66737
+# ╠═1d946d7d-7b73-404e-b7c4-12958823e854
+# ╠═6fed3cf9-b381-4594-bc58-0cfd469ae1c3
+# ╠═00d90c63-6f3e-4906-ad35-ba999439e253
 # ╠═e6bdf599-e022-475d-b119-ded006d43774
 # ╠═6d9c5389-4a9f-434e-97ff-56c20d368a49
 # ╟─3aab547c-8b00-48da-aa8e-3d51e804c5df
