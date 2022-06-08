@@ -145,6 +145,87 @@ begin
 	=#
 end
 
+# ╔═╡ 7d16c7b1-ab5c-469e-9866-796fe6c0ee13
+abc = zeros(2,3)
+
+# ╔═╡ 82d5af74-3087-40df-95c7-42cb22bf8008
+begin
+abc[1,2] = 1
+abc
+end
+
+# ╔═╡ 3c1343cd-f440-4059-bddb-33b7998d15e6
+maximum(abc)
+
+# ╔═╡ fee7a511-6ffc-4391-8ff4-79795a909527
+abc[findall(x->x==1,abc)[1]]
+
+# ╔═╡ 380759ae-88a6-4740-8312-b43fb7e32aee
+function viz_νγ_opt_heatmap(σ_H₂O::Float64, σ_m::Float64; n_runs::Int=200, λ=0.5)
+
+	num_normal_test_points = num_normal_train_points = 100
+	num_anomaly_train_points = 0
+	num_anomaly_test_points = 5
+	data = AnomalyDetection.setup_dataset(num_normal_train_points,
+										  num_anomaly_train_points,
+										  num_normal_test_points,
+										  num_anomaly_test_points,
+								 		  σ_H₂O, 
+										  σ_m)
+
+	#optimizes at min gamma and max nu
+	#ν_range = 0.01:0.03:0.1
+	#γ_range = 0.1:0.3:1.0
+
+	#lowering gamma and raising nu, close but still a lot opt at max nu
+	#ν_range = 0.08:0.03:0.18
+	#γ_range = 0.01:0.03:0.5
+
+	#leaving gamma and widening nu, got it!
+	ν_range = 0.01:0.02:0.20
+	γ_range = 0.01:0.02:0.4
+
+	#optimizes at min value for nu and gamma
+	#ν_range = [0.00001, 0.0001, 0.001, 0.01, 0.1, 0.99]
+	#γ_range = 0.001:0.002:0.05
+
+	νγ_opt_grid = zeros(length(ν_range), length(γ_range))
+
+	for i=1:n_runs
+		(ν_opt, γ_opt), _ = AnomalyDetection.determine_ν_opt_γ_opt_hypersphere(data.X_train_scaled,
+																	 ν_range=ν_range, 
+																   γ_range=γ_range, 
+																   λ=λ)
+		
+		ν_index = findall(x->x==ν_opt,ν_range)[1]
+		γ_index = findall(x->x==γ_opt,γ_range)[1]
+
+		νγ_opt_grid[ν_index, γ_index] += 1
+		
+	end
+
+	fig = Figure()
+	
+	ax = Axis(fig[1, 1],
+		  xticks=(1:length(ν_range), ["$(AnomalyDetection.truncate(ν_range[i], 4))" for i=1:length(ν_range)]),
+		  yticks=(1:length(γ_range), ["$(AnomalyDetection.truncate(γ_range[i], 4))" for i=1:length(γ_range)]),
+		  xticklabelrotation=45.0,
+		  ylabel="γ",
+		  xlabel="ν"
+    )
+
+	hm = heatmap!(1:length(ν_range), 1:length(γ_range), νγ_opt_grid,
+			      colormap=ColorSchemes.dense, colorrange=(0.0, maximum(νγ_opt_grid)))
+	Colorbar(fig[1, 2], hm, label="count")
+
+	#save("νγ_opt_heatmap.pdf", fig)
+
+	fig
+end
+
+# ╔═╡ 2cf7c5dd-5221-4f0e-bf66-b8c054b479f7
+viz_νγ_opt_heatmap(σ_H₂O, σ_m)
+
 # ╔═╡ 30c8a41d-a1e3-4615-b6f0-69dce2a993c2
 
 
@@ -1623,6 +1704,12 @@ version = "3.5.0+0"
 # ╠═4901d44b-c703-4195-8317-4c7f136c6854
 # ╠═1d29b57f-bfaa-4afc-b1f6-5d35ea395eee
 # ╠═7e4bee96-dc4d-4b02-bb2a-a2f917b4c253
+# ╠═7d16c7b1-ab5c-469e-9866-796fe6c0ee13
+# ╠═82d5af74-3087-40df-95c7-42cb22bf8008
+# ╠═3c1343cd-f440-4059-bddb-33b7998d15e6
+# ╠═fee7a511-6ffc-4391-8ff4-79795a909527
+# ╠═380759ae-88a6-4740-8312-b43fb7e32aee
+# ╠═2cf7c5dd-5221-4f0e-bf66-b8c054b479f7
 # ╠═30c8a41d-a1e3-4615-b6f0-69dce2a993c2
 # ╠═4b1759a7-eba1-4de5-8d6a-38106f3301c9
 # ╟─51b0ebd4-1dec-4b35-bb15-cd3df906aca3

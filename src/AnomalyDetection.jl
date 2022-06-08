@@ -310,10 +310,14 @@ function gen_uniform_vector_in_hypersphere()
    end
 end
 
+"""
+TODO - use random sampling (coarse search) to find a nu and gamma range for which a finer grid search
+can later be done. Should just return the ranges for which the grid search should be done.
+"""
 function gen_ν_γ_optimization_range(X_scaled::Matrix; σ_X::Float64=1.0)
 	#first step, define some guess for a temp ideal nu and gamma range
-	ν_range_temp = 0.01:0.03:0.1
-	γ_range_temp = 0.1:0.3:1.0
+	ν_range_temp = 0.01:0.02:0.25
+	γ_range_temp = 0.01:0.03:0.5
 	#=
 
 	#run the optimization procedure once using this temp range to find a median for our range
@@ -361,7 +365,7 @@ function performance_metric(y_true, y_pred)
 end
 
 """
-visualizes the confursion matrix by anomaly type
+visualizes the confusion matrix by anomaly type
 """
 #TODO modularize into multiple functions compute cm, so that an axis can be input to be used in other places
 function viz_cm(svm, data_test::DataFrame, scaler)
@@ -712,7 +716,7 @@ vizualizes a res x res plot of f1 scores as a heatmap of the two validation meth
 method 1: hypersphere
 method 2: knee
 """
-function viz_f1_score_heatmap(σ_H₂O_max::Float64, σ_m_max::Float64; res::Int=10, validation_method="knee", N_avg::Int=10, λ=0.6)
+function viz_f1_score_heatmap(σ_H₂O_max::Float64, σ_m_max::Float64; res::Int=10, validation_method="knee", n_avg::Int=10, λ=0.6)
 	@assert validation_method=="hypersphere" || validation_method=="knee"
 	
 	#σ_H₂O_max = 0.1
@@ -732,7 +736,7 @@ function viz_f1_score_heatmap(σ_H₂O_max::Float64, σ_m_max::Float64; res::Int
 		for (j, σ_m) in enumerate(σ_ms)
 			f1_avg = 0.0
 			
-			for k = 1:N_avg
+			for k = 1:n_avg
 				data = AnomalyDetection.setup_dataset(num_normal_train_points,
 										  num_anomaly_train_points,
 										  num_normal_test_points,
@@ -756,7 +760,7 @@ function viz_f1_score_heatmap(σ_H₂O_max::Float64, σ_m_max::Float64; res::Int
 				f1_avg += f1_score
 			end
 			
-			f1_score_grid[i, j] = f1_avg/N_avg
+			f1_score_grid[i, j] = f1_avg/n_avg
 
 		end
 	end
