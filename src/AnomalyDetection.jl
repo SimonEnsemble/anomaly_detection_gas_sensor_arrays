@@ -33,27 +33,57 @@ mutable struct DataSet
 	scaler
 end
 
+"""
+generates a data set struct containing feature matrixes, target vectors, dataframes and scaler for 
+injective or non-injective systems.
+"""
 function setup_dataset(num_normal_train_points,
 				 	   num_anomaly_train_points,
 					   num_normal_test_points,
 					   num_anomaly_test_points,
 	 				   σ_H₂O, 
-					   σ_m)
+					   σ_m;
+					   system="non-injective")
+	@assert system=="non-injective" || system=="injective"
+	
 	# generate synthetic training data
-	data_train = SyntheticDataGen.gen_data(num_normal_train_points, 
-									num_anomaly_train_points, 
-									σ_H₂O, 
-									σ_m)
+	if system=="non-injective"
+		data_train = SyntheticDataGen.gen_data(num_normal_train_points, 
+										num_anomaly_train_points, 
+										σ_H₂O, 
+										σ_m)
+	elseif system=="injective"
+		data_train = SyntheticDataGen.gen_data(num_normal_train_points, 
+										num_anomaly_train_points, 
+										σ_H₂O, 
+										σ_m)
+
+		data_train[:, "p H₂O [bar]"] .= 0
+	else
+		throw("training data injective vs non-injective system control flow error")
+	end
+
 
 	X_train, y_train = AnomalyDetection.data_to_Xy(data_train)
 	scaler      	 = StandardScaler().fit(X_train)
 	X_train_scaled   = scaler.transform(X_train)
 
 	# generate synthetic test data
-	data_test = SyntheticDataGen.gen_data(num_normal_test_points, 
-							num_anomaly_test_points, 
-							σ_H₂O, 
-							σ_m)
+	if system=="non-injective"
+		data_test = SyntheticDataGen.gen_data(num_normal_test_points, 
+										num_anomaly_test_points, 
+										σ_H₂O, 
+										σ_m)
+	elseif system=="injective"
+		data_test = SyntheticDataGen.gen_data(num_normal_test_points, 
+										num_anomaly_test_points, 
+										σ_H₂O, 
+										σ_m)
+
+		data_test[:, "p H₂O [bar]"] .= 0
+	else
+		throw("training data injective vs non-injective system control flow error")
+	end
 
 	X_test, y_test = AnomalyDetection.data_to_Xy(data_test)
 	X_test_scaled  = scaler.transform(X_test)
@@ -71,6 +101,9 @@ function setup_dataset(num_normal_train_points,
 	return data_set
 end
 
+"""
+returns feature matrix and target vector from the synthetically generated data dataframe.
+"""
 function data_to_Xy(data::DataFrame)
 	# X: (n_samples, n_features)
 	X = Matrix(data[:, "m " .* mofs .* " [g/g]"])

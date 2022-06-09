@@ -17,7 +17,7 @@ AnomalyDetection = include("src/AnomalyDetection.jl")
 include("plot_theme.jl")
 
 # ╔═╡ 1784c510-5465-11ec-0dd1-13e5a66e4ce6
-md"# anomaly Detection for gas sensor arrays using one-class SVM
+md"# Anomaly Detection for Gas Sensor Arrays Using One-Class SVM in a Non-Injective System.
 "
 
 # ╔═╡ 5d920ea0-f04d-475f-b05b-86e7b199d7e0
@@ -42,6 +42,10 @@ end
 md"!!! example \"\" 
 	generate data and scale it in order to train the anomaly detector."
 
+# ╔═╡ 41aa5ccb-e823-4d34-8390-799ec3a0f41d
+#TODO - set water pressure to 0 and redo work without water variance to show difference between injective and non-injective system. To discuss in the paper and show how adding a non-injective gas effects anomaly detector.
+#TODO - use Baysop
+
 # ╔═╡ 6b884c33-abb2-4533-9db6-013dd440a1c4
 begin
 	num_normal_train_points  = 100
@@ -57,9 +61,6 @@ begin
 										  σ_m)
 
 end
-
-# ╔═╡ f0233a02-6623-47e8-a537-cc630f322305
-
 
 # ╔═╡ 9873c6d8-84ba-47e5-adcb-4d0f30829227
 md"!!! example \"\" 
@@ -161,7 +162,7 @@ maximum(abc)
 abc[findall(x->x==1,abc)[1]]
 
 # ╔═╡ 380759ae-88a6-4740-8312-b43fb7e32aee
-function viz_νγ_opt_heatmap(σ_H₂O::Float64, σ_m::Float64; n_runs::Int=200, λ=0.5)
+function viz_νγ_opt_heatmap(σ_H₂O::Float64, σ_m::Float64; n_runs::Int=10, λ=0.5)
 
 	num_normal_test_points = num_normal_train_points = 100
 	num_anomaly_train_points = 0
@@ -182,8 +183,8 @@ function viz_νγ_opt_heatmap(σ_H₂O::Float64, σ_m::Float64; n_runs::Int=200,
 	#γ_range = 0.01:0.03:0.5
 
 	#leaving gamma and widening nu, got it!
-	ν_range = 0.01:0.02:0.20
-	γ_range = 0.01:0.02:0.4
+	ν_range = 0.01:0.03:0.30
+	γ_range = 0.01:0.03:0.5
 
 	#optimizes at min value for nu and gamma
 	#ν_range = [0.00001, 0.0001, 0.001, 0.01, 0.1, 0.99]
@@ -204,7 +205,7 @@ function viz_νγ_opt_heatmap(σ_H₂O::Float64, σ_m::Float64; n_runs::Int=200,
 		
 	end
 
-	fig = Figure()
+	fig = Figure(resolution = (500, 600))
 	
 	ax = Axis(fig[1, 1],
 		  xticks=(1:length(ν_range), ["$(AnomalyDetection.truncate(ν_range[i], 4))" for i=1:length(ν_range)]),
@@ -217,17 +218,23 @@ function viz_νγ_opt_heatmap(σ_H₂O::Float64, σ_m::Float64; n_runs::Int=200,
 	hm = heatmap!(1:length(ν_range), 1:length(γ_range), νγ_opt_grid,
 			      colormap=ColorSchemes.dense, colorrange=(0.0, maximum(νγ_opt_grid)))
 	Colorbar(fig[1, 2], hm, label="count")
-
-	#save("νγ_opt_heatmap.pdf", fig)
+	
+	save("νγ_opt_heatmap_σ_H₂O=$(σ_H₂O)_σ_m=$(σ_m).pdf", fig)
 
 	fig
 end
 
 # ╔═╡ 2cf7c5dd-5221-4f0e-bf66-b8c054b479f7
+# medium error and water variance
 viz_νγ_opt_heatmap(σ_H₂O, σ_m)
 
 # ╔═╡ 30c8a41d-a1e3-4615-b6f0-69dce2a993c2
+# 0 sensor error and 0 water variance
+viz_νγ_opt_heatmap(0.0, 0.0)
 
+# ╔═╡ 18c79b10-6607-401d-8154-6b2e8f179249
+# high sensor error and water variance
+#viz_νγ_opt_heatmap(0.05, 0.0005)
 
 # ╔═╡ 4b1759a7-eba1-4de5-8d6a-38106f3301c9
 begin
@@ -1686,12 +1693,12 @@ version = "3.5.0+0"
 # ╠═d090131e-6602-4c03-860c-ad3cb6c7844a
 # ╠═0a6fe423-c3be-4a75-aa27-dfb84fde7fef
 # ╠═3e7c36ca-8345-40fb-b199-34fe49dea73e
-# ╠═5d920ea0-f04d-475f-b05b-86e7b199d7e0
 # ╠═31f71438-ff2f-49f9-a801-3a6489eaf271
+# ╠═5d920ea0-f04d-475f-b05b-86e7b199d7e0
 # ╠═738a227e-9665-4fe1-b3b5-d12c93c9300d
 # ╟─32c8e7ce-113c-4606-a463-47d9802a2238
+# ╠═41aa5ccb-e823-4d34-8390-799ec3a0f41d
 # ╠═6b884c33-abb2-4533-9db6-013dd440a1c4
-# ╠═f0233a02-6623-47e8-a537-cc630f322305
 # ╟─9873c6d8-84ba-47e5-adcb-4d0f30829227
 # ╠═eface5b9-30fc-43ff-b672-50afeb39ca5b
 # ╠═464b834c-2db8-424d-8ff8-d2cbc7e26b26
@@ -1711,6 +1718,7 @@ version = "3.5.0+0"
 # ╠═380759ae-88a6-4740-8312-b43fb7e32aee
 # ╠═2cf7c5dd-5221-4f0e-bf66-b8c054b479f7
 # ╠═30c8a41d-a1e3-4615-b6f0-69dce2a993c2
+# ╠═18c79b10-6607-401d-8154-6b2e8f179249
 # ╠═4b1759a7-eba1-4de5-8d6a-38106f3301c9
 # ╟─51b0ebd4-1dec-4b35-bb15-cd3df906aca3
 # ╠═6ceab194-4861-4be1-901c-6713db5a4204
