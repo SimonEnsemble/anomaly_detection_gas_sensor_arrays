@@ -5,7 +5,7 @@ using Markdown
 using InteractiveUtils
 
 # ╔═╡ d090131e-6602-4c03-860c-ad3cb6c7844a
-using CairoMakie,CSV, DataFrames, ColorSchemes, Optim, Distributions, PlutoUI, ScikitLearn, Colors, Random, PlutoUI, JLD2, LinearAlgebra
+using CairoMakie,CSV, DataFrames, ColorSchemes, Optim, Distributions, PlutoUI, ScikitLearn, Colors, Random, PlutoUI, JLD2, LinearAlgebra, PyCall
 
 # ╔═╡ 0a6fe423-c3be-4a75-aa27-dfb84fde7fef
 SyntheticDataGen = include("src/SyntheticDataGen.jl")
@@ -20,6 +20,12 @@ include("plot_theme.jl")
 md"# Anomaly Detection for Gas Sensor Arrays Using One-Class SVM in a Non-Injective System.
 "
 
+# ╔═╡ 6d5bc919-351d-4b66-a8a6-5e92a42d4fac
+begin
+	skopt = pyimport("skopt")
+	sklearn = pyimport("sklearn")
+end
+
 # ╔═╡ 5d920ea0-f04d-475f-b05b-86e7b199d7e0
 begin
 	@sk_import preprocessing : StandardScaler
@@ -27,6 +33,8 @@ begin
 	@sk_import metrics : precision_score
 	@sk_import metrics : f1_score
 	@sk_import metrics : recall_score
+
+	@sk_import svm : OneClassSVM
 end
 
 # ╔═╡ 738a227e-9665-4fe1-b3b5-d12c93c9300d
@@ -67,6 +75,61 @@ md"!!! example \"\"
 	Unsupervised hyperparameter validation method 1:
 
 	uniform hypersphere of 'anomalies' around our data"
+
+# ╔═╡ 6da68e0c-d452-4600-af53-db2c791286d5
+
+
+# ╔═╡ 7736e9e0-061d-4e96-8552-8708169ad950
+
+
+# ╔═╡ af901dec-323b-4641-bbce-1fcd0e0afd79
+#WORKING HERE
+
+# ╔═╡ ad8d29b1-706d-43a2-9a9e-80a371f60c49
+function bayes_objective_function(svm, X::Matrix{Float64}, y)
+end
+
+# ╔═╡ c469d7eb-1512-4024-9d03-1f2ff0330d62
+#BayesSearchCV work
+#function bayesian_estimate()
+
+function bayes_validation(X_train_scaled::Matrix{Float64}; 
+						  num_iter::Int=32,
+						  num_outliers::Int=500,
+						  λ::Float64=0.5,
+						  ν_space=(1.0e-6, 1.0),
+						  γ_space=(1.0e-6, 5.0))
+
+	R_sphere = maximum([norm(x) for x in eachrow(X_train_scaled)])
+	X_sphere = generate_uniform_vectors_in_hypersphere(num_outliers, R_sphere)
+	
+	params = Dict("ν" => (1.0e-6, 1.0), "γ" => (1.0e-6, 5.0))
+	
+	opt = skopt.BayesSearchCV(
+		OneClassSVM(), 
+		params,
+		n_iter=num_iter,
+		scoring=bayes_objective_function()
+	)
+end
+
+# ╔═╡ 8f1773cd-81ca-4f56-8899-3b5021b0f676
+typeof((1.0e-6, 1.0))
+
+# ╔═╡ cd22def4-daab-4d64-878c-409c8ecbd87d
+
+
+# ╔═╡ a6eb4a40-41fb-4baa-a0ab-2ad23acd5519
+
+
+# ╔═╡ 09dd75e2-1065-4e81-bd5a-8ecbe4e547ab
+
+
+# ╔═╡ 7d4f90ca-9928-40ae-b782-860b7df487f6
+
+
+# ╔═╡ 2bbb67e5-04c6-412b-8c9d-44d0cbd8c720
+
 
 # ╔═╡ eface5b9-30fc-43ff-b672-50afeb39ca5b
 begin
@@ -146,21 +209,6 @@ begin
 	=#
 end
 
-# ╔═╡ 7d16c7b1-ab5c-469e-9866-796fe6c0ee13
-abc = zeros(2,3)
-
-# ╔═╡ 82d5af74-3087-40df-95c7-42cb22bf8008
-begin
-abc[1,2] = 1
-abc
-end
-
-# ╔═╡ 3c1343cd-f440-4059-bddb-33b7998d15e6
-maximum(abc)
-
-# ╔═╡ fee7a511-6ffc-4391-8ff4-79795a909527
-abc[findall(x->x==1,abc)[1]]
-
 # ╔═╡ 380759ae-88a6-4740-8312-b43fb7e32aee
 function viz_νγ_opt_heatmap(σ_H₂O::Float64, σ_m::Float64; n_runs::Int=10, λ=0.5)
 
@@ -234,7 +282,7 @@ viz_νγ_opt_heatmap(0.0, 0.0)
 
 # ╔═╡ 18c79b10-6607-401d-8154-6b2e8f179249
 # high sensor error and water variance
-#viz_νγ_opt_heatmap(0.05, 0.0005)
+viz_νγ_opt_heatmap(0.05, 0.0005)
 
 # ╔═╡ 4b1759a7-eba1-4de5-8d6a-38106f3301c9
 begin
@@ -273,11 +321,11 @@ end
 # ╔═╡ 9a9262d4-02ff-4d82-bb7b-8584e8b79022
 AnomalyDetection.viz_density_measures(data_set.X_train_scaled, K)
 
-# ╔═╡ 47d6c332-632c-4880-9708-59e6fa187c6c
-AnomalyDetection.viz_cm(svm_2, data_set.data_test, data_set.scaler)
-
 # ╔═╡ f0cb9b40-0ed8-450a-8f03-4f16ca65fa77
 AnomalyDetection.viz_decision_boundary(svm_2, data_set.scaler, data_set.data_test)
+
+# ╔═╡ 47d6c332-632c-4880-9708-59e6fa187c6c
+AnomalyDetection.viz_cm(svm_2, data_set.data_test, data_set.scaler)
 
 # ╔═╡ e4723de4-3a82-4c15-9057-c20b331259f7
 AnomalyDetection.viz_decision_boundary(svm_2, data_set.scaler, data_set.data_train)
@@ -387,6 +435,7 @@ JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Optim = "429524aa-4258-5aef-a3af-852621145aeb"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
+PyCall = "438e738f-606a-5dbb-bf0a-cddfbfd45ab0"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 ScikitLearn = "3646fa90-6ef7-5e7e-9f22-8aca16db6324"
 
@@ -400,6 +449,7 @@ Distributions = "~0.25.34"
 JLD2 = "~0.4.22"
 Optim = "~1.5.0"
 PlutoUI = "~0.7.21"
+PyCall = "~1.93.1"
 ScikitLearn = "~0.6.4"
 """
 
@@ -1693,6 +1743,7 @@ version = "3.5.0+0"
 # ╠═d090131e-6602-4c03-860c-ad3cb6c7844a
 # ╠═0a6fe423-c3be-4a75-aa27-dfb84fde7fef
 # ╠═3e7c36ca-8345-40fb-b199-34fe49dea73e
+# ╠═6d5bc919-351d-4b66-a8a6-5e92a42d4fac
 # ╠═31f71438-ff2f-49f9-a801-3a6489eaf271
 # ╠═5d920ea0-f04d-475f-b05b-86e7b199d7e0
 # ╠═738a227e-9665-4fe1-b3b5-d12c93c9300d
@@ -1700,6 +1751,17 @@ version = "3.5.0+0"
 # ╠═41aa5ccb-e823-4d34-8390-799ec3a0f41d
 # ╠═6b884c33-abb2-4533-9db6-013dd440a1c4
 # ╟─9873c6d8-84ba-47e5-adcb-4d0f30829227
+# ╠═6da68e0c-d452-4600-af53-db2c791286d5
+# ╠═7736e9e0-061d-4e96-8552-8708169ad950
+# ╠═af901dec-323b-4641-bbce-1fcd0e0afd79
+# ╠═c469d7eb-1512-4024-9d03-1f2ff0330d62
+# ╠═ad8d29b1-706d-43a2-9a9e-80a371f60c49
+# ╠═8f1773cd-81ca-4f56-8899-3b5021b0f676
+# ╠═cd22def4-daab-4d64-878c-409c8ecbd87d
+# ╠═a6eb4a40-41fb-4baa-a0ab-2ad23acd5519
+# ╠═09dd75e2-1065-4e81-bd5a-8ecbe4e547ab
+# ╠═7d4f90ca-9928-40ae-b782-860b7df487f6
+# ╠═2bbb67e5-04c6-412b-8c9d-44d0cbd8c720
 # ╠═eface5b9-30fc-43ff-b672-50afeb39ca5b
 # ╠═464b834c-2db8-424d-8ff8-d2cbc7e26b26
 # ╠═f21548ad-c8f3-4d14-b6e5-4475a24cc75f
@@ -1711,10 +1773,6 @@ version = "3.5.0+0"
 # ╠═4901d44b-c703-4195-8317-4c7f136c6854
 # ╠═1d29b57f-bfaa-4afc-b1f6-5d35ea395eee
 # ╠═7e4bee96-dc4d-4b02-bb2a-a2f917b4c253
-# ╠═7d16c7b1-ab5c-469e-9866-796fe6c0ee13
-# ╠═82d5af74-3087-40df-95c7-42cb22bf8008
-# ╠═3c1343cd-f440-4059-bddb-33b7998d15e6
-# ╠═fee7a511-6ffc-4391-8ff4-79795a909527
 # ╠═380759ae-88a6-4740-8312-b43fb7e32aee
 # ╠═2cf7c5dd-5221-4f0e-bf66-b8c054b479f7
 # ╠═30c8a41d-a1e3-4615-b6f0-69dce2a993c2
@@ -1723,8 +1781,8 @@ version = "3.5.0+0"
 # ╟─51b0ebd4-1dec-4b35-bb15-cd3df906aca3
 # ╠═6ceab194-4861-4be1-901c-6713db5a4204
 # ╠═9a9262d4-02ff-4d82-bb7b-8584e8b79022
-# ╠═47d6c332-632c-4880-9708-59e6fa187c6c
 # ╠═f0cb9b40-0ed8-450a-8f03-4f16ca65fa77
+# ╠═47d6c332-632c-4880-9708-59e6fa187c6c
 # ╠═e4723de4-3a82-4c15-9057-c20b331259f7
 # ╠═55640b9c-9a0a-4d0d-8c29-e67a8228edc2
 # ╠═11e286be-d3a9-4896-a90c-fdd05fc35073
