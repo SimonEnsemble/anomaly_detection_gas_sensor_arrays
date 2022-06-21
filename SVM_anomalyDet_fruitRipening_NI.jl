@@ -23,7 +23,6 @@ md"# Anomaly Detection for Gas Sensor Arrays Using One-Class SVM in a Non-Inject
 # ╔═╡ 6d5bc919-351d-4b66-a8a6-5e92a42d4fac
 begin
 	skopt = pyimport("skopt")
-	sklearn = pyimport("sklearn")
 end
 
 # ╔═╡ 5d920ea0-f04d-475f-b05b-86e7b199d7e0
@@ -50,10 +49,6 @@ end
 md"!!! example \"\" 
 	generate data and scale it in order to train the anomaly detector."
 
-# ╔═╡ 41aa5ccb-e823-4d34-8390-799ec3a0f41d
-#TODO - set water pressure to 0 and redo work without water variance to show difference between injective and non-injective system. To discuss in the paper and show how adding a non-injective gas effects anomaly detector.
-#TODO - use Baysop
-
 # ╔═╡ 6b884c33-abb2-4533-9db6-013dd440a1c4
 begin
 	num_normal_train_points  = 100
@@ -76,72 +71,15 @@ md"!!! example \"\"
 
 	uniform hypersphere of 'anomalies' around our data"
 
-# ╔═╡ 6da68e0c-d452-4600-af53-db2c791286d5
-
-
-# ╔═╡ 7736e9e0-061d-4e96-8552-8708169ad950
-
-
-# ╔═╡ af901dec-323b-4641-bbce-1fcd0e0afd79
-#WORKING HERE
-
-# ╔═╡ ad8d29b1-706d-43a2-9a9e-80a371f60c49
-function bayes_objective_function(svm, X::Matrix{Float64}, y::Vector{Int64})
-	y_pred = svm.predict(X)
-	return AnomalyDetection.performance_metric(y, y_pred)
-end
-
-# ╔═╡ c469d7eb-1512-4024-9d03-1f2ff0330d62
-#BayesSearchCV work
-#function bayesian_estimate()
-
-function bayes_validation(X_train_scaled::Matrix{Float64}; 
-						  num_iter::Int=10,
-						  num_outliers::Int=500,
-						  λ::Float64=0.5,
-						  ν_space::Tuple{Float64, Float64}=(1.0e-6, 0.1),
-						  γ_space::Tuple{Float64, Float64}=(1.0e-6, 1.0))
-
-	R_sphere = maximum([norm(x) for x in eachrow(X_train_scaled)])
-	X_sphere = AnomalyDetection.generate_uniform_vectors_in_hypersphere(num_outliers, R_sphere)
-	
-	params = Dict("nu" => ν_space, "gamma" => γ_space)
-	
-	opt = skopt.BayesSearchCV(
-		OneClassSVM(), 
-		params,
-		n_iter=num_iter,
-		scoring=bayes_objective_function
-	)
-
-	#create a new X and y to fit the model using the hypersphere?
-
-	X′ = vcat(X_sphere, X_train_scaled)
-	y′ = vcat([-1 for i=1:size(X_sphere, 1)], [1 for i=1:size(X_train_scaled, 1)])
-	
-	opt.fit(X′, y′)
-
-	return opt.best_params_
-end
-
-# ╔═╡ a6eb4a40-41fb-4baa-a0ab-2ad23acd5519
-opt_params = bayes_validation(data_set.X_train_scaled)
-
-# ╔═╡ 09dd75e2-1065-4e81-bd5a-8ecbe4e547ab
-vcat([1, 2, 3], [4, 5, 6])
-
-# ╔═╡ 7d4f90ca-9928-40ae-b782-860b7df487f6
-
-
-# ╔═╡ 2bbb67e5-04c6-412b-8c9d-44d0cbd8c720
-
-
 # ╔═╡ eface5b9-30fc-43ff-b672-50afeb39ca5b
 begin
 	# use a grid search method to find optimal ν and γ
-	ν_range, γ_range = AnomalyDetection.gen_ν_γ_optimization_range(data_set.X_train_scaled)
+	#ν_range, γ_range = AnomalyDetection.gen_ν_γ_optimization_range(data_set.X_train_scaled)
 	
-	(ν_opt, γ_opt), X_sphere = AnomalyDetection.determine_ν_opt_γ_opt_hypersphere(data_set.X_train_scaled, ν_range=ν_range, γ_range=γ_range, λ=0.6)
+	#(ν_opt, γ_opt), X_sphere = AnomalyDetection.determine_ν_opt_γ_opt_hypersphere(data_set.X_train_scaled, ν_range=ν_range, γ_range=γ_range, λ=0.6)
+
+	(ν_opt, γ_opt), X_sphere = AnomalyDetection.bayes_validation(data_set.X_train_scaled)
+
 
 	(ν_opt, γ_opt)
 end
@@ -149,9 +87,6 @@ end
 # ╔═╡ 464b834c-2db8-424d-8ff8-d2cbc7e26b26
 # train the anomaly detector
 svm = AnomalyDetection.train_anomaly_detector(data_set.X_train_scaled, ν_opt, γ_opt)
-
-# ╔═╡ f21548ad-c8f3-4d14-b6e5-4475a24cc75f
-
 
 # ╔═╡ 48d8afeb-2df0-44d1-9eaa-f28184813ab4
 AnomalyDetection.viz_synthetic_anomaly_hypersphere(X_sphere, data_set.X_train_scaled)
@@ -172,7 +107,7 @@ f1_hypersphere = AnomalyDetection.performance_metric(data_set.y_test, svm.predic
 # ╔═╡ 4901d44b-c703-4195-8317-4c7f136c6854
 begin
 	#visualization of ideal lambda values for zero error/variance
-	#=
+
 	AnomalyDetection.lambda_plot(num_normal_train_points,
 							    num_anomaly_train_points,
 							    num_normal_test_points,
@@ -180,8 +115,7 @@ begin
 							    σ_H₂O=0.0, 
 								σ_m=0.0, 
 								res=25, 
-								runs=100)
-	=#
+								runs=10)
 end
 
 # ╔═╡ 1d29b57f-bfaa-4afc-b1f6-5d35ea395eee
@@ -226,30 +160,17 @@ function viz_νγ_opt_heatmap(σ_H₂O::Float64, σ_m::Float64; n_runs::Int=10, 
 										  num_anomaly_test_points,
 								 		  σ_H₂O, 
 										  σ_m)
-
-	#optimizes at min gamma and max nu
-	#ν_range = 0.01:0.03:0.1
-	#γ_range = 0.1:0.3:1.0
-
-	#lowering gamma and raising nu, close but still a lot opt at max nu
-	#ν_range = 0.08:0.03:0.18
-	#γ_range = 0.01:0.03:0.5
-
-	#leaving gamma and widening nu, got it!
 	ν_range = 0.01:0.03:0.30
 	γ_range = 0.01:0.03:0.5
-
-	#optimizes at min value for nu and gamma
-	#ν_range = [0.00001, 0.0001, 0.001, 0.01, 0.1, 0.99]
-	#γ_range = 0.001:0.002:0.05
 
 	νγ_opt_grid = zeros(length(ν_range), length(γ_range))
 
 	for i=1:n_runs
-		(ν_opt, γ_opt), _ = AnomalyDetection.determine_ν_opt_γ_opt_hypersphere(data.X_train_scaled,
-																	 ν_range=ν_range, 
-																   γ_range=γ_range, 
-																   λ=λ)
+		(ν_opt, γ_opt), _ = AnomalyDetection.determine_ν_opt_γ_opt_hypersphere_grid_search(
+			data.X_train_scaled,
+			ν_range=ν_range, 
+		    γ_range=γ_range, 
+		    λ=λ)
 		
 		ν_index = findall(x->x==ν_opt,ν_range)[1]
 		γ_index = findall(x->x==γ_opt,γ_range)[1]
@@ -1753,21 +1674,10 @@ version = "3.5.0+0"
 # ╠═5d920ea0-f04d-475f-b05b-86e7b199d7e0
 # ╠═738a227e-9665-4fe1-b3b5-d12c93c9300d
 # ╟─32c8e7ce-113c-4606-a463-47d9802a2238
-# ╠═41aa5ccb-e823-4d34-8390-799ec3a0f41d
 # ╠═6b884c33-abb2-4533-9db6-013dd440a1c4
 # ╟─9873c6d8-84ba-47e5-adcb-4d0f30829227
-# ╠═6da68e0c-d452-4600-af53-db2c791286d5
-# ╠═7736e9e0-061d-4e96-8552-8708169ad950
-# ╠═af901dec-323b-4641-bbce-1fcd0e0afd79
-# ╠═c469d7eb-1512-4024-9d03-1f2ff0330d62
-# ╠═ad8d29b1-706d-43a2-9a9e-80a371f60c49
-# ╠═a6eb4a40-41fb-4baa-a0ab-2ad23acd5519
-# ╠═09dd75e2-1065-4e81-bd5a-8ecbe4e547ab
-# ╠═7d4f90ca-9928-40ae-b782-860b7df487f6
-# ╠═2bbb67e5-04c6-412b-8c9d-44d0cbd8c720
 # ╠═eface5b9-30fc-43ff-b672-50afeb39ca5b
 # ╠═464b834c-2db8-424d-8ff8-d2cbc7e26b26
-# ╠═f21548ad-c8f3-4d14-b6e5-4475a24cc75f
 # ╠═48d8afeb-2df0-44d1-9eaa-f28184813ab4
 # ╠═6e278c3e-45a3-4aa8-b904-e3dfa73615d5
 # ╠═ee8029cf-c6a6-439f-b190-cb297e0ddb70
