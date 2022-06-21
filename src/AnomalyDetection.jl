@@ -2,6 +2,7 @@ module AnomalyDetection
 
 using ScikitLearn, DataFrames, CairoMakie, ColorSchemes, LinearAlgebra, Statistics, Random
 SyntheticDataGen = include("SyntheticDataGen.jl")
+skopt = pyimport("skopt")
 
 @sk_import svm : OneClassSVM
 @sk_import preprocessing : StandardScaler
