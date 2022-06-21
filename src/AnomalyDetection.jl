@@ -1,6 +1,6 @@
 module AnomalyDetection
 
-using ScikitLearn, DataFrames, CairoMakie, ColorSchemes, LinearAlgebra, Statistics, Random
+using ScikitLearn, DataFrames, CairoMakie, ColorSchemes, LinearAlgebra, Statistics, Random, PyCall
 SyntheticDataGen = include("SyntheticDataGen.jl")
 skopt = pyimport("skopt")
 
