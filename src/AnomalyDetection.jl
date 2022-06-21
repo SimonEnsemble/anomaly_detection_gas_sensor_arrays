@@ -883,7 +883,7 @@ function lambda_plot(num_normal_train_points::Int,
 								σ_m)
 
 		for (i, λ) in enumerate(λs)
-			(ν_opt, γ_opt), _ = bayes_validation(data_set.X_train_scaled)
+			(ν_opt, γ_opt), _ = bayes_validation(data_set.X_train_scaled, λ=λ)
 			svm = AnomalyDetection.train_anomaly_detector(data_set.X_train_scaled, ν_opt, γ_opt)
 			f1_score = AnomalyDetection.performance_metric(data_set.y_test, svm.predict(data_set.X_test_scaled))
 			avg_f1_scores[i] += f1_score
