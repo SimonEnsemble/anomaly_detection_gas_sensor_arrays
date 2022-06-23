@@ -115,13 +115,19 @@ begin
 							    σ_H₂O=0.0, 
 								σ_m=0.0, 
 								res=25, 
-								runs=10)
+								runs=100)
 end
+
+# ╔═╡ 6680648d-de82-4bd4-a3fe-79afa07d909b
+abc = "a"
+
+# ╔═╡ c2e6e6bb-df35-4c25-ad45-46ae982aa19f
+"$(01)bc"
 
 # ╔═╡ 1d29b57f-bfaa-4afc-b1f6-5d35ea395eee
 begin
 	#visualization of ideal lambda values for medium error/variance
-	#=
+
 	AnomalyDetection.lambda_plot(num_normal_train_points,
 							    num_anomaly_train_points,
 							    num_normal_test_points,
@@ -130,7 +136,6 @@ begin
 								σ_m=0.00005, 
 								res=25, 
 								runs=100)
-	=#
 end
 
 # ╔═╡ 7e4bee96-dc4d-4b02-bb2a-a2f917b4c253
@@ -149,7 +154,12 @@ begin
 end
 
 # ╔═╡ 380759ae-88a6-4740-8312-b43fb7e32aee
-function viz_νγ_opt_heatmap(σ_H₂O::Float64, σ_m::Float64; n_runs::Int=10, λ=0.5)
+function viz_νγ_opt_heatmap(σ_H₂O::Float64, 
+							σ_m::Float64; 
+							n_runs::Int=100, 
+							λ=0.5,
+							ν_range=0.01:0.03:0.30,
+							γ_range=0.01:0.03:0.5)
 
 	num_normal_test_points = num_normal_train_points = 100
 	num_anomaly_train_points = 0
@@ -160,8 +170,6 @@ function viz_νγ_opt_heatmap(σ_H₂O::Float64, σ_m::Float64; n_runs::Int=10, 
 										  num_anomaly_test_points,
 								 		  σ_H₂O, 
 										  σ_m)
-	ν_range = 0.01:0.03:0.30
-	γ_range = 0.01:0.03:0.5
 
 	νγ_opt_grid = zeros(length(ν_range), length(γ_range))
 
@@ -186,7 +194,8 @@ function viz_νγ_opt_heatmap(σ_H₂O::Float64, σ_m::Float64; n_runs::Int=10, 
 		  yticks=(1:length(γ_range), ["$(AnomalyDetection.truncate(γ_range[i], 4))" for i=1:length(γ_range)]),
 		  xticklabelrotation=45.0,
 		  ylabel="γ",
-		  xlabel="ν"
+		  xlabel="ν",
+		  title="σH₂O=$(σ_H₂O) σm=$(σ_m)"
     )
 
 	hm = heatmap!(1:length(ν_range), 1:length(γ_range), νγ_opt_grid,
@@ -195,7 +204,7 @@ function viz_νγ_opt_heatmap(σ_H₂O::Float64, σ_m::Float64; n_runs::Int=10, 
 	
 	save("νγ_opt_heatmap_σ_H₂O=$(σ_H₂O)_σ_m=$(σ_m).pdf", fig)
 
-	fig
+	return fig
 end
 
 # ╔═╡ 2cf7c5dd-5221-4f0e-bf66-b8c054b479f7
@@ -285,10 +294,7 @@ md"!!! example \"\"
 AnomalyDetection.viz_f1_score_heatmap(0.05, 0.0001, res=10, validation_method="knee") #knee method
 
 # ╔═╡ 1d946d7d-7b73-404e-b7c4-12958823e854
-AnomalyDetection.viz_f1_score_heatmap(0.05, 0.0001, res=10, validation_method="hypersphere", λ=0.1)
-
-# ╔═╡ 6fed3cf9-b381-4594-bc58-0cfd469ae1c3
-AnomalyDetection.viz_f1_score_heatmap(0.05, 0.0001, res=10, validation_method="hypersphere", λ=0.9)
+#AnomalyDetection.viz_f1_score_heatmap(0.05, 0.0001, res=10, validation_method="hypersphere", λ=0.1)
 
 # ╔═╡ 00d90c63-6f3e-4906-ad35-ba999439e253
 AnomalyDetection.viz_f1_score_heatmap(0.05, 0.0001, res=10, validation_method="hypersphere", λ=0.5)
@@ -1684,6 +1690,8 @@ version = "3.5.0+0"
 # ╠═12a6f9d0-f3db-4973-8c53-3a2953d78b5d
 # ╠═8c426257-f4a5-4015-b39f-eab5e84d91ee
 # ╠═4901d44b-c703-4195-8317-4c7f136c6854
+# ╠═6680648d-de82-4bd4-a3fe-79afa07d909b
+# ╠═c2e6e6bb-df35-4c25-ad45-46ae982aa19f
 # ╠═1d29b57f-bfaa-4afc-b1f6-5d35ea395eee
 # ╠═7e4bee96-dc4d-4b02-bb2a-a2f917b4c253
 # ╠═380759ae-88a6-4740-8312-b43fb7e32aee
@@ -1704,7 +1712,6 @@ version = "3.5.0+0"
 # ╟─bbeec9a5-6260-4e8a-a444-a22a59898d22
 # ╠═96e0e439-2c35-4d05-b809-394ef67396e2
 # ╠═1d946d7d-7b73-404e-b7c4-12958823e854
-# ╠═6fed3cf9-b381-4594-bc58-0cfd469ae1c3
 # ╠═00d90c63-6f3e-4906-ad35-ba999439e253
 # ╠═e6bdf599-e022-475d-b119-ded006d43774
 # ╠═6d9c5389-4a9f-434e-97ff-56c20d368a49

@@ -238,7 +238,7 @@ function bayes_validation(X_train_scaled::Matrix{Float64};
 		=#
 
 		#the objective function is maximized so,
-		#in order to minimize the error function, make negative.
+		#in order to minimize the error function, make error negative.
 		return -(λ * fraction_svs + (1 - λ) * fraction_inside)
 	end
 
@@ -320,6 +320,60 @@ function determine_ν_opt_γ_opt_hypersphere_grid_search(X_train_scaled::Matrix{
 	end
 
 	return opt_ν_γ, X_sphere
+end
+
+"""
+visualizes a heatmap of optimization values for ν and γ in the exhaustive grid search.
+"""
+function viz_νγ_opt_heatmap(σ_H₂O::Float64, 
+	σ_m::Float64; 
+	n_runs::Int=100, 
+	λ=0.5,
+	ν_range=0.01:0.03:0.30,
+	γ_range=0.01:0.03:0.5)
+
+	num_normal_test_points = num_normal_train_points = 100
+	num_anomaly_train_points = 0
+	num_anomaly_test_points = 5
+	data = AnomalyDetection.setup_dataset(num_normal_train_points,
+					num_anomaly_train_points,
+					num_normal_test_points,
+					num_anomaly_test_points,
+					σ_H₂O, 
+					σ_m)
+
+	νγ_opt_grid = zeros(length(ν_range), length(γ_range))
+
+	for i=1:n_runs
+		(ν_opt, γ_opt), _ = AnomalyDetection.determine_ν_opt_γ_opt_hypersphere_grid_search(
+		data.X_train_scaled,
+		ν_range=ν_range, 
+		γ_range=γ_range, 
+		λ=λ)
+
+		ν_index = findall(x->x==ν_opt,ν_range)[1]
+		γ_index = findall(x->x==γ_opt,γ_range)[1]
+
+		νγ_opt_grid[ν_index, γ_index] += 1
+	end
+
+	fig = Figure(resolution = (500, 600))
+
+	ax = Axis(fig[1, 1],
+			  xticks=(1:length(ν_range), ["$(AnomalyDetection.truncate(ν_range[i], 4))" for i=1:length(ν_range)]),
+			  yticks=(1:length(γ_range), ["$(AnomalyDetection.truncate(γ_range[i], 4))" for i=1:length(γ_range)]),
+			  xticklabelrotation=45.0,
+			  ylabel="γ",
+			  xlabel="ν",
+			  title="σ_H₂O=$(σ_H₂O) σ_m=$(σ_m)"
+	)
+
+	hm = heatmap!(1:length(ν_range), 1:length(γ_range), νγ_opt_grid,
+	colormap=ColorSchemes.dense, colorrange=(0.0, maximum(νγ_opt_grid)))
+	Colorbar(fig[1, 2], hm, label="count")
+	save("νγ_opt_heatmap_σ_H₂O=$(σ_H₂O)_σ_m=$(σ_m).pdf", fig)
+
+	return fig
 end
 
 """
@@ -782,8 +836,15 @@ vizualizes a res x res plot of f1 scores as a heatmap of the two validation meth
 method 1: hypersphere
 method 2: knee
 """
-function viz_f1_score_heatmap(σ_H₂O_max::Float64, σ_m_max::Float64; res::Int=10, validation_method="knee", n_avg::Int=10, λ=0.6)
+function viz_f1_score_heatmap(σ_H₂O_max::Float64, 
+							  σ_m_max::Float64; 
+							  res::Int=10, 
+							  validation_method="knee",
+							  hyperparameter_method="bayesian", 
+							  n_avg::Int=10, 
+							  λ=0.5)
 	@assert validation_method=="hypersphere" || validation_method=="knee"
+	@assert hyperparameter_method=="bayesian" || hyperparameter_method=="grid"
 	
 	#σ_H₂O_max = 0.1
 	#σ_m_max = 0.001
@@ -812,7 +873,11 @@ function viz_f1_score_heatmap(σ_H₂O_max::Float64, σ_m_max::Float64; res::Int
 	
 				#optimize hyperparameters and determine f1score
 				if validation_method == "hypersphere"
-					(ν_opt, γ_opt), _ = bayes_validation(data.X_train_scaled)
+					if hyperparameter_method == "bayesian"
+						(ν_opt, γ_opt), _ = bayes_validation(data.X_train_scaled)
+					elseif hyperparameter_method == "grid"
+						(ν_opt, γ_opt), _ = determine_ν_opt_γ_opt_hypersphere_grid_search(data.X_train_scaled)
+					end
 				elseif validation_method == "knee"
 					K            = trunc(Int, num_normal_train_points*0.05)
 					ν_opt, γ_opt = AnomalyDetection.opt_ν_γ_by_density_measure_method(data.X_train_scaled, K)
@@ -833,7 +898,7 @@ function viz_f1_score_heatmap(σ_H₂O_max::Float64, σ_m_max::Float64; res::Int
 	fig = Figure()
 	
 	ax = Axis(fig[1, 1],
-		  xticks=(1:res+1, ["$(AnomalyDetection.truncate(i, 2))" for i=0:σ_H₂O_max/res:σ_H₂O_max]),
+		  xticks=(1:res+1, ["$(AnomalyDetection.truncate(i, 3))" for i=0:σ_H₂O_max/res:σ_H₂O_max]),
 		  yticks=(1:res+1, ["$(AnomalyDetection.truncate(i, 5))" for i=0:σ_m_max/res:σ_m_max]),
 		  xticklabelrotation=45.0,
 		  ylabel="σ_m [g/g]",
