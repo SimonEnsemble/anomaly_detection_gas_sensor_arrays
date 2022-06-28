@@ -1,4 +1,4 @@
-module AnomalyDetection
+module AnomalyDetectionPlots
 
 using ScikitLearn, DataFrames, CairoMakie, ColorSchemes, LinearAlgebra, Statistics, Random, PyCall
 SyntheticDataGen = include("SyntheticDataGen.jl")
@@ -198,7 +198,7 @@ end
 visualizes a one class SVM decision contour given a particular nu, gamma and resolution.
 """
 function viz_decision_boundary(svm, scaler, data_test::DataFrame; res::Int=700)
-	X_test, _ = data_to_Xy(data_test)
+	X_test, _ = AnomalyDetection.data_to_Xy(data_test)
 
 	xlims = (0.98 * minimum(X_test[:, 1]), 1.02 * maximum(X_test[:, 1]))
 	ylims = (0.98 * minimum(X_test[:, 2]), 1.02 * maximum(X_test[:, 2]))
