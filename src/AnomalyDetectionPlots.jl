@@ -542,8 +542,8 @@ function viz_f1_score_heatmap(σ_H₂O_max::Float64,
 	fig = Figure()
 	
 	ax = Axis(fig[1, 1],
-		  xticks=(1:res+1, ["$(AnomalyDetection.truncate(i, 3))" for i=0:σ_H₂O_max/res:σ_H₂O_max]),
-		  yticks=(1:res+1, ["$(AnomalyDetection.truncate(i, 5))" for i=0:σ_m_max/res:σ_m_max]),
+		  xticks=(1:res+1, ["$(truncate(i, 3))" for i=0:σ_H₂O_max/res:σ_H₂O_max]),
+		  yticks=(1:res+1, ["$(truncate(i, 5))" for i=0:σ_m_max/res:σ_m_max]),
 		  xticklabelrotation=45.0,
 		  ylabel="σ_m [g/g]",
 		  xlabel="σ_H₂O [relative humidity]"
