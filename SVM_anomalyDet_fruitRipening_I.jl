@@ -13,6 +13,9 @@ SyntheticDataGen = include("src/SyntheticDataGen.jl")
 # ╔═╡ 4f39dfe1-1403-46be-b4fa-b9c8a3ad18fe
 AnomalyDetection = include("src/AnomalyDetection.jl")
 
+# ╔═╡ a16c947a-0527-459a-b725-57888e5cfdb2
+AnomalyDetectionPlots = include("src/AnomalyDetectionPlots.jl")
+
 # ╔═╡ 28859bfa-e45c-4e12-a2c2-c024e8649535
 include("plot_theme.jl")
 
@@ -71,9 +74,8 @@ end
 # ╔═╡ 6a3759e1-03bc-4f4e-a140-8bc564c3dd57
 begin
 	# use a grid search method to find optimal ν and γ
-	ν_range, γ_range = AnomalyDetection.gen_ν_γ_optimization_range(data_set.X_train_scaled)
 	
-	(ν_opt, γ_opt), X_sphere = AnomalyDetection.determine_ν_opt_γ_opt_hypersphere(data_set.X_train_scaled, ν_range=ν_range, γ_range=γ_range, λ=0.6)
+	(ν_opt, γ_opt), X_sphere = AnomalyDetection.determine_ν_opt_γ_opt_hypersphere_grid_search(data_set.X_train_scaled)
 
 	(ν_opt, γ_opt)
 end
@@ -83,16 +85,16 @@ end
 svm = AnomalyDetection.train_anomaly_detector(data_set.X_train_scaled, ν_opt, γ_opt)
 
 # ╔═╡ 9bbf7bda-dfba-412e-afa4-2746ab17ccbb
-AnomalyDetection.viz_synthetic_anomaly_hypersphere(X_sphere, data_set.X_train_scaled)
+AnomalyDetectionPlots.viz_synthetic_anomaly_hypersphere(X_sphere, data_set.X_train_scaled)
 
 # ╔═╡ 43805088-82c3-4bb9-9a0b-6df5f73d3809
-AnomalyDetection.viz_decision_boundary(svm, data_set.scaler, data_set.data_test)
+AnomalyDetectionPlots.viz_decision_boundary(svm, data_set.scaler, data_set.data_test)
 
 # ╔═╡ a2d00e2e-bcfd-4c1b-92d0-98fb5202fe3a
-AnomalyDetection.viz_cm(svm, data_set.data_test, data_set.scaler)
+AnomalyDetectionPlots.viz_cm(svm, data_set.data_test, data_set.scaler)
 
 # ╔═╡ 3bedb6ff-31c7-4eb8-b77b-ccf9ddc4f812
-AnomalyDetection.viz_decision_boundary(svm, data_set.scaler, data_set.data_train)
+AnomalyDetectionPlots.viz_decision_boundary(svm, data_set.scaler, data_set.data_train)
 
 # ╔═╡ aef2a4b8-f306-4e9c-9d83-ef951bc514f2
 
@@ -1460,6 +1462,7 @@ version = "3.5.0+0"
 # ╠═db06b5c1-514f-4857-aa56-6bb9ceb0afea
 # ╠═f0eaba8c-1ef1-44d8-8432-a23ad403daf0
 # ╠═4f39dfe1-1403-46be-b4fa-b9c8a3ad18fe
+# ╠═a16c947a-0527-459a-b725-57888e5cfdb2
 # ╠═28859bfa-e45c-4e12-a2c2-c024e8649535
 # ╠═8e415893-be2f-426c-9163-4df7ace22410
 # ╠═762eafc9-6e2f-4078-a950-672bda9e8acf
