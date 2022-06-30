@@ -73,9 +73,12 @@ end
 
 # ╔═╡ 6a3759e1-03bc-4f4e-a140-8bc564c3dd57
 begin
+	#=
 	# use a grid search method to find optimal ν and γ
 	
 	(ν_opt, γ_opt), X_sphere = AnomalyDetection.determine_ν_opt_γ_opt_hypersphere_grid_search(data_set.X_train_scaled)
+	=#
+	(ν_opt, γ_opt), X_sphere = AnomalyDetection.bayes_validation(data_set.X_train_scaled)
 
 	(ν_opt, γ_opt)
 end
