@@ -94,8 +94,8 @@ function viz_νγ_opt_heatmap(σ_H₂O::Float64,
 	fig = Figure(resolution = (500, 600))
 
 	ax = Axis(fig[1, 1],
-			  xticks=(1:length(ν_range), ["$(AnomalyDetection.truncate(ν_range[i], 4))" for i=1:length(ν_range)]),
-			  yticks=(1:length(γ_range), ["$(AnomalyDetection.truncate(γ_range[i], 4))" for i=1:length(γ_range)]),
+			  xticks=(1:length(ν_range), ["$(truncate(ν_range[i], 4))" for i=1:length(ν_range)]),
+			  yticks=(1:length(γ_range), ["$(truncate(γ_range[i], 4))" for i=1:length(γ_range)]),
 			  xticklabelrotation=45.0,
 			  ylabel="γ",
 			  xlabel="ν",
@@ -603,7 +603,7 @@ function lambda_plot(num_normal_train_points::Int,
 	avg_f1_scores = avg_f1_scores./runs
 	rolling_avg_f1 = [mean([avg_f1_scores[j] for j=(i-1):(i+1)]) for i=2:res-1]
 	λ_opt = λs[argmax(rolling_avg_f1)+1]
-	λ_opt = AnomalyDetection.truncate(λ_opt, 2)
+	λ_opt = truncate(λ_opt, 2)
 
 	
 	#Plot
