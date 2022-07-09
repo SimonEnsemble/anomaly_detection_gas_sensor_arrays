@@ -32,7 +32,7 @@ function viz_density_measures(X::Matrix{Float64}, K::Int)
 	density_measures = AnomalyDetection.compute_density_measures(X, K)
 	sorted_density_measures = sort(density_measures)
 
-	elbow_id, density_measure_at_elbow = find_elbow(density_measures)
+	elbow_id, density_measure_at_elbow = AnomalyDetection.find_elbow(density_measures)
 
     fig = Figure()
     ax = Axis(fig[1, 1], ylabel="density measure", xlabel="(sorted) index")
@@ -373,11 +373,11 @@ function viz_sensorδ_waterσ_grid(σ_H₂Os::Vector{Float64},
 		for (j, σ_m) in enumerate(σ_ms)
 
 			#generate test and training data, feature vectors, target vectors and standard scaler
-			data = setup_dataset(num_normal_train, num_anomaly_train, num_normal_test, num_anomaly_test, σ_H₂O, σ_m)
+			data = AnomalyDetection.setup_dataset(num_normal_train, num_anomaly_train, num_normal_test, num_anomaly_test, σ_H₂O, σ_m)
 
 			#optimize hyperparameters and determine f1score
 			if validation_method == "hypersphere"
-				(ν_opt, γ_opt), _ = bayes_validation(data.X_train_scaled)
+				(ν_opt, γ_opt), _ = AnomalyDetection.bayes_validation(data.X_train_scaled)
 			elseif validation_method == "knee"
 				K            = trunc(Int, num_normal_train*0.05)
 				ν_opt, γ_opt = opt_ν_γ_by_density_measure_method(data.X_train_scaled, K)
@@ -518,9 +518,9 @@ function viz_f1_score_heatmap(σ_H₂O_max::Float64,
 				#optimize hyperparameters and determine f1score
 				if validation_method == "hypersphere"
 					if hyperparameter_method == "bayesian"
-						(ν_opt, γ_opt), _ = bayes_validation(data.X_train_scaled)
+						(ν_opt, γ_opt), _ = AnomalyDetection.bayes_validation(data.X_train_scaled)
 					elseif hyperparameter_method == "grid"
-						(ν_opt, γ_opt), _ = determine_ν_opt_γ_opt_hypersphere_grid_search(data.X_train_scaled)
+						(ν_opt, γ_opt), _ = AnomalyDetection.determine_ν_opt_γ_opt_hypersphere_grid_search(data.X_train_scaled)
 					end
 				elseif validation_method == "knee"
 					K            = trunc(Int, num_normal_train_points*0.05)
@@ -592,7 +592,7 @@ function lambda_plot(num_normal_train_points::Int,
 								σ_m)
 
 		for (i, λ) in enumerate(λs)
-			(ν_opt, γ_opt), _ = bayes_validation(data_set.X_train_scaled, λ=λ)
+			(ν_opt, γ_opt), _ = AnomalyDetection.bayes_validation(data_set.X_train_scaled, λ=λ)
 			svm = AnomalyDetection.train_anomaly_detector(data_set.X_train_scaled, ν_opt, γ_opt)
 			f1_score = AnomalyDetection.performance_metric(data_set.y_test, svm.predict(data_set.X_test_scaled))
 			avg_f1_scores[i] += f1_score

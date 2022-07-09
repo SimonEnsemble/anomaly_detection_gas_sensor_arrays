@@ -23,9 +23,6 @@ include("plot_theme.jl")
 md"# Anomaly Detection for Gas Sensor Arrays Using One-Class SVM in a Non-Injective System.
 "
 
-# ╔═╡ e6231a0b-9b13-4c9c-ae6c-950acec3beef
-ENV["PYTHON"]=raw"C:\Users\paulm\AppData\Local\Programs\Python\Python310\python.exe"
-
 # ╔═╡ 6d5bc919-351d-4b66-a8a6-5e92a42d4fac
 begin
 	skopt = pyimport("skopt")
@@ -1591,7 +1588,6 @@ version = "3.5.0+0"
 # ╔═╡ Cell order:
 # ╟─1784c510-5465-11ec-0dd1-13e5a66e4ce6
 # ╠═d090131e-6602-4c03-860c-ad3cb6c7844a
-# ╠═e6231a0b-9b13-4c9c-ae6c-950acec3beef
 # ╠═0a6fe423-c3be-4a75-aa27-dfb84fde7fef
 # ╠═3e7c36ca-8345-40fb-b199-34fe49dea73e
 # ╠═4745788b-d360-4305-b44b-8d0fca2aeb4f
