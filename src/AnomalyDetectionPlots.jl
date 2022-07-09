@@ -380,7 +380,7 @@ function viz_sensorδ_waterσ_grid(σ_H₂Os::Vector{Float64},
 				(ν_opt, γ_opt), _ = AnomalyDetection.bayes_validation(data.X_train_scaled)
 			elseif validation_method == "knee"
 				K            = trunc(Int, num_normal_train*0.05)
-				ν_opt, γ_opt = opt_ν_γ_by_density_measure_method(data.X_train_scaled, K)
+				ν_opt, γ_opt = AnomalyDetection.opt_ν_γ_by_density_measure_method(data.X_train_scaled, K)
 			end
 
 			svm      = AnomalyDetection.train_anomaly_detector(data.X_train_scaled, ν_opt, γ_opt)
