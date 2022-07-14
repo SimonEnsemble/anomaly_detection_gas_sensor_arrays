@@ -124,28 +124,287 @@ end
 
 # ╔═╡ 2cf7c5dd-5221-4f0e-bf66-b8c054b479f7
 # medium error and water variance
-AnomalyDetectionPlots.viz_νγ_opt_heatmap(σ_H₂O, σ_m)
+#AnomalyDetectionPlots.viz_νγ_opt_heatmap(σ_H₂O, σ_m)
 
 # ╔═╡ 30c8a41d-a1e3-4615-b6f0-69dce2a993c2
 # 0 sensor error and 0 water variance
-AnomalyDetectionPlots.viz_νγ_opt_heatmap(0.0, 0.0)
+#AnomalyDetectionPlots.viz_νγ_opt_heatmap(0.0, 0.0)
 
 # ╔═╡ 18c79b10-6607-401d-8154-6b2e8f179249
 # high sensor error and water variance
-AnomalyDetectionPlots.viz_νγ_opt_heatmap(0.05, 0.0005)
+#AnomalyDetectionPlots.viz_νγ_opt_heatmap(0.05, 0.0005)
+
+# ╔═╡ bfd5e45f-565c-4da7-b66e-194ff368a75f
+(size([1, 2, 3], 1))
+
+# ╔═╡ dc2de3f2-ed51-4c4e-971e-ba01bef1d3ac
+function viz_sensorδ_waterσ_grid(σ_H₂Os::Vector{Float64}, 
+								 σ_ms::Vector{Float64},
+								 num_normal_train::Int64,
+								 num_anomaly_train::Int64,
+								 num_normal_test::Int64,
+								 num_anomaly_test::Int64; 
+								 validation_method::String="hypersphere")
+	
+	@assert validation_method=="hypersphere" || validation_method=="knee"
+
+	#number of iterations to find median plot
+
+	#establish axes and figs for 9x9 grid
+	fig  = Figure(resolution = (2400, 1200))
+	axes = [Axis(fig[i, j]) for i in 1:3, j in 1:3]
+	figs = [fig[i, j] for i in 1:3, j in 1:3]
+
+	#top sensor error labels σ_m
+	for (label, layout) in zip(["σₘ=$(σ_ms[1])","σₘ=$(σ_ms[2])", "σₘ=$(σ_ms[3])"], figs[1, 1:3])
+    Label(layout[1, 1, Top()], 
+		  label,
+          textsize = 40,
+          padding = (0, -385, 25, 0),
+		  halign = :center)
+	end
+
+	#left water variance labels σ_H₂O
+	for (label, layout) in zip(["σH₂O=$(σ_H₂Os[1])","σH₂O=$(σ_H₂Os[2])", "σH₂O=$(σ_H₂Os[3])"], figs[1:3, 1])
+	Label(layout[1, 1, Left()], 
+	  	  label,
+		  textsize = 40,
+	  	  padding = (0, 25, 0, 0),
+	  	  valign = :center,
+	  	  rotation = pi/2)
+	end
+
+	#create test data and find max/min for plots
+	data_set_test = Dict()
+
+	zif71_lims_high_σ = [Inf, 0]
+	zif8_lims_high_σ  = [Inf, 0]
+
+	zif71_lims_low_σ = [Inf, 0]
+	zif8_lims_low_σ  = [Inf, 0]
+
+	num_runs = 100
+	@assert num_runs%2 == 0
+	plot_data_storage = zeros(length(σ_H₂Os), length(σ_H₂Os), num_runs)
+	plot_data_storage = convert(Array{Any, 3}, plot_data_storage)
+
+	for (i, σ_H₂O) in enumerate(σ_H₂Os)
+		for (j, σ_m) in enumerate(σ_ms)
+		
+			for k = 1:num_runs
+				
+			data_set_test[[i, j]] = SyntheticDataGen.gen_data(num_normal_test, num_anomaly_test, σ_H₂O, σ_m)
+
+			plot_data_storage[i, j, k] = Dict{String, Any}("data_test" => data_set_test)
+				#low variance
+				if (i < 3) && (j < 3)
+					zif71_lims_low_σ = [minimum([minimum(data_set_test[[i, j]][:, "m ZIF-71 [g/g]"]), 
+												 zif71_lims_low_σ[1]]),
+										maximum([maximum(data_set_test[[i, j]][:, "m ZIF-71 [g/g]"]), 
+												 zif71_lims_low_σ[2]])]
+					zif8_lims_low_σ  = [minimum([minimum(data_set_test[[i, j]][:, "m ZIF-8 [g/g]"]), 
+												 zif8_lims_low_σ[1]]),
+										maximum([maximum(data_set_test[[i, j]][:, "m ZIF-8 [g/g]"]), 
+												 zif8_lims_low_σ[2]])]
+						zif71_lims_low_σ  = [0.98 * zif71_lims_low_σ[1], 1.02 * zif71_lims_low_σ[2]]
+						zif8_lims_low_σ   = [0.98 * zif8_lims_low_σ[1], 1.02 * zif8_lims_low_σ[2]]
+					plot_data_storage[i, j, k]["zif71_lims"] = zif71_lims_low_σ
+					plot_data_storage[i, j, k]["zif8_lims"] = zif8_lims_low_σ
+				#high variance
+				else
+					zif71_lims_high_σ = [minimum([minimum(data_set_test[[i, j]][:, "m ZIF-71 [g/g]"]), 
+												  zif71_lims_high_σ[1]]),
+										 maximum([maximum(data_set_test[[i, j]][:, "m ZIF-71 [g/g]"]), 
+												  zif71_lims_high_σ[2]])]
+					zif8_lims_high_σ  = [minimum([minimum(data_set_test[[i, j]][:, "m ZIF-8 [g/g]"]), 
+												  zif8_lims_high_σ[1]]),
+										 maximum([maximum(data_set_test[[i, j]][:, "m ZIF-8 [g/g]"]), 
+												  zif8_lims_high_σ[2]])]
+						zif71_lims_high_σ = [0.98 * zif71_lims_high_σ[1], 1.02 * zif71_lims_high_σ[2]]
+						zif8_lims_high_σ  = [0.98 * zif8_lims_high_σ[1], 1.02 * zif8_lims_high_σ[2]]
+					plot_data_storage[i, j, k]["zif71_lims"] = zif71_lims_high_σ
+					plot_data_storage[i, j, k]["zif8_lims"] = zif8_lims_high_σ
+				end
+			end
+		end
+	end
+
+
+
+	for (i, σ_H₂O) in enumerate(σ_H₂Os)
+		for (j, σ_m) in enumerate(σ_ms)
+			
+
+			
+			for k = 1:num_runs
+				#generate test and training data, feature vectors, target vectors and standard scaler
+				data = AnomalyDetection.setup_dataset(num_normal_train, num_anomaly_train, num_normal_test, num_anomaly_test, σ_H₂O, σ_m)
+				plot_data_storage[i, j, k]["data"] = data
+	
+					
+	
+				#optimize hyperparameters and determine f1score
+				if validation_method == "hypersphere"
+					(ν_opt, γ_opt), _ = AnomalyDetection.bayes_validation(data.X_train_scaled)
+				elseif validation_method == "knee"
+					K            = trunc(Int, num_normal_train*0.05)
+					ν_opt, γ_opt = AnomalyDetection.opt_ν_γ_by_density_measure_method(data.X_train_scaled, K)
+				end
+	
+				svm      = AnomalyDetection.train_anomaly_detector(data.X_train_scaled, ν_opt, γ_opt)
+				y_pred 	 = svm.predict(data.X_test_scaled)
+				f1_score = AnomalyDetection.performance_metric(data.y_test, y_pred)
+				f1_score = AnomalyDetectionPlots.truncate(f1_score, 2)
+				
+				plot_data_storage[i, j, k]["f1_score"] = f1_score
+				plot_data_storage[i, j, k]["svm"] = svm
+			end
+
+			#sort the plot data storage by f1score and identify median data
+			plot_data_storage[i, j, :] = plot_data_storage[i, j, sortperm([plot_data_storage[i, j, k]["f1_score"] for k=1:size(plot_data_storage, 3)])]
+
+			median_data = plot_data_storage[i, j, trunc(Int, num_runs/2)]
+
+			#draw a background box colored according to f1score
+			fig[i, j] = Box(fig, color = (ColorSchemes.RdYlGn_4[median_data["f1_score"]], 0.7))
+			axes[i, j].title = "f1 score = $(median_data["f1_score"])"
+			hidedecorations!(axes[i, j])
+
+			#scatter and contour plot position LEFT
+			pos = fig[i, j][1, 1] 
+			
+			ax = Axis(fig[i, j][1, 1], 
+					  xlabel    = "m, " * mofs[1] * " [g/g]",
+					  ylabel    = "m, " * mofs[2] * " [g/g]",
+					  aspect    = 1,
+					  xticks    = LinearTicks(3),
+					  yticks    = LinearTicks(3),
+					  alignmode = Outside(10))
+
+	  
+			AnomalyDetectionPlots.viz_decision_boundary!(ax, 
+								   median_data["svm"], 
+								   median_data["data"].scaler, 
+								   median_data["data_test"][[i, j]], 
+								   median_data["zif71_lims"], 
+								   median_data["zif8_lims"], 
+								   incl_legend=false)
+
+			#confusion matrix position RIGHT
+			pos = fig[i, j][1, 2] 
+
+			all_labels = SyntheticDataGen.viable_labels
+			n_labels   = length(all_labels)
+
+			cm = AnomalyDetectionPlots.generate_cm(median_data["svm"], median_data["data_test"][[i, j]], median_data["data"].scaler, all_labels)
+
+			ax = Axis(fig[i, j][1, 2],
+			  	 	  xticks=([1, 2], ["anomalous", "normal"]),
+			  		  yticks=([i for i=1:n_labels], all_labels),
+			  		  xticklabelrotation=45.0,
+			  		  ylabel="truth",
+			  		  xlabel="prediction",
+			  		  alignmode = Outside())
+
+			@assert SyntheticDataGen.viable_labels[1] == "normal"
+
+			# anomalies
+			heatmap!(1:2, 
+					 2:n_labels, 
+					 cm[:, 2:end], 
+					 colormap=ColorSchemes.amp, 
+					 colorrange=(0, maximum(cm[:, 2:end])))
+			
+			# normal data
+			heatmap!(1:2, 
+					 1:1, 
+					 reshape(cm[:, 1], (2, 1)), 
+					 colormap=ColorSchemes.algae, 
+					 colorrange=(0, maximum(cm[:, 1])))
+			
+			for i = 1:2
+				for j = 1:length(all_labels)
+					text!("$(cm[i, j])",
+						  position=(i, j), 
+						  align=(:center, :center), 
+						  color=cm[i, j] > sum(cm[:, j]) / 2 ? :white : :black)
+				end
+			end
+		end
+	end
+
+	if validation_method == "hypersphere"
+		save("sensor_error_&_H2O_variance_plot_hypersphere.pdf", fig)
+	elseif validation_method == "knee"
+		save("sensor_error_&_H2O_variance_plot_knee.pdf", fig)
+	end
+	fig
+end
+
+# ╔═╡ 88447ed6-4851-40af-97ee-cd976af73065
+10%2
+
+# ╔═╡ fe06326f-fbd2-4535-8523-aa8de0e94a4a
+begin
+cab = zeros(1, 2, 3)
+size(cab, 2)
+end
+
+# ╔═╡ 4bd5a802-f537-439e-bbe9-7f048ce9c8d9
+begin
+a = [1, 2, 5, 3]
+a[sortperm(a)]
+end
+
+# ╔═╡ 8977ede1-b778-4058-a93e-8d3e51b6b7aa
+begin
+blablabla::Vector{Any} = zeros(2)
+foo = zeros(2, 3, 4)
+foo = convert(Array{Any, 3}, foo)
+end
+
+# ╔═╡ 30436512-5b9e-4233-bdad-20dc6e00939b
+typeof(foo)
+
+# ╔═╡ ab0ca4ab-8c63-4bcb-933a-2f0ac6fbe7af
+begin
+foo[1, 2, 3] =  Dict("x" => 5.0)
+	
+end
+
+# ╔═╡ 23278f42-d44e-4dc3-9b35-87691374499a
+foo[1, 2, 4] = Dict("x" => 2.0)
+
+# ╔═╡ ca8ddd47-a313-4200-99a7-2fdc4345f9d4
+foo[1, 2, 2] = Dict("x" => 1.0)
+
+# ╔═╡ e30e2d1c-d10c-4d48-9c34-b296ec982dd2
+foo[1, 2, 1] = Dict("x" => 55.0)
+
+# ╔═╡ 79c1a744-a362-4292-ae53-cec84d81a51c
+foo[1, 1, 2] = 61
+
+# ╔═╡ 4a405509-67fc-450a-be06-cefa13849d9e
+foo
+
+# ╔═╡ 64cee65d-9142-4c24-9abb-4740cea60d4c
+			foo[1, 2, :] = foo[1, 2, sortperm([foo[1, 2, k]["x"] for k=1:size(foo, 3)])]
+
+# ╔═╡ e7d4b531-de52-4667-8ec0-1d682595aec8
+foo
 
 # ╔═╡ 4b1759a7-eba1-4de5-8d6a-38106f3301c9
 begin
 	#visualization of the effects of sensor error and water vapor variance
 	σ_H₂O_vector = [0.0, 0.005, 0.05]
 	σ_m_vector   = [0.0, 0.00005, 0.0005]
-	AnomalyDetectionPlots.viz_sensorδ_waterσ_grid(σ_H₂O_vector, 
-											 σ_m_vector,
-											 num_normal_train_points,
-											 num_anomaly_train_points,
-											 num_normal_test_points,
-											 num_anomaly_test_points,
-											 validation_method="hypersphere")
+	viz_sensorδ_waterσ_grid(σ_H₂O_vector, 
+							 σ_m_vector,
+							 num_normal_train_points,
+							 num_anomaly_train_points,
+							 num_normal_test_points,
+							 num_anomaly_test_points,
+							 validation_method="hypersphere")
 end
 
 # ╔═╡ 51b0ebd4-1dec-4b35-bb15-cd3df906aca3
@@ -212,10 +471,14 @@ AnomalyDetectionPlots.viz_f1_score_heatmap(0.05, 0.0001, res=10, validation_meth
 #AnomalyDetection.viz_f1_score_heatmap(0.05, 0.0001, res=10, validation_method="hypersphere", λ=0.1)
 
 # ╔═╡ 00d90c63-6f3e-4906-ad35-ba999439e253
+#=
 AnomalyDetectionPlots.viz_f1_score_heatmap(0.05, 0.0001, res=10, validation_method="hypersphere",hyperparameter_method="bayesian", λ=0.5)
+=#
 
 # ╔═╡ e6bdf599-e022-475d-b119-ded006d43774
+#=
 AnomalyDetectionPlots.viz_f1_score_heatmap(0.05, 0.0001, res=10, validation_method="hypersphere",hyperparameter_method="grid", λ=0.5)
+=#
 
 # ╔═╡ 3aab547c-8b00-48da-aa8e-3d51e804c5df
 md"!!! example \"\" 
@@ -1609,6 +1872,21 @@ version = "3.5.0+0"
 # ╠═2cf7c5dd-5221-4f0e-bf66-b8c054b479f7
 # ╠═30c8a41d-a1e3-4615-b6f0-69dce2a993c2
 # ╠═18c79b10-6607-401d-8154-6b2e8f179249
+# ╠═bfd5e45f-565c-4da7-b66e-194ff368a75f
+# ╠═dc2de3f2-ed51-4c4e-971e-ba01bef1d3ac
+# ╠═88447ed6-4851-40af-97ee-cd976af73065
+# ╠═fe06326f-fbd2-4535-8523-aa8de0e94a4a
+# ╠═4bd5a802-f537-439e-bbe9-7f048ce9c8d9
+# ╠═8977ede1-b778-4058-a93e-8d3e51b6b7aa
+# ╠═30436512-5b9e-4233-bdad-20dc6e00939b
+# ╠═ab0ca4ab-8c63-4bcb-933a-2f0ac6fbe7af
+# ╠═23278f42-d44e-4dc3-9b35-87691374499a
+# ╠═ca8ddd47-a313-4200-99a7-2fdc4345f9d4
+# ╠═e30e2d1c-d10c-4d48-9c34-b296ec982dd2
+# ╠═79c1a744-a362-4292-ae53-cec84d81a51c
+# ╠═4a405509-67fc-450a-be06-cefa13849d9e
+# ╠═64cee65d-9142-4c24-9abb-4740cea60d4c
+# ╠═e7d4b531-de52-4667-8ec0-1d682595aec8
 # ╠═4b1759a7-eba1-4de5-8d6a-38106f3301c9
 # ╟─51b0ebd4-1dec-4b35-bb15-cd3df906aca3
 # ╠═6ceab194-4861-4be1-901c-6713db5a4204
