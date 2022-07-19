@@ -292,122 +292,149 @@ end
 vizualizes effects of water variance and sensor error using validation:
 method 1: hypersphere
 method 2: knee
+
+num_runs: number of iterations to run each plot then sort by f1 score,
+the median plot is selected for display
 """
 function viz_sensorδ_waterσ_grid(σ_H₂Os::Vector{Float64}, 
-								 σ_ms::Vector{Float64},
-								 num_normal_train::Int64,
-								 num_anomaly_train::Int64,
-								 num_normal_test::Int64,
-								 num_anomaly_test::Int64; 
-								 validation_method::String="hypersphere")
+								σ_ms::Vector{Float64},
+								num_normal_train::Int64,
+								num_anomaly_train::Int64,
+								num_normal_test::Int64,
+								num_anomaly_test::Int64; 
+								validation_method::String="hypersphere";
+								num_runs::Int=100)
+
 	@assert validation_method=="hypersphere" || validation_method=="knee"
 
-	#establish axes and figs for 9x9 grid
+#establish axes and figs for 9x9 grid
 	fig  = Figure(resolution = (2400, 1200))
 	axes = [Axis(fig[i, j]) for i in 1:3, j in 1:3]
 	figs = [fig[i, j] for i in 1:3, j in 1:3]
 
-	#top sensor error labels σ_m
+#top sensor error labels σ_m
 	for (label, layout) in zip(["σₘ=$(σ_ms[1])","σₘ=$(σ_ms[2])", "σₘ=$(σ_ms[3])"], figs[1, 1:3])
-    Label(layout[1, 1, Top()], 
-		  label,
-          textsize = 40,
-          padding = (0, -385, 25, 0),
-		  halign = :center)
+		Label(layout[1, 1, Top()], 
+			 label,
+			 textsize = 40,
+			 padding = (0, -385, 25, 0),
+			 halign = :center)
 	end
 
-	#left water variance labels σ_H₂O
+#left water variance labels σ_H₂O
 	for (label, layout) in zip(["σH₂O=$(σ_H₂Os[1])","σH₂O=$(σ_H₂Os[2])", "σH₂O=$(σ_H₂Os[3])"], figs[1:3, 1])
-	Label(layout[1, 1, Left()], 
-	  	  label,
-		  textsize = 40,
-	  	  padding = (0, 25, 0, 0),
-	  	  valign = :center,
-	  	  rotation = pi/2)
+		Label(layout[1, 1, Left()], 
+			 label,
+			 textsize = 40,
+			 padding = (0, 25, 0, 0),
+			 valign = :center,
+			 rotation = pi/2)
 	end
 
-		#create test data and find max/min for plots
-		data_set_test = Dict()
+#create test data and find max/min for plots
+	data_set_test = Dict()
 
-		zif71_lims_high_σ = [Inf, 0]
-		zif8_lims_high_σ  = [Inf, 0]
+	zif71_lims_high_σ = [Inf, 0]
+	zif8_lims_high_σ  = [Inf, 0]
 
-		zif71_lims_low_σ = [Inf, 0]
-		zif8_lims_low_σ  = [Inf, 0]
+	zif71_lims_low_σ = [Inf, 0]
+	zif8_lims_low_σ  = [Inf, 0]
 
-		for (i, σ_H₂O) in enumerate(σ_H₂Os)
-			for (j, σ_m) in enumerate(σ_ms)
-				data_set_test[[i, j]] = SyntheticDataGen.gen_data(num_normal_test, num_anomaly_test, σ_H₂O, σ_m)
-					#low variance
-					if (i < 3) && (j < 3)
-						zif71_lims_low_σ = [minimum([minimum(data_set_test[[i, j]][:, "m ZIF-71 [g/g]"]), 
-													 zif71_lims_low_σ[1]]),
-											maximum([maximum(data_set_test[[i, j]][:, "m ZIF-71 [g/g]"]), 
-												     zif71_lims_low_σ[2]])]
-						zif8_lims_low_σ  = [minimum([minimum(data_set_test[[i, j]][:, "m ZIF-8 [g/g]"]), 
-													 zif8_lims_low_σ[1]]),
-											maximum([maximum(data_set_test[[i, j]][:, "m ZIF-8 [g/g]"]), 
-													 zif8_lims_low_σ[2]])]
-					#high variance
-					else
-						zif71_lims_high_σ = [minimum([minimum(data_set_test[[i, j]][:, "m ZIF-71 [g/g]"]), 
-													  zif71_lims_high_σ[1]]),
-											 maximum([maximum(data_set_test[[i, j]][:, "m ZIF-71 [g/g]"]), 
-													  zif71_lims_high_σ[2]])]
-						zif8_lims_high_σ  = [minimum([minimum(data_set_test[[i, j]][:, "m ZIF-8 [g/g]"]), 
-												      zif8_lims_high_σ[1]]),
-											 maximum([maximum(data_set_test[[i, j]][:, "m ZIF-8 [g/g]"]), 
-													  zif8_lims_high_σ[2]])]
-					end
-			end
-		end
-
-		zif71_lims_low_σ  = [0.98 * zif71_lims_low_σ[1], 1.02 * zif71_lims_low_σ[2]]
-		zif8_lims_low_σ   = [0.98 * zif8_lims_low_σ[1], 1.02 * zif8_lims_low_σ[2]]
-		zif71_lims_high_σ = [0.98 * zif71_lims_high_σ[1], 1.02 * zif71_lims_high_σ[2]]
-		zif8_lims_high_σ  = [0.98 * zif8_lims_high_σ[1], 1.02 * zif8_lims_high_σ[2]]
-
-
+	@assert num_runs%2 == 0
+	plot_data_storage = zeros(length(σ_H₂Os), length(σ_H₂Os), num_runs)
+	plot_data_storage = convert(Array{Any, 3}, plot_data_storage)
 
 	for (i, σ_H₂O) in enumerate(σ_H₂Os)
 		for (j, σ_m) in enumerate(σ_ms)
+			for k = 1:num_runs
 
-			#generate test and training data, feature vectors, target vectors and standard scaler
-			data = AnomalyDetection.setup_dataset(num_normal_train, num_anomaly_train, num_normal_test, num_anomaly_test, σ_H₂O, σ_m)
+				plot_data_storage[i, j, k] = Dict{String, Any}("data_test" => SyntheticDataGen.gen_data(num_normal_test, num_anomaly_test, σ_H₂O, σ_m))
 
-			#optimize hyperparameters and determine f1score
-			if validation_method == "hypersphere"
-				(ν_opt, γ_opt), _ = AnomalyDetection.bayes_validation(data.X_train_scaled)
-			elseif validation_method == "knee"
-				K            = trunc(Int, num_normal_train*0.05)
-				ν_opt, γ_opt = AnomalyDetection.opt_ν_γ_by_density_measure_method(data.X_train_scaled, K)
+				#generate test and training data, feature vectors, target vectors and standard scaler
+				data = AnomalyDetection.setup_dataset(
+					num_normal_train, num_anomaly_train, num_normal_test, num_anomaly_test, σ_H₂O, σ_m)
+				plot_data_storage[i, j, k]["data"] = data
+
+				#optimize hyperparameters and determine f1score
+				if validation_method == "hypersphere"
+					(ν_opt, γ_opt), _ = AnomalyDetection.bayes_validation(data.X_train_scaled)
+				elseif validation_method == "knee"
+					K            = trunc(Int, num_normal_train*0.05)
+					ν_opt, γ_opt = AnomalyDetection.opt_ν_γ_by_density_measure_method(data.X_train_scaled, K)
+				end
+
+				svm      = AnomalyDetection.train_anomaly_detector(data.X_train_scaled, ν_opt, γ_opt)
+				y_pred 	 = svm.predict(data.X_test_scaled)
+				f1_score = AnomalyDetection.performance_metric(data.y_test, y_pred)
+				f1_score = truncate(f1_score, 2)
+
+				plot_data_storage[i, j, k]["f1_score"] = f1_score
+				plot_data_storage[i, j, k]["svm"] = svm
 			end
 
-			svm      = AnomalyDetection.train_anomaly_detector(data.X_train_scaled, ν_opt, γ_opt)
-			y_pred 	 = svm.predict(data.X_test_scaled)
-			f1_score = AnomalyDetection.performance_metric(data.y_test, y_pred)
-			f1_score = truncate(f1_score, 2)
+			#sort the plot data storage by f1score and identify median data
+			plot_data_storage[i, j, :] = plot_data_storage[i, j, sortperm([plot_data_storage[i, j, k]["f1_score"] for k=1:size(plot_data_storage, 3)])]
+		end
+	end
 
-			#draw a background box colored according to f1score
-			fig[i, j]        = Box(fig, color = (ColorSchemes.RdYlGn_4[f1_score], 0.7))
-			axes[i, j].title = "f1 score = $(f1_score)"
+#This piece identifies the boundaries for the median plot
+	for (i, σ_H₂O) in enumerate(σ_H₂Os)
+		for (j, σ_m) in enumerate(σ_ms)
+
+			#low variance
+			if (i < 3) && (j < 3)
+			zif71_lims_low_σ = [minimum([minimum(plot_data_storage[i, j, trunc(Int, num_runs/2)]["data_test"][:, "m ZIF-71 [g/g]"]), zif71_lims_low_σ[1]]), 
+					maximum([maximum(plot_data_storage[i, j, trunc(Int, num_runs/2)]["data_test"][:, "m ZIF-71 [g/g]"]), zif71_lims_low_σ[2]])]
+
+			zif8_lims_low_σ  = [minimum([minimum(plot_data_storage[i, j, trunc(Int, num_runs/2)]["data_test"][:, "m ZIF-8 [g/g]"]), zif8_lims_low_σ[1]]), 
+					maximum([maximum(plot_data_storage[i, j, trunc(Int, num_runs/2)]["data_test"][:, "m ZIF-8 [g/g]"]), zif8_lims_low_σ[2]])]
+
+			#high variance
+			else
+			zif71_lims_high_σ = [minimum([minimum(plot_data_storage[i, j, trunc(Int, num_runs/2)]["data_test"][:, "m ZIF-71 [g/g]"]), zif71_lims_high_σ[1]]), 
+					maximum([maximum(plot_data_storage[i, j, trunc(Int, num_runs/2)]["data_test"][:, "m ZIF-71 [g/g]"]), zif71_lims_high_σ[2]])]
+
+			zif8_lims_high_σ  = [minimum([minimum(plot_data_storage[i, j, trunc(Int, num_runs/2)]["data_test"][:, "m ZIF-8 [g/g]"]), zif8_lims_high_σ[1]]), 
+					maximum([maximum(plot_data_storage[i, j, trunc(Int, num_runs/2)]["data_test"][:, "m ZIF-8 [g/g]"]), zif8_lims_high_σ[2]])]
+			end
+		end
+	end
+
+#Set boundaries to be 2% outside min and max data
+	zif71_lims_low_σ  = [0.98 * zif71_lims_low_σ[1], 1.02 * zif71_lims_low_σ[2]]
+	zif8_lims_low_σ   = [0.98 * zif8_lims_low_σ[1], 1.02 * zif8_lims_low_σ[2]]
+
+	zif71_lims_high_σ = [0.98 * zif71_lims_high_σ[1], 1.02 * zif71_lims_high_σ[2]]
+	zif8_lims_high_σ  = [0.98 * zif8_lims_high_σ[1], 1.02 * zif8_lims_high_σ[2]]
+
+#Store the new boundaries to be used in the plots later
+	for (i, σ_H₂O) in enumerate(σ_H₂Os)
+		for (j, σ_m) in enumerate(σ_ms)
+			if (i < 3) && (j < 3)
+			plot_data_storage[i, j, trunc(Int, num_runs/2)]["zif71_lims"] = zif71_lims_low_σ
+			plot_data_storage[i, j, trunc(Int, num_runs/2)]["zif8_lims"]  = zif8_lims_low_σ
+			else
+			plot_data_storage[i, j, trunc(Int, num_runs/2)]["zif71_lims"] = zif71_lims_high_σ
+			plot_data_storage[i, j, trunc(Int, num_runs/2)]["zif8_lims"]  = zif8_lims_high_σ
+			end
+		end
+	end
+
+#Plot the median data, contour, confusion matrix for each water variance and sensor error value
+	for (i, σ_H₂O) in enumerate(σ_H₂Os)
+		for (j, σ_m) in enumerate(σ_ms)
+
+#identify median data set as the third dim index num_runs/2
+			median_data = plot_data_storage[i, j, trunc(Int, num_runs/2)]
+
+#draw a background box colored according to f1score
+			fig[i, j]        = Box(fig, color = (ColorSchemes.RdYlGn_4[median_data["f1_score"]], 0.7))
+			axes[i, j].title = "f1 score = $(median_data["f1_score"])"
 			hidedecorations!(axes[i, j])
 
-			#scatter and contour plot position LEFT
+#scatter and contour plot position LEFT
 			pos = fig[i, j][1, 1] 
-			
-			#set x and y limits on contour plot
-			#low variance data i&&j <= 2
-			if i <=2 && j <= 2
-				zif71_lims = zif71_lims_low_σ
-				zif8_lims  = zif8_lims_low_σ
-			#high variance data i||j > 2
-			else
-				zif71_lims = zif71_lims_high_σ
-				zif8_lims  = zif8_lims_high_σ
-			end
-			
-			ax = Axis(fig[i, j][1, 1], 
+			ax  = Axis(fig[i, j][1, 1], 
 					  xlabel    = "m, " * mofs[1] * " [g/g]",
 					  ylabel    = "m, " * mofs[2] * " [g/g]",
 					  aspect    = 1,
@@ -415,63 +442,68 @@ function viz_sensorδ_waterσ_grid(σ_H₂Os::Vector{Float64},
 					  yticks    = LinearTicks(3),
 					  alignmode = Outside(10))
 
-	  
+
 			viz_decision_boundary!(ax, 
-								   svm, 
-								   data.scaler, 
-								   data_set_test[[i, j]], 
-								   zif71_lims, 
-								   zif8_lims, 
-								   incl_legend=false)
+								  median_data["svm"], 
+								  median_data["data"].scaler, 
+								  median_data["data_test"], 
+								  median_data["zif71_lims"], 
+								  median_data["zif8_lims"], 
+								  incl_legend=false)
 
-			#confusion matrix position RIGHT
-			pos = fig[i, j][1, 2] 
-
+#confusion matrix position RIGHT
+			pos 	   = fig[i, j][1, 2] 
 			all_labels = SyntheticDataGen.viable_labels
 			n_labels   = length(all_labels)
 
-			cm = generate_cm(svm, data_set_test[[i, j]], data.scaler, all_labels)
+			cm = generate_cm(median_data["svm"], 
+							median_data["data_test"], 
+							median_data["data"].scaler, 
+							all_labels)
 
 			ax = Axis(fig[i, j][1, 2],
-			  	 	  xticks=([1, 2], ["anomalous", "normal"]),
-			  		  yticks=([i for i=1:n_labels], all_labels),
-			  		  xticklabelrotation=45.0,
-			  		  ylabel="truth",
-			  		  xlabel="prediction",
-			  		  alignmode = Outside())
+					 xticks=([1, 2], ["anomalous", "normal"]),
+					 yticks=([i for i=1:n_labels], all_labels),
+					 xticklabelrotation=45.0,
+					 ylabel="truth",
+					 xlabel="prediction",
+					 alignmode = Outside())
 
 			@assert SyntheticDataGen.viable_labels[1] == "normal"
 
-			# anomalies
+#Plot cm colors anomalies
 			heatmap!(1:2, 
-					 2:n_labels, 
-					 cm[:, 2:end], 
-					 colormap=ColorSchemes.amp, 
-					 colorrange=(0, maximum(cm[:, 2:end])))
-			
-			# normal data
+					2:n_labels, 
+					cm[:, 2:end], 
+					colormap=ColorSchemes.amp, 
+					colorrange=(0, maximum(cm[:, 2:end])))
+
+#Plot cm colors normal data
 			heatmap!(1:2, 
-					 1:1, 
-					 reshape(cm[:, 1], (2, 1)), 
-					 colormap=ColorSchemes.algae, 
-					 colorrange=(0, maximum(cm[:, 1])))
-			
+					1:1, 
+					reshape(cm[:, 1], (2, 1)), 
+					colormap=ColorSchemes.algae, 
+					colorrange=(0, maximum(cm[:, 1])))
+
 			for i = 1:2
 				for j = 1:length(all_labels)
 					text!("$(cm[i, j])",
-						  position=(i, j), 
-						  align=(:center, :center), 
-						  color=cm[i, j] > sum(cm[:, j]) / 2 ? :white : :black)
+						 position=(i, j), 
+						 align=(:center, :center), 
+						 color=cm[i, j] > sum(cm[:, j]) / 2 ? :white : :black)
 				end
 			end
 		end
 	end
 
+#Save finished 3x3 plot
 	if validation_method == "hypersphere"
 		save("sensor_error_&_H2O_variance_plot_hypersphere.pdf", fig)
 	elseif validation_method == "knee"
 		save("sensor_error_&_H2O_variance_plot_knee.pdf", fig)
 	end
+
+#Display finished 3x3 plot
 	fig
 end
 
