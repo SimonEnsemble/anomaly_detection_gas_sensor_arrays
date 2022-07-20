@@ -96,7 +96,7 @@ function bayes_validation(X_train_scaled::Matrix{Float64};
 
 	R_sphere = maximum([norm(x) for x in eachrow(X_train_scaled)])
 	X_sphere = AnomalyDetection.generate_uniform_vectors_in_hypersphere(num_outliers, R_sphere)
-	plot_data::Vector{Tuple{Float64, Float64}} = []
+	plot_data::Vector{Tuple{Float64, Float64, Float64}} = []
 
 	#nested function used by BayesSearchCV as a scoring method, the return is maximized
 	function bayes_objective_function(svm, X, _)
@@ -108,7 +108,11 @@ function bayes_validation(X_train_scaled::Matrix{Float64};
 		num_inside 		= sum(y_sphere_pred .== 1)
 		fraction_inside = num_inside / length(y_sphere_pred)
 
-		push!(plot_data, (svm.nu, svm.gamma))
+		#error function
+		Λ = λ * fraction_svs + (1 - λ) * fraction_inside
+
+		#push data needed for plot
+		push!(plot_data, (svm.nu, svm.gamma, Λ))
 
 		#debuging code
 		#=
@@ -122,7 +126,7 @@ function bayes_validation(X_train_scaled::Matrix{Float64};
 
 		#the objective function is maximized so,
 		#in order to minimize the error function, make error negative.
-		return -(λ * fraction_svs + (1 - λ) * fraction_inside)
+		return -Λ
 	end
 
 	params = Dict("nu" => ν_space, "gamma" => γ_space)
@@ -182,7 +186,44 @@ AnomalyDetectionPlots.viz_decision_boundary(svm, data_set.scaler, data_set.data_
 AnomalyDetectionPlots.viz_synthetic_anomaly_hypersphere(X_sphere, data_set.X_train_scaled)
 
 # ╔═╡ 2a5ed74b-3fb4-4e6e-95ce-87cff112ac0d
+function viz_bayes_values(plot_data::Vector{Tuple{Float64, Float64, Float64}})
+    fig = Figure()
+    ax = Axis(fig[1, 1], ylabel="γ", xlabel="ν")
 
+	#unpack data
+	num_data = length(plot_data)
+	νs = [plot_data[i][1] for i=1:num_data]
+	γs = [plot_data[i][2] for i=1:num_data]
+	Λs = [plot_data[i][3] for i=1:num_data]
+	Λs_norm = [(Λs[i]-minimum(Λs))/(maximum(Λs)-minimum(Λs)) for i=1:num_data]
+	marker_size = [20*ones(num_data)[i]*Λs_norm[i] for i=1:num_data]
+	colors = [ColorSchemes.RdYlGn_4[Λs_norm[i]] for i=1:num_data]
+
+	scatterlines!(νs, γs, color=colors, markersize=marker_size)
+
+    return fig
+end
+
+# ╔═╡ ddf71830-b39a-4153-b747-074069eea84c
+viz_bayes_values(validation_steps)
+
+# ╔═╡ 0efc7511-b0a1-4fab-9428-465f5d3d5a3e
+5*ones(5)
+
+# ╔═╡ 6776ad06-2424-472a-9541-7e90e87633d4
+begin
+
+rrr = [0.1, 0.3, 0.5, 0.9, 1.45, 2.99]
+
+	
+ColorSchemes.RdYlGn_4[0.9]
+end
+
+# ╔═╡ 630f56e4-ef61-48b5-883b-9737df8ab3de
+
+
+# ╔═╡ 11dc3b63-1e54-4ded-96df-d45d9ab4fe3d
+rrr1 = [(rrr[i] - minimum(rrr))/(maximum(rrr) - minimum(rrr)) for i=1:length(rrr)]
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -1570,5 +1611,10 @@ version = "3.5.0+0"
 # ╠═db6d89d2-d7e1-428b-87a9-8eed1eea4850
 # ╠═aef2a4b8-f306-4e9c-9d83-ef951bc514f2
 # ╠═2a5ed74b-3fb4-4e6e-95ce-87cff112ac0d
+# ╠═ddf71830-b39a-4153-b747-074069eea84c
+# ╠═0efc7511-b0a1-4fab-9428-465f5d3d5a3e
+# ╠═6776ad06-2424-472a-9541-7e90e87633d4
+# ╠═630f56e4-ef61-48b5-883b-9737df8ab3de
+# ╠═11dc3b63-1e54-4ded-96df-d45d9ab4fe3d
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

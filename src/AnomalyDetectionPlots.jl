@@ -57,6 +57,29 @@ optimize ν, γ via synthetic anomaly hypersphere
 """
 
 """
+visualizes the progression of bayesian optimization of
+hyperparameters ν and γ colored and sized according to the error function.
+"""
+function viz_bayes_values(plot_data::Vector{Tuple{Float64, Float64, Float64}})
+    fig = Figure()
+    ax = Axis(fig[1, 1], ylabel="γ", xlabel="ν")
+
+	#unpack data
+	num_data = length(plot_data)
+	νs = [plot_data[i][1] for i=1:num_data]
+	γs = [plot_data[i][2] for i=1:num_data]
+	Λs = [plot_data[i][3] for i=1:num_data]
+	Λs_norm = [(Λs[i]-minimum(Λs))/(maximum(Λs)-minimum(Λs)) for i=1:num_data]
+	marker_size = [20*ones(num_data)[i]*Λs_norm[i] for i=1:num_data]
+	colors = [ColorSchemes.RdYlGn_4[Λs_norm[i]] for i=1:num_data]
+
+	#plot
+	scatterlines!(νs, γs, color=colors, markersize=marker_size)
+
+    return fig
+end
+
+"""
 visualizes a heatmap of optimization values for ν and γ in the exhaustive grid search.
 """
 function viz_νγ_opt_heatmap(σ_H₂O::Float64, 
