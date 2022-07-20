@@ -74,7 +74,7 @@ function viz_bayes_values(plot_data::Vector{Tuple{Float64, Float64, Float64}})
 	colors = [ColorSchemes.RdYlGn_4[Λs_norm[i]] for i=1:num_data]
 
 	#plot
-	scatterlines!(νs, γs, color=colors, markersize=marker_size)
+	scatterlines!(νs, γs, color=colors, markersize=marker_size, markercolor=colors)
 
     return fig
 end
