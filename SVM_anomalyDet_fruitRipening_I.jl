@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.4
+# v0.19.9
 
 using Markdown
 using InteractiveUtils
@@ -33,6 +33,8 @@ begin
 	@sk_import metrics : precision_score
 	@sk_import metrics : f1_score
 	@sk_import metrics : recall_score
+
+	@sk_import svm : OneClassSVM
 	
 end
 
@@ -71,6 +73,83 @@ begin
 
 end
 
+# ╔═╡ 991b7149-7d6a-48f2-93ae-ba2a5c098c82
+abc = [(1.203, 1.563)]
+
+# ╔═╡ 7e860d52-9e24-4366-a427-6060dc6cdda3
+typeof([(1.203, 1.563, 1.22)])
+
+# ╔═╡ 620097b9-12b1-4969-a47e-462b893e7593
+push!(abc, (0.2, 0.1))
+
+# ╔═╡ db6d89d2-d7e1-428b-87a9-8eed1eea4850
+abc[1][2]
+
+# ╔═╡ aef2a4b8-f306-4e9c-9d83-ef951bc514f2
+function bayes_validation(X_train_scaled::Matrix{Float64}; 
+						n_iter::Int=25,
+						num_outliers::Int=500,
+						λ::Float64=0.5,
+						ν_space::Tuple{Float64, Float64}=(3/size(X_train_scaled, 1), 0.1),
+						γ_space::Tuple{Float64, Float64}=(1.0e-3, 1.0),
+						plot_data_flag::Bool=false)
+
+	R_sphere = maximum([norm(x) for x in eachrow(X_train_scaled)])
+	X_sphere = AnomalyDetection.generate_uniform_vectors_in_hypersphere(num_outliers, R_sphere)
+	plot_data::Vector{Tuple{Float64, Float64}} = []
+
+	#nested function used by BayesSearchCV as a scoring method, the return is maximized
+	function bayes_objective_function(svm, X, _)
+		# term 1: estimate of error on normal data as fraction support vectors
+		fraction_svs = svm.n_support_[1] / size(X, 1)
+
+		# term 2: estimating the volume inside the decision boundary
+		y_sphere_pred   = svm.predict(X_sphere)
+		num_inside 		= sum(y_sphere_pred .== 1)
+		fraction_inside = num_inside / length(y_sphere_pred)
+
+		push!(plot_data, (svm.nu, svm.gamma))
+
+		#debuging code
+		#=
+		println("num sv's = $(svm.n_support_[1])")
+		println("gamma = $(svm.gamma)")
+		println("nu = $(svm.nu)")
+		println("fraction sv's = $(fraction_svs)")
+		println("fraction synthetic data inside = $(fraction_inside)")
+		println("Size of X used in optimizer = $(size(X, 1))")
+		=#
+
+		#the objective function is maximized so,
+		#in order to minimize the error function, make error negative.
+		return -(λ * fraction_svs + (1 - λ) * fraction_inside)
+	end
+
+	params = Dict("nu" => ν_space, "gamma" => γ_space)
+
+	opt = skopt.BayesSearchCV(
+		OneClassSVM(), 
+		params,
+		n_iter=n_iter,
+		scoring=bayes_objective_function,
+		cv = [(collect(0:size(X_train_scaled, 1)-1), collect(0:size(X_train_scaled, 1)-1))]
+		)
+
+	#create a new y as the target vector
+	#this isn't used but required by the BayesSearchCV algorithm.
+	y′ = [NaN for i=1:size(X_train_scaled, 1)]
+
+	#fit the optimizer using X and y'
+	opt.fit(X_train_scaled, y′)
+
+	#return opt.cv_results_
+	if plot_data_flag
+		return (opt.best_params_["nu"], opt.best_params_["gamma"]), X_sphere, plot_data
+	end
+	
+	return (opt.best_params_["nu"], opt.best_params_["gamma"]), X_sphere
+end
+
 # ╔═╡ 6a3759e1-03bc-4f4e-a140-8bc564c3dd57
 begin
 	#=
@@ -78,17 +157,17 @@ begin
 	
 	(ν_opt, γ_opt), X_sphere = AnomalyDetection.determine_ν_opt_γ_opt_hypersphere_grid_search(data_set.X_train_scaled)
 	=#
-	(ν_opt, γ_opt), X_sphere = AnomalyDetection.bayes_validation(data_set.X_train_scaled)
+	(ν_opt, γ_opt), X_sphere, validation_steps = bayes_validation(data_set.X_train_scaled, plot_data_flag=true)
 
 	(ν_opt, γ_opt)
 end
 
+# ╔═╡ b4e3c01d-e400-4e7e-9b14-ea1b9b7d8190
+length(validation_steps)
+
 # ╔═╡ 0749a966-9f25-4f8a-9085-54c236286c4a
 # train the anomaly detector
 svm = AnomalyDetection.train_anomaly_detector(data_set.X_train_scaled, ν_opt, γ_opt)
-
-# ╔═╡ 9bbf7bda-dfba-412e-afa4-2746ab17ccbb
-AnomalyDetectionPlots.viz_synthetic_anomaly_hypersphere(X_sphere, data_set.X_train_scaled)
 
 # ╔═╡ 43805088-82c3-4bb9-9a0b-6df5f73d3809
 AnomalyDetectionPlots.viz_decision_boundary(svm, data_set.scaler, data_set.data_test)
@@ -99,7 +178,10 @@ AnomalyDetectionPlots.viz_cm(svm, data_set.data_test, data_set.scaler)
 # ╔═╡ 3bedb6ff-31c7-4eb8-b77b-ccf9ddc4f812
 AnomalyDetectionPlots.viz_decision_boundary(svm, data_set.scaler, data_set.data_train)
 
-# ╔═╡ aef2a4b8-f306-4e9c-9d83-ef951bc514f2
+# ╔═╡ 9bbf7bda-dfba-412e-afa4-2746ab17ccbb
+AnomalyDetectionPlots.viz_synthetic_anomaly_hypersphere(X_sphere, data_set.X_train_scaled)
+
+# ╔═╡ 2a5ed74b-3fb4-4e6e-95ce-87cff112ac0d
 
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
@@ -137,7 +219,7 @@ ScikitLearn = "~0.6.4"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.7.2"
+julia_version = "1.7.3"
 manifest_format = "2.0"
 
 [[deps.AbstractFFTs]]
@@ -383,7 +465,7 @@ uuid = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
 version = "0.8.6"
 
 [[deps.Downloads]]
-deps = ["ArgTools", "LibCURL", "NetworkOptions"]
+deps = ["ArgTools", "FileWatching", "LibCURL", "NetworkOptions"]
 uuid = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 
 [[deps.DualNumbers]]
@@ -439,6 +521,9 @@ deps = ["Compat", "Dates", "Mmap", "Printf", "Test", "UUIDs"]
 git-tree-sha1 = "129b104185df66e408edd6625d480b7f9e9823a0"
 uuid = "48062228-2e41-5def-b9a4-89aafe57970f"
 version = "0.9.18"
+
+[[deps.FileWatching]]
+uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
 
 [[deps.FillArrays]]
 deps = ["LinearAlgebra", "Random", "SparseArrays", "Statistics"]
@@ -1473,11 +1558,17 @@ version = "3.5.0+0"
 # ╠═90230c29-3f14-469f-ba65-058844cbea70
 # ╠═3cd0d136-7191-4f57-9262-6121667b81ff
 # ╠═6a3759e1-03bc-4f4e-a140-8bc564c3dd57
+# ╠═b4e3c01d-e400-4e7e-9b14-ea1b9b7d8190
 # ╠═0749a966-9f25-4f8a-9085-54c236286c4a
 # ╠═9bbf7bda-dfba-412e-afa4-2746ab17ccbb
 # ╠═43805088-82c3-4bb9-9a0b-6df5f73d3809
 # ╠═a2d00e2e-bcfd-4c1b-92d0-98fb5202fe3a
 # ╠═3bedb6ff-31c7-4eb8-b77b-ccf9ddc4f812
+# ╠═991b7149-7d6a-48f2-93ae-ba2a5c098c82
+# ╠═7e860d52-9e24-4366-a427-6060dc6cdda3
+# ╠═620097b9-12b1-4969-a47e-462b893e7593
+# ╠═db6d89d2-d7e1-428b-87a9-8eed1eea4850
 # ╠═aef2a4b8-f306-4e9c-9d83-ef951bc514f2
+# ╠═2a5ed74b-3fb4-4e6e-95ce-87cff112ac0d
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

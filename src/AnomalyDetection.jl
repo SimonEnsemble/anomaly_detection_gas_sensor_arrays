@@ -187,10 +187,12 @@ function bayes_validation(X_train_scaled::Matrix{Float64};
 						  num_outliers::Int=500,
 						  λ::Float64=0.5,
 						  ν_space::Tuple{Float64, Float64}=(3/size(X_train_scaled, 1), 0.1),
-						  γ_space::Tuple{Float64, Float64}=(1.0e-3, 1.0))
+						  γ_space::Tuple{Float64, Float64}=(1.0e-3, 1.0),
+						  plot_data_flag::Bool=false)
 
 	R_sphere = maximum([norm(x) for x in eachrow(X_train_scaled)])
 	X_sphere = AnomalyDetection.generate_uniform_vectors_in_hypersphere(num_outliers, R_sphere)
+	plot_data::Vector{Tuple{Float64, Float64, Float64}} = []
 
 	#nested function used by BayesSearchCV as a scoring method, the return is maximized
 	function bayes_objective_function(svm, X, _)
@@ -201,6 +203,12 @@ function bayes_validation(X_train_scaled::Matrix{Float64};
 		y_sphere_pred   = svm.predict(X_sphere)
 		num_inside 		= sum(y_sphere_pred .== 1)
 		fraction_inside = num_inside / length(y_sphere_pred)
+
+		#error function
+		Λ = λ * fraction_svs + (1 - λ) * fraction_inside
+
+		#push data needed for plot
+		push!(plot_data, (svm.nu, svm.gamma, Λ))
 
 		#debuging code
 		#=
@@ -214,7 +222,7 @@ function bayes_validation(X_train_scaled::Matrix{Float64};
 
 		#the objective function is maximized so,
 		#in order to minimize the error function, make error negative.
-		return -(λ * fraction_svs + (1 - λ) * fraction_inside)
+		return -Λ
 	end
 
 	params = Dict("nu" => ν_space, "gamma" => γ_space)
@@ -234,7 +242,11 @@ function bayes_validation(X_train_scaled::Matrix{Float64};
 	#fit the optimizer using X and y'
 	opt.fit(X_train_scaled, y′)
 
-	#return opt.cv_results_
+	#return opt.cv_results_, include plotting data if flagged
+	if plot_data_flag
+		return (opt.best_params_["nu"], opt.best_params_["gamma"]), X_sphere, plot_data
+	end
+
 	return (opt.best_params_["nu"], opt.best_params_["gamma"]), X_sphere
 end
 

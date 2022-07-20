@@ -302,7 +302,7 @@ function viz_sensorδ_waterσ_grid(σ_H₂Os::Vector{Float64},
 								num_anomaly_train::Int64,
 								num_normal_test::Int64,
 								num_anomaly_test::Int64; 
-								validation_method::String="hypersphere";
+								validation_method::String="hypersphere",
 								num_runs::Int=100)
 
 	@assert validation_method=="hypersphere" || validation_method=="knee"
