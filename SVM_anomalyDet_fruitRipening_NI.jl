@@ -91,6 +91,9 @@ end
 # train the anomaly detector
 svm = AnomalyDetection.train_anomaly_detector(data_set.X_train_scaled, ν_opt, γ_opt)
 
+# ╔═╡ 7990ef58-1e45-44d0-8add-ba410a48dc98
+AnomalyDetectionPlots.viz_bayes_values(bayes_plot_data)
+
 # ╔═╡ 48d8afeb-2df0-44d1-9eaa-f28184813ab4
 AnomalyDetectionPlots.viz_synthetic_anomaly_hypersphere(X_sphere, data_set.X_train_scaled)
 
@@ -1605,6 +1608,7 @@ version = "3.5.0+0"
 # ╟─9873c6d8-84ba-47e5-adcb-4d0f30829227
 # ╠═eface5b9-30fc-43ff-b672-50afeb39ca5b
 # ╠═464b834c-2db8-424d-8ff8-d2cbc7e26b26
+# ╠═7990ef58-1e45-44d0-8add-ba410a48dc98
 # ╠═48d8afeb-2df0-44d1-9eaa-f28184813ab4
 # ╠═6e278c3e-45a3-4aa8-b904-e3dfa73615d5
 # ╠═ee8029cf-c6a6-439f-b190-cb297e0ddb70
