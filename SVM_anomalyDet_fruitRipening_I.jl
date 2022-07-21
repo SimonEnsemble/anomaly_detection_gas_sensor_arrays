@@ -195,11 +195,16 @@ function viz_bayes_values(plot_data::Vector{Tuple{Float64, Float64, Float64}})
 	νs = [plot_data[i][1] for i=1:num_data]
 	γs = [plot_data[i][2] for i=1:num_data]
 	Λs = [plot_data[i][3] for i=1:num_data]
-	Λs_norm = [(Λs[i]-minimum(Λs))/(maximum(Λs)-minimum(Λs)) for i=1:num_data]
-	marker_size = [20*ones(num_data)[i]*Λs_norm[i] for i=1:num_data]
-	colors = [ColorSchemes.RdYlGn_4[Λs_norm[i]] for i=1:num_data]
+	Λs_norm = [1-(Λs[i]-minimum(Λs))/(maximum(Λs)-minimum(Λs)) for i=1:num_data]
+	marker_size = [20*ones(num_data)[i]*(Λs_norm[i]) for i=1:num_data]
+	colors = [ColorSchemes.thermal[Λs_norm[i]] for i=1:num_data]
 
-	scatterlines!(νs, γs, color=colors, markersize=marker_size)
+	#plot
+	scatterlines!(νs, γs, color=colors, markersize=marker_size, markercolor=colors)
+
+	for i = 1:num_data
+
+	end
 
     return fig
 end
@@ -218,9 +223,6 @@ rrr = [0.1, 0.3, 0.5, 0.9, 1.45, 2.99]
 	
 ColorSchemes.RdYlGn_4[0.9]
 end
-
-# ╔═╡ 630f56e4-ef61-48b5-883b-9737df8ab3de
-
 
 # ╔═╡ 11dc3b63-1e54-4ded-96df-d45d9ab4fe3d
 rrr1 = [(rrr[i] - minimum(rrr))/(maximum(rrr) - minimum(rrr)) for i=1:length(rrr)]
@@ -1614,7 +1616,6 @@ version = "3.5.0+0"
 # ╠═ddf71830-b39a-4153-b747-074069eea84c
 # ╠═0efc7511-b0a1-4fab-9428-465f5d3d5a3e
 # ╠═6776ad06-2424-472a-9541-7e90e87633d4
-# ╠═630f56e4-ef61-48b5-883b-9737df8ab3de
 # ╠═11dc3b63-1e54-4ded-96df-d45d9ab4fe3d
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

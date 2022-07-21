@@ -81,7 +81,7 @@ begin
 	
 	#(ν_opt, γ_opt), X_sphere = AnomalyDetection.determine_ν_opt_γ_opt_hypersphere(data_set.X_train_scaled, ν_range=ν_range, γ_range=γ_range, λ=0.6)
 
-	(ν_opt, γ_opt), X_sphere, bayes_plot_data = AnomalyDetection.bayes_validation(data_set.X_train_scaled, plot_data_flag=true)
+	(ν_opt, γ_opt), X_sphere, bayes_plot_data = AnomalyDetection.bayes_validation(data_set.X_train_scaled, plot_data_flag=true, n_iter=30)
 
 
 	(ν_opt, γ_opt)
@@ -92,7 +92,41 @@ end
 svm = AnomalyDetection.train_anomaly_detector(data_set.X_train_scaled, ν_opt, γ_opt)
 
 # ╔═╡ 7990ef58-1e45-44d0-8add-ba410a48dc98
-AnomalyDetectionPlots.viz_bayes_values(bayes_plot_data)
+viz_bayes_values(bayes_plot_data)
+
+# ╔═╡ e68b7d40-1739-45e7-b17a-932311f9ad15
+function viz_bayes_values_by_point(plot_data::Vector{Tuple{Float64, Float64, Float64}}, points::Int)
+
+	num_data = length(plot_data)
+
+	xmin = minimum([plot_data[i][1] for i=1:num_data])
+	xmax = maximum([plot_data[i][1] for i=1:num_data])
+	ymin = minimum([plot_data[i][2] for i=1:num_data])
+	ymax = maximum([plot_data[i][2] for i=1:num_data])
+
+	
+    fig = Figure()
+    ax  = Axis(fig[1, 1], ylabel="γ", xlabel="ν", limits = (xmin, xmax, ymin, ymax))
+
+	#unpack data
+	νs = [plot_data[i][1] for i=1:points]
+	γs = [plot_data[i][2] for i=1:points]
+	Λs = [plot_data[i][3] for i=1:num_data]
+	Λs_norm = [1-(Λs[i]-minimum(Λs))/(maximum(Λs)-minimum(Λs)) for i=1:num_data]
+
+	if points ==1
+		marker_size =20
+	else
+	marker_size = LinRange(-20, 20, points)
+	end
+	colors = [ColorSchemes.thermal[Λs_norm[i]] for i=1:points]
+
+	#plot
+	sl = scatterlines!(νs, γs, color=colors, markersize=marker_size, markercolor=colors)
+	Colorbar(fig[1, 2], limits = (maximum(Λs), minimum(Λs)), colormap= reverse(ColorSchemes.thermal), label="error function")
+
+    return fig
+end
 
 # ╔═╡ 48d8afeb-2df0-44d1-9eaa-f28184813ab4
 AnomalyDetectionPlots.viz_synthetic_anomaly_hypersphere(X_sphere, data_set.X_train_scaled)
@@ -1609,6 +1643,7 @@ version = "3.5.0+0"
 # ╠═eface5b9-30fc-43ff-b672-50afeb39ca5b
 # ╠═464b834c-2db8-424d-8ff8-d2cbc7e26b26
 # ╠═7990ef58-1e45-44d0-8add-ba410a48dc98
+# ╠═e68b7d40-1739-45e7-b17a-932311f9ad15
 # ╠═48d8afeb-2df0-44d1-9eaa-f28184813ab4
 # ╠═6e278c3e-45a3-4aa8-b904-e3dfa73615d5
 # ╠═ee8029cf-c6a6-439f-b190-cb297e0ddb70
