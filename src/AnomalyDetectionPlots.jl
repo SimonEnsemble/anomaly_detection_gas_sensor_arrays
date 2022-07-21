@@ -96,7 +96,7 @@ function viz_bayes_values_by_point(plot_data::Vector{Tuple{Float64, Float64, Flo
 
 	
     fig = Figure()
-    ax  = Axis(fig[1, 1], ylabel="γ", xlabel="ν", limits = (xmin, xmax, ymin, ymax))
+    ax  = Axis(fig[1, 1], ylabel="γ", xlabel="ν", limits = (0.5xmin, 1.25*xmax, -50*ymin, 1.25*ymax))
 
 	#unpack data
 	νs = [plot_data[i][1] for i=1:points]
@@ -109,9 +109,21 @@ function viz_bayes_values_by_point(plot_data::Vector{Tuple{Float64, Float64, Flo
 	else
 	marker_size = LinRange(-20, 20, points)
 	end
-	colors = [ColorSchemes.thermal[Λs_norm[i]] for i=1:points]
+	colors = [ColorSchemes.thermal[Λs_norm[i]] for i=1:num_data]
 
 	#plot
+	sl = scatterlines!(νs, γs, color=[colors[i] for i=1:points], markersize=marker_size, markercolor=[colors[i] for i=1:points])
+	Colorbar(fig[1, 2], limits = (maximum(Λs), minimum(Λs)), colormap= reverse(ColorSchemes.thermal), label="error function")
+
+	if points == length(Λs)
+		ideal_index = argmin(Λs)
+		ν_opt = νs[ideal_index]
+		γ_opt = γs[ideal_index]
+		scatter!([ν_opt], [γ_opt], marker=:x, markersize=25, color=:red)
+		text!("($(AnomalyDetectionPlots.truncate(ν_opt, 2)), $(AnomalyDetectionPlots.truncate(γ_opt, 2)))",position = (ν_opt, 1.1*γ_opt), align=(:left, :baseline))
+	end
+
+    return fig
 end
 
 """
