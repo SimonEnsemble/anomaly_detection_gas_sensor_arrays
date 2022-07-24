@@ -210,7 +210,96 @@ function viz_bayes_values(plot_data::Vector{Tuple{Float64, Float64, Float64}})
 end
 
 # ╔═╡ ddf71830-b39a-4153-b747-074069eea84c
-viz_bayes_values(validation_steps)
+AnomalyDetectionPlots.viz_bayes_values(validation_steps)
+
+# ╔═╡ 6d09c2b8-fa9c-4e28-8f6c-3166e455d024
+AnomalyDetectionPlots.viz_bayes_values_by_point(validation_steps, length(validation_steps))
+
+# ╔═╡ d368480f-281b-433d-a049-0c807c397f99
+function viz_f1_score_heatmap(σ_H₂O_max::Float64, 
+							  σ_m_max::Float64; 
+							  res::Int=10, 
+							  validation_method="knee",
+							  hyperparameter_method="bayesian", 
+							  n_avg::Int=10, 
+							  λ=0.5)
+	@assert validation_method=="hypersphere" || validation_method=="knee"
+	@assert hyperparameter_method=="bayesian" || hyperparameter_method=="grid"
+	
+	#σ_H₂O_max = 0.1
+	#σ_m_max = 0.001
+
+	σ_H₂Os = 0:σ_H₂O_max/res:σ_H₂O_max
+	σ_ms = 0:σ_m_max/res:σ_m_max
+
+	num_normal_test_points = num_normal_train_points = 100
+	num_anomaly_train_points = 0
+	num_anomaly_test_points = 5
+
+	f1_score_grid = zeros(res+1, res+1)
+	
+
+	for (i, σ_H₂O) in enumerate(σ_H₂Os)
+		for (j, σ_m) in enumerate(σ_ms)
+			f1_avg = 0.0
+			
+			for k = 1:n_avg
+				data = AnomalyDetection.setup_dataset(num_normal_train_points,
+										  num_anomaly_train_points,
+										  num_normal_test_points,
+										  num_anomaly_test_points,
+								 		  σ_H₂O, 
+										  σ_m)
+	
+				#optimize hyperparameters and determine f1score
+				if validation_method == "hypersphere"
+					if hyperparameter_method == "bayesian"
+						(ν_opt, γ_opt), _ = AnomalyDetection.bayes_validation(data.X_train_scaled)
+					elseif hyperparameter_method == "grid"
+						(ν_opt, γ_opt), _ = AnomalyDetection.determine_ν_opt_γ_opt_hypersphere_grid_search(data.X_train_scaled)
+					end
+				elseif validation_method == "knee"
+					K            = trunc(Int, num_normal_train_points*0.05)
+					ν_opt, γ_opt = AnomalyDetection.opt_ν_γ_by_density_measure_method(data.X_train_scaled, K)
+				end
+	
+				svm      = AnomalyDetection.train_anomaly_detector(data.X_train_scaled, ν_opt, γ_opt)
+				y_pred 	 = svm.predict(data.X_test_scaled)
+				f1_score = AnomalyDetection.performance_metric(data.y_test, y_pred)
+	
+				f1_avg += f1_score
+			end
+			
+			f1_score_grid[i, res- j+2] = f1_avg/n_avg
+
+		end
+	end
+
+	fig = Figure()
+	
+	ax = Axis(fig[1, 1],
+		  xticks=(1:res+1, ["$(AnomalyDetectionPlots.truncate(i, 3))" for i=0:σ_H₂O_max/res:σ_H₂O_max]),
+		  yticks=(1:res+1, ["$(AnomalyDetectionPlots.truncate(σ_m_max-i, 5))" for i=0:σ_m_max/res:σ_m_max]),
+		  xticklabelrotation=45.0,
+		  ylabel="σ_m [g/g]",
+		  xlabel="σ_H₂O [relative humidity]"
+    )
+
+	hm = heatmap!(1:res+1, 1:res+1, f1_score_grid,
+			      colormap=ColorSchemes.RdYlGn_4, colorrange=(0.0, 1.0))
+	Colorbar(fig[1, 2], hm, label="f1 score")
+
+	if validation_method == "hypersphere"
+		save("f1_score_plot_hypersphere.pdf", fig)
+	elseif validation_method == "knee"
+		save("f1_score_plot_knee.pdf", fig)
+	end
+
+	fig
+end
+
+# ╔═╡ 042f470c-7441-4f05-93a3-52465835a9dd
+viz_f1_score_heatmap(0.05,0.0005)
 
 # ╔═╡ 0efc7511-b0a1-4fab-9428-465f5d3d5a3e
 5*ones(5)
@@ -1614,6 +1703,9 @@ version = "3.5.0+0"
 # ╠═aef2a4b8-f306-4e9c-9d83-ef951bc514f2
 # ╠═2a5ed74b-3fb4-4e6e-95ce-87cff112ac0d
 # ╠═ddf71830-b39a-4153-b747-074069eea84c
+# ╠═6d09c2b8-fa9c-4e28-8f6c-3166e455d024
+# ╠═042f470c-7441-4f05-93a3-52465835a9dd
+# ╠═d368480f-281b-433d-a049-0c807c397f99
 # ╠═0efc7511-b0a1-4fab-9428-465f5d3d5a3e
 # ╠═6776ad06-2424-472a-9541-7e90e87633d4
 # ╠═11dc3b63-1e54-4ded-96df-d45d9ab4fe3d

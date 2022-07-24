@@ -70,12 +70,15 @@ function viz_bayes_values(plot_data::Vector{Tuple{Float64, Float64, Float64}})
 	γs = [plot_data[i][2] for i=1:num_data]
 	Λs = [plot_data[i][3] for i=1:num_data]
 	Λs_norm = [1-(Λs[i]-minimum(Λs))/(maximum(Λs)-minimum(Λs)) for i=1:num_data]
-	marker_size = LinRange(5, 20, num_data)
+	marker_size = 12
 	colors = [ColorSchemes.thermal[Λs_norm[i]] for i=1:num_data]
 
 	#plot
-	sl = scatterlines!(νs, γs, color=colors, markersize=marker_size, markercolor=colors)
-	Colorbar(fig[1, 2], sl, label="error function")
+	sl = scatterlines!(νs, γs, color=(:grey, 0.3), markersize=marker_size, markercolor=colors)
+	Colorbar(fig[1, 2], 
+			limits = (maximum(Λs), minimum(Λs)), 
+			colormap= reverse(ColorSchemes.thermal), 
+			label="error function")
 
     return fig
 end
@@ -104,15 +107,10 @@ function viz_bayes_values_by_point(plot_data::Vector{Tuple{Float64, Float64, Flo
 	Λs = [plot_data[i][3] for i=1:num_data]
 	Λs_norm = [1-(Λs[i]-minimum(Λs))/(maximum(Λs)-minimum(Λs)) for i=1:num_data]
 
-	if points ==1
-		marker_size =20
-	else
-	marker_size = LinRange(-20, 20, points)
-	end
 	colors = [ColorSchemes.thermal[Λs_norm[i]] for i=1:num_data]
 
 	#plot
-	sl = scatterlines!(νs, γs, color=[colors[i] for i=1:points], markersize=marker_size, markercolor=[colors[i] for i=1:points])
+	sl = scatterlines!(νs, γs, color=(:grey, 0.3), markersize=12, markercolor=[colors[i] for i=1:points])
 	Colorbar(fig[1, 2], limits = (maximum(Λs), minimum(Λs)), colormap= reverse(ColorSchemes.thermal), label="error function")
 
 	if points == length(Λs)
@@ -383,7 +381,7 @@ function viz_sensorδ_waterσ_grid(σ_H₂Os::Vector{Float64},
 	figs = [fig[i, j] for i in 1:3, j in 1:3]
 
 #top sensor error labels σ_m
-	for (label, layout) in zip(["σₘ=$(σ_ms[1])","σₘ=$(σ_ms[2])", "σₘ=$(σ_ms[3])"], figs[1, 1:3])
+	for (label, layout) in zip(["σ_m=$(σ_ms[1])","σ_m=$(σ_ms[2])", "σ_m=$(σ_ms[3])"], figs[1, 1:3])
 		Label(layout[1, 1, Top()], 
 			 label,
 			 textsize = 40,
@@ -392,7 +390,7 @@ function viz_sensorδ_waterσ_grid(σ_H₂Os::Vector{Float64},
 	end
 
 #left water variance labels σ_H₂O
-	for (label, layout) in zip(["σH₂O=$(σ_H₂Os[1])","σH₂O=$(σ_H₂Os[2])", "σH₂O=$(σ_H₂Os[3])"], figs[1:3, 1])
+	for (label, layout) in zip(["σ_H₂O=$(σ_H₂Os[1])","σ_H₂O=$(σ_H₂Os[2])", "σ_H₂O=$(σ_H₂Os[3])"], figs[1:3, 1])
 		Label(layout[1, 1, Left()], 
 			 label,
 			 textsize = 40,
@@ -421,31 +419,33 @@ function viz_sensorδ_waterσ_grid(σ_H₂Os::Vector{Float64},
 				plot_data_storage[i, j, k] = Dict{String, Any}("data_test" => SyntheticDataGen.gen_data(num_normal_test, num_anomaly_test, σ_H₂O, σ_m))
 
 				#generate test and training data, feature vectors, target vectors and standard scaler
-				data = AnomalyDetection.setup_dataset(
-					num_normal_train, num_anomaly_train, num_normal_test, num_anomaly_test, σ_H₂O, σ_m)
-				plot_data_storage[i, j, k]["data"] = data
+				plot_data_storage[i, j, k]["data"] = AnomalyDetection.setup_dataset(num_normal_train, 
+																					num_anomaly_train, 
+																					num_normal_test, 
+																					num_anomaly_test, 
+																					σ_H₂O, 
+																					σ_m)
 
 				#optimize hyperparameters and determine f1score
 				if validation_method == "hypersphere"
-					(ν_opt, γ_opt), _ = AnomalyDetection.bayes_validation(data.X_train_scaled)
+					(ν_opt, γ_opt), _ = AnomalyDetection.bayes_validation(plot_data_storage[i, j, k]["data"].X_train_scaled)
 				elseif validation_method == "knee"
 					K            = trunc(Int, num_normal_train*0.05)
-					ν_opt, γ_opt = AnomalyDetection.opt_ν_γ_by_density_measure_method(data.X_train_scaled, K)
+					ν_opt, γ_opt = AnomalyDetection.opt_ν_γ_by_density_measure_method(plot_data_storage[i, j, k]["data"].X_train_scaled, K)
 				end
 
-				svm      = AnomalyDetection.train_anomaly_detector(data.X_train_scaled, ν_opt, γ_opt)
-				y_pred 	 = svm.predict(data.X_test_scaled)
-				f1_score = AnomalyDetection.performance_metric(data.y_test, y_pred)
-				f1_score = truncate(f1_score, 2)
-
-				plot_data_storage[i, j, k]["f1_score"] = f1_score
-				plot_data_storage[i, j, k]["svm"] = svm
+				plot_data_storage[i, j, k]["svm"]      = AnomalyDetection.train_anomaly_detector(plot_data_storage[i, j, k]["data"].X_train_scaled, ν_opt, γ_opt)
+				plot_data_storage[i, j, k]["f1_score"] = truncate(
+					AnomalyDetection.performance_metric(plot_data_storage[i, j, k]["data"].y_test, 
+														plot_data_storage[i, j, k]["svm"].predict(plot_data_storage[i, j, k]["data"].X_test_scaled)), 2)
 			end
 
 			#sort the plot data storage by f1score and identify median data
-			plot_data_storage[i, j, :] = plot_data_storage[i, j, sortperm([plot_data_storage[i, j, k]["f1_score"] for k=1:size(plot_data_storage, 3)])]
+			
+			plot_data_storage[i, j, :] = plot_data_storage[i, j, sortperm([plot_data_storage[i, j, m]["f1_score"] for m=1:num_runs])]
 		end
 	end
+	#sortslices(plot_data_storage,dims=3, by = x -> x["f1_score"])
 
 #This piece identifies the boundaries for the median plot
 	for (i, σ_H₂O) in enumerate(σ_H₂Os)
@@ -453,19 +453,19 @@ function viz_sensorδ_waterσ_grid(σ_H₂Os::Vector{Float64},
 
 			#low variance
 			if (i < 3) && (j < 3)
-			zif71_lims_low_σ = [minimum([minimum(plot_data_storage[i, j, trunc(Int, num_runs/2)]["data_test"][:, "m ZIF-71 [g/g]"]), zif71_lims_low_σ[1]]), 
-					maximum([maximum(plot_data_storage[i, j, trunc(Int, num_runs/2)]["data_test"][:, "m ZIF-71 [g/g]"]), zif71_lims_low_σ[2]])]
+			zif71_lims_low_σ = [minimum([minimum(plot_data_storage[i, j, trunc(Int, num_runs/2)]["data"].data_test[:, "m ZIF-71 [g/g]"]), zif71_lims_low_σ[1]]), 
+					maximum([maximum(plot_data_storage[i, j, trunc(Int, num_runs/2)]["data"].data_test[:, "m ZIF-71 [g/g]"]), zif71_lims_low_σ[2]])]
 
-			zif8_lims_low_σ  = [minimum([minimum(plot_data_storage[i, j, trunc(Int, num_runs/2)]["data_test"][:, "m ZIF-8 [g/g]"]), zif8_lims_low_σ[1]]), 
-					maximum([maximum(plot_data_storage[i, j, trunc(Int, num_runs/2)]["data_test"][:, "m ZIF-8 [g/g]"]), zif8_lims_low_σ[2]])]
+			zif8_lims_low_σ  = [minimum([minimum(plot_data_storage[i, j, trunc(Int, num_runs/2)]["data"].data_test[:, "m ZIF-8 [g/g]"]), zif8_lims_low_σ[1]]), 
+					maximum([maximum(plot_data_storage[i, j, trunc(Int, num_runs/2)]["data"].data_test[:, "m ZIF-8 [g/g]"]), zif8_lims_low_σ[2]])]
 
 			#high variance
 			else
-			zif71_lims_high_σ = [minimum([minimum(plot_data_storage[i, j, trunc(Int, num_runs/2)]["data_test"][:, "m ZIF-71 [g/g]"]), zif71_lims_high_σ[1]]), 
-					maximum([maximum(plot_data_storage[i, j, trunc(Int, num_runs/2)]["data_test"][:, "m ZIF-71 [g/g]"]), zif71_lims_high_σ[2]])]
+			zif71_lims_high_σ = [minimum([minimum(plot_data_storage[i, j, trunc(Int, num_runs/2)]["data"].data_test[:, "m ZIF-71 [g/g]"]), zif71_lims_high_σ[1]]), 
+					maximum([maximum(plot_data_storage[i, j, trunc(Int, num_runs/2)]["data"].data_test[:, "m ZIF-71 [g/g]"]), zif71_lims_high_σ[2]])]
 
-			zif8_lims_high_σ  = [minimum([minimum(plot_data_storage[i, j, trunc(Int, num_runs/2)]["data_test"][:, "m ZIF-8 [g/g]"]), zif8_lims_high_σ[1]]), 
-					maximum([maximum(plot_data_storage[i, j, trunc(Int, num_runs/2)]["data_test"][:, "m ZIF-8 [g/g]"]), zif8_lims_high_σ[2]])]
+			zif8_lims_high_σ  = [minimum([minimum(plot_data_storage[i, j, trunc(Int, num_runs/2)]["data"].data_test[:, "m ZIF-8 [g/g]"]), zif8_lims_high_σ[1]]), 
+					maximum([maximum(plot_data_storage[i, j, trunc(Int, num_runs/2)]["data"].data_test[:, "m ZIF-8 [g/g]"]), zif8_lims_high_σ[2]])]
 			end
 		end
 	end
@@ -499,7 +499,7 @@ function viz_sensorδ_waterσ_grid(σ_H₂Os::Vector{Float64},
 
 #draw a background box colored according to f1score
 			fig[i, j]        = Box(fig, color = (ColorSchemes.RdYlGn_4[median_data["f1_score"]], 0.7))
-			axes[i, j].title = "f1 score = $(median_data["f1_score"])"
+			axes[i, j].title = "F1 score = $(median_data["f1_score"])"
 			hidedecorations!(axes[i, j])
 
 #scatter and contour plot position LEFT
@@ -516,7 +516,7 @@ function viz_sensorδ_waterσ_grid(σ_H₂Os::Vector{Float64},
 			viz_decision_boundary!(ax, 
 								  median_data["svm"], 
 								  median_data["data"].scaler, 
-								  median_data["data_test"], 
+								  median_data["data"].data_test, 
 								  median_data["zif71_lims"], 
 								  median_data["zif8_lims"], 
 								  incl_legend=false)
@@ -527,7 +527,7 @@ function viz_sensorδ_waterσ_grid(σ_H₂Os::Vector{Float64},
 			n_labels   = length(all_labels)
 
 			cm = generate_cm(median_data["svm"], 
-							median_data["data_test"], 
+							median_data["data"].data_test, 
 							median_data["data"].scaler, 
 							all_labels)
 
@@ -636,7 +636,7 @@ function viz_f1_score_heatmap(σ_H₂O_max::Float64,
 				f1_avg += f1_score
 			end
 			
-			f1_score_grid[i, j] = f1_avg/n_avg
+			f1_score_grid[i, res-j+2] = f1_avg/n_avg
 
 		end
 	end
@@ -645,7 +645,7 @@ function viz_f1_score_heatmap(σ_H₂O_max::Float64,
 	
 	ax = Axis(fig[1, 1],
 		  xticks=(1:res+1, ["$(truncate(i, 3))" for i=0:σ_H₂O_max/res:σ_H₂O_max]),
-		  yticks=(1:res+1, ["$(truncate(i, 5))" for i=0:σ_m_max/res:σ_m_max]),
+		  yticks=(1:res+1, ["$(truncate(σ_m_max-i, 5))" for i=0:σ_m_max/res:σ_m_max]),
 		  xticklabelrotation=45.0,
 		  ylabel="σ_m [g/g]",
 		  xlabel="σ_H₂O [relative humidity]"

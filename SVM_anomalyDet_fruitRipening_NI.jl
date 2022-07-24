@@ -23,10 +23,11 @@ include("plot_theme.jl")
 md"# Anomaly Detection for Gas Sensor Arrays Using One-Class SVM in a Non-Injective System.
 "
 
+# ╔═╡ 3bee5c1d-1d0e-4351-9655-7827d58c59d1
+Random.seed!(297333)
+
 # ╔═╡ 6d5bc919-351d-4b66-a8a6-5e92a42d4fac
-begin
-	skopt = pyimport("skopt")
-end
+skopt = pyimport("skopt")
 
 # ╔═╡ 5d920ea0-f04d-475f-b05b-86e7b199d7e0
 begin
@@ -35,7 +36,6 @@ begin
 	@sk_import metrics : precision_score
 	@sk_import metrics : f1_score
 	@sk_import metrics : recall_score
-
 	@sk_import svm : OneClassSVM
 end
 
@@ -43,9 +43,6 @@ end
 begin
 	gases = SyntheticDataGen.gases
 	mofs  = SyntheticDataGen.mofs
-
-	σ_H₂O = 0.005
-	σ_m   = 0.00005
 end
 
 # ╔═╡ 32c8e7ce-113c-4606-a463-47d9802a2238
@@ -54,17 +51,22 @@ md"!!! example \"\"
 
 # ╔═╡ 6b884c33-abb2-4533-9db6-013dd440a1c4
 begin
+	Random.seed!(297333)
+	
 	num_normal_train_points  = 100
 	num_anomaly_train_points = 0
 	num_normal_test_points   = 100
 	num_anomaly_test_points  = 5
+
+	σ_H₂O = 0.005
+	σ_m   = 0.00005
 	
 	data_set = AnomalyDetection.setup_dataset(num_normal_train_points,
-										  num_anomaly_train_points,
-										  num_normal_test_points,
-										  num_anomaly_test_points,
-								 		  σ_H₂O, 
-										  σ_m)
+											  num_anomaly_train_points,
+											  num_normal_test_points,
+											  num_anomaly_test_points,
+									 		  σ_H₂O, 
+											  σ_m)
 
 end
 
@@ -76,68 +78,27 @@ md"!!! example \"\"
 
 # ╔═╡ eface5b9-30fc-43ff-b672-50afeb39ca5b
 begin
-	# use a grid search method to find optimal ν and γ
-	#ν_range, γ_range = AnomalyDetection.gen_ν_γ_optimization_range(data_set.X_train_scaled)
-	
-	#(ν_opt, γ_opt), X_sphere = AnomalyDetection.determine_ν_opt_γ_opt_hypersphere(data_set.X_train_scaled, ν_range=ν_range, γ_range=γ_range, λ=0.6)
+	Random.seed!(397333)
 
-	(ν_opt, γ_opt), X_sphere, bayes_plot_data = AnomalyDetection.bayes_validation(data_set.X_train_scaled, plot_data_flag=true, n_iter=30)
-
-
-	(ν_opt, γ_opt)
+	(ν_opt, γ_opt), X_sphere, bayes_plot_data = AnomalyDetection.bayes_validation(data_set.X_train_scaled, plot_data_flag=true, ν_space=(3/size(data_set.X_train_scaled, 1), 0.4), n_iter=50)
 end
 
 # ╔═╡ 464b834c-2db8-424d-8ff8-d2cbc7e26b26
 # train the anomaly detector
-svm = AnomalyDetection.train_anomaly_detector(data_set.X_train_scaled, ν_opt, γ_opt)
-
-# ╔═╡ e68b7d40-1739-45e7-b17a-932311f9ad15
-function viz_bayes_values_by_point(plot_data::Vector{Tuple{Float64, Float64, Float64}}, points::Int)
-
-	num_data = length(plot_data)
-
-	xmin = minimum([plot_data[i][1] for i=1:num_data])
-	xmax = maximum([plot_data[i][1] for i=1:num_data])
-	ymin = minimum([plot_data[i][2] for i=1:num_data])
-	ymax = maximum([plot_data[i][2] for i=1:num_data])
-
+begin
+	Random.seed!(297333)
 	
-    fig = Figure()
-    ax  = Axis(fig[1, 1], ylabel="γ", xlabel="ν", limits = (0.5xmin, 1.25*xmax, -50*ymin, 1.25*ymax))
-
-	#unpack data
-	νs = [plot_data[i][1] for i=1:points]
-	γs = [plot_data[i][2] for i=1:points]
-	Λs = [plot_data[i][3] for i=1:num_data]
-	Λs_norm = [1-(Λs[i]-minimum(Λs))/(maximum(Λs)-minimum(Λs)) for i=1:num_data]
-
-	if points ==1
-		marker_size =20
-	else
-	marker_size = LinRange(-20, 20, points)
-	end
-	colors = [ColorSchemes.thermal[Λs_norm[i]] for i=1:num_data]
-
-	#plot
-	sl = scatterlines!(νs, γs, color=[colors[i] for i=1:points], markersize=marker_size, markercolor=[colors[i] for i=1:points])
-	Colorbar(fig[1, 2], limits = (maximum(Λs), minimum(Λs)), colormap= reverse(ColorSchemes.thermal), label="error function")
-
-	if points == length(Λs)
-		ideal_index = argmin(Λs)
-		ν_opt = νs[ideal_index]
-		γ_opt = γs[ideal_index]
-		scatter!([ν_opt], [γ_opt], marker=:x, markersize=25, color=:red)
-		text!("($(AnomalyDetectionPlots.truncate(ν_opt, 2)), $(AnomalyDetectionPlots.truncate(γ_opt, 2)))",position = (ν_opt, 1.1*γ_opt), align=(:left, :baseline))
-	end
-
-    return fig
+	svm = AnomalyDetection.train_anomaly_detector(data_set.X_train_scaled, ν_opt, γ_opt)
 end
 
 # ╔═╡ 7990ef58-1e45-44d0-8add-ba410a48dc98
-viz_bayes_values_by_point(bayes_plot_data, 30)
+#AnomalyDetectionPlots.viz_bayes_values_by_point(bayes_plot_data, 50)
 
 # ╔═╡ 48d8afeb-2df0-44d1-9eaa-f28184813ab4
-AnomalyDetectionPlots.viz_synthetic_anomaly_hypersphere(X_sphere, data_set.X_train_scaled)
+begin
+	Random.seed!(297333)
+	#AnomalyDetectionPlots.viz_synthetic_anomaly_hypersphere(X_sphere, data_set.X_train_scaled)
+end
 
 # ╔═╡ 6e278c3e-45a3-4aa8-b904-e3dfa73615d5
 AnomalyDetectionPlots.viz_decision_boundary(svm, data_set.scaler, data_set.data_test)
@@ -181,6 +142,8 @@ end
 
 # ╔═╡ 4b1759a7-eba1-4de5-8d6a-38106f3301c9
 begin
+	Random.seed!(297333)
+	
 	#visualization of the effects of sensor error and water vapor variance
 	σ_H₂O_vector = [0.0, 0.005, 0.05]
 	σ_m_vector   = [0.0, 0.00005, 0.0005]
@@ -191,7 +154,7 @@ begin
 							 num_normal_test_points,
 							 num_anomaly_test_points,
 							 validation_method="hypersphere",
-							 num_runs=10)
+							 num_runs=2)
 end
 
 # ╔═╡ 51b0ebd4-1dec-4b35-bb15-cd3df906aca3
@@ -252,14 +215,20 @@ md"!!! example \"\"
 	exploring the effects of water composition variance and sensor error on f1 score"
 
 # ╔═╡ 96e0e439-2c35-4d05-b809-394ef67396e2
-AnomalyDetectionPlots.viz_f1_score_heatmap(0.05, 0.0001, res=10, validation_method="knee") #knee method
+begin
+	Random.seed!(297333)
+	#AnomalyDetectionPlots.viz_f1_score_heatmap(0.05, 0.0005, res=10, validation_method="knee", n_avg=100) #knee method
+end
 
 # ╔═╡ 1d946d7d-7b73-404e-b7c4-12958823e854
 #AnomalyDetection.viz_f1_score_heatmap(0.05, 0.0001, res=10, validation_method="hypersphere", λ=0.1)
 
 # ╔═╡ 00d90c63-6f3e-4906-ad35-ba999439e253
 #=
-AnomalyDetectionPlots.viz_f1_score_heatmap(0.05, 0.0001, res=10, validation_method="hypersphere",hyperparameter_method="bayesian", λ=0.5)
+begin
+	Random.seed!(297333)
+	AnomalyDetectionPlots.viz_f1_score_heatmap(0.05, 0.0005, res=10, validation_method="hypersphere",hyperparameter_method="bayesian", λ=0.5, n_avg=100)
+end
 =#
 
 # ╔═╡ e6bdf599-e022-475d-b119-ded006d43774
@@ -1638,6 +1607,7 @@ version = "3.5.0+0"
 # ╔═╡ Cell order:
 # ╟─1784c510-5465-11ec-0dd1-13e5a66e4ce6
 # ╠═d090131e-6602-4c03-860c-ad3cb6c7844a
+# ╠═3bee5c1d-1d0e-4351-9655-7827d58c59d1
 # ╠═0a6fe423-c3be-4a75-aa27-dfb84fde7fef
 # ╠═3e7c36ca-8345-40fb-b199-34fe49dea73e
 # ╠═4745788b-d360-4305-b44b-8d0fca2aeb4f
@@ -1651,7 +1621,6 @@ version = "3.5.0+0"
 # ╠═eface5b9-30fc-43ff-b672-50afeb39ca5b
 # ╠═464b834c-2db8-424d-8ff8-d2cbc7e26b26
 # ╠═7990ef58-1e45-44d0-8add-ba410a48dc98
-# ╠═e68b7d40-1739-45e7-b17a-932311f9ad15
 # ╠═48d8afeb-2df0-44d1-9eaa-f28184813ab4
 # ╠═6e278c3e-45a3-4aa8-b904-e3dfa73615d5
 # ╠═ee8029cf-c6a6-439f-b190-cb297e0ddb70
