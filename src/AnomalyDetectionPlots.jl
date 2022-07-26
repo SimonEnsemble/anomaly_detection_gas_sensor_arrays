@@ -641,7 +641,7 @@ function viz_f1_score_heatmap(σ_H₂O_max::Float64,
 			
 			f1_score_grid[i, res-j+2] = f1_avg/n_avg
 
-			println("grid space ($(i), $(j)) finished")
+			@warn "grid space ($(i), $(j)) finished"
 
 		end
 	end
