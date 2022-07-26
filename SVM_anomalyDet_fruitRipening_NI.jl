@@ -229,7 +229,7 @@ end
 
 begin
 	Random.seed!(297333)
-	AnomalyDetectionPlots.viz_f1_score_heatmap(0.05, 0.0005, res=10, validation_method="hypersphere",hyperparameter_method="bayesian", λ=0.5, n_avg=10)
+	AnomalyDetectionPlots.viz_f1_score_heatmap(0.05, 0.0005, res=10, validation_method="hypersphere",hyperparameter_method="bayesian", λ=0.5, n_avg=5)
 end
 
 

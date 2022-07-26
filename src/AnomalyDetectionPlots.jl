@@ -623,7 +623,7 @@ function viz_f1_score_heatmap(σ_H₂O_max::Float64,
 				#optimize hyperparameters and determine f1score
 				if validation_method == "hypersphere"
 					if hyperparameter_method == "bayesian"
-						(ν_opt, γ_opt), _ = AnomalyDetection.bayes_validation(data.X_train_scaled)
+						(ν_opt, γ_opt), _ = AnomalyDetection.bayes_validation(data.X_train_scaled, n_iter=25)
 					elseif hyperparameter_method == "grid"
 						(ν_opt, γ_opt), _ = AnomalyDetection.determine_ν_opt_γ_opt_hypersphere_grid_search(data.X_train_scaled)
 					end
