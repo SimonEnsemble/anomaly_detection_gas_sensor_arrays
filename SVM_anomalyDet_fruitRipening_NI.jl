@@ -85,9 +85,7 @@ end
 
 # ╔═╡ 464b834c-2db8-424d-8ff8-d2cbc7e26b26
 # train the anomaly detector
-begin
-	Random.seed!(297333)
-	
+begin	
 	svm = AnomalyDetection.train_anomaly_detector(data_set.X_train_scaled, ν_opt, γ_opt)
 end
 
@@ -142,6 +140,7 @@ end
 
 # ╔═╡ 4b1759a7-eba1-4de5-8d6a-38106f3301c9
 begin
+	#=
 	Random.seed!(297333)
 	
 	#visualization of the effects of sensor error and water vapor variance
@@ -154,7 +153,8 @@ begin
 							 num_normal_test_points,
 							 num_anomaly_test_points,
 							 validation_method="hypersphere",
-							 num_runs=2)
+							 num_runs=100)
+	=#
 end
 
 # ╔═╡ 51b0ebd4-1dec-4b35-bb15-cd3df906aca3
@@ -202,6 +202,7 @@ f1_density
 f1_hypersphere
 
 # ╔═╡ ebd363f4-3929-4870-b5b8-2bae83b2789f
+#=
 	AnomalyDetectionPlots.viz_sensorδ_waterσ_grid(σ_H₂O_vector, 
 											 σ_m_vector,
 											 num_normal_train_points,
@@ -209,6 +210,7 @@ f1_hypersphere
 											 num_normal_test_points,
 											 num_anomaly_test_points,
 											 validation_method="knee")
+=#
 
 # ╔═╡ bbeec9a5-6260-4e8a-a444-a22a59898d22
 md"!!! example \"\" 
@@ -224,12 +226,12 @@ end
 #AnomalyDetection.viz_f1_score_heatmap(0.05, 0.0001, res=10, validation_method="hypersphere", λ=0.1)
 
 # ╔═╡ 00d90c63-6f3e-4906-ad35-ba999439e253
-#=
+
 begin
 	Random.seed!(297333)
-	AnomalyDetectionPlots.viz_f1_score_heatmap(0.05, 0.0005, res=10, validation_method="hypersphere",hyperparameter_method="bayesian", λ=0.5, n_avg=100)
+	AnomalyDetectionPlots.viz_f1_score_heatmap(0.05, 0.0005, res=10, validation_method="hypersphere",hyperparameter_method="bayesian", λ=0.5, n_avg=10)
 end
-=#
+
 
 # ╔═╡ e6bdf599-e022-475d-b119-ded006d43774
 #=

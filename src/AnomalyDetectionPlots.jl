@@ -265,7 +265,7 @@ end
 """
 visualizes a one class SVM decision contour given a particular nu, gamma and resolution.
 """
-function viz_decision_boundary(svm, scaler, data_test::DataFrame; res::Int=700)
+function viz_decision_boundary(svm, scaler, data_test::DataFrame; res::Int=700, incl_legend::Bool=true, incl_contour::Bool=true)
 	X_test, _ = AnomalyDetection.data_to_Xy(data_test)
 
 	xlims = (0.98 * minimum(X_test[:, 1]), 1.02 * maximum(X_test[:, 1]))
@@ -278,7 +278,7 @@ function viz_decision_boundary(svm, scaler, data_test::DataFrame; res::Int=700)
 			   ylabel = "m, " * mofs[2] * " [g/g]",
 			   aspect = DataAspect())
 			   
-	viz_decision_boundary!(ax, svm, scaler, data_test, xlims, ylims)
+	viz_decision_boundary!(ax, svm, scaler, data_test, xlims, ylims,incl_legend=incl_legend, incl_contour=incl_contour)
 
 	fig
 end
@@ -289,19 +289,22 @@ function viz_decision_boundary!(ax,
 								data_test::DataFrame, 
 								xlims, 
 								ylims; 
-								incl_legend::Bool=true)
+								incl_legend::Bool=true,
+								incl_contour::Bool=true)
 
 	# generate the grid
 	x₁s, x₂s, predictions = generate_response_grid(svm, scaler, xlims, ylims)
 
 	viz_responses!(ax, data_test, incl_legend=incl_legend)
-	contour!(x₁s, 
-			 x₂s,
-             predictions, 
-		     levels=[0.0], 
-			 color=:black,
-		     label="decision boundary"
-	) 
+	if incl_contour
+		contour!(x₁s, 
+				x₂s,
+				predictions, 
+				levels=[0.0], 
+				color=:black,
+				label="decision boundary"
+		) 
+	end
 end
 
 """
@@ -637,6 +640,8 @@ function viz_f1_score_heatmap(σ_H₂O_max::Float64,
 			end
 			
 			f1_score_grid[i, res-j+2] = f1_avg/n_avg
+
+			println("grid space ($(i), $(j)) finished")
 
 		end
 	end
