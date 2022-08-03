@@ -218,7 +218,7 @@ function viz_cm(svm, data_test::DataFrame, scaler)
 	ax = Axis(fig[1, 1],
 		  xticks=([1, 2], ["anomaly", "normal"]),
 		  yticks=([i for i=1:n_labels], [reduced_labels[all_labels[i]] for i=1:n_labels]),
-		  xticklabelrotation=45.0,
+		  xticklabelrotation=25.5,
 		  ylabel="truth",
 		  xlabel="prediction"
     )
