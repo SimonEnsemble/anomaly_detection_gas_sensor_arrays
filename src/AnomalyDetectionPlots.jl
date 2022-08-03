@@ -1,6 +1,6 @@
 module AnomalyDetectionPlots
 
-using ScikitLearn, DataFrames, CairoMakie, ColorSchemes, LinearAlgebra, Statistics, Random, PyCall
+using ScikitLearn, DataFrames, CairoMakie, ColorSchemes, LinearAlgebra, Statistics, Random, PyCall, LaTeXStrings
 SyntheticDataGen = include("SyntheticDataGen.jl")
 AnomalyDetection = include("AnomalyDetection.jl")
 skopt = pyimport("skopt")
@@ -14,6 +14,13 @@ gases = ["C₂H₄", "CO₂", "H₂O"]
 mofs = ["ZIF-71", "ZIF-8"]
 
 anomaly_labels = ["CO₂ buildup", "C₂H₄ buildup", "C₂H₄ off", "CO₂ & C₂H₄ buildup", "low humidity"]
+reduced_labels = Dict("normal" => "normal", 
+					  "CO₂ buildup" => "CO₂ ↑", 
+					  "C₂H₄ buildup" => "C₂H₄ ↑", 
+					  "C₂H₄ off" => "C₂H₄ ↓↓", 
+					  "CO₂ & C₂H₄ buildup" => "CO₂ & C₂H₄ ↑", 
+					  "low humidity" => "H₂O ↓",
+					  "anomalous" => "anomaly")
 
 label_to_int = Dict(zip(anomaly_labels, [-1 for i = 1:length(anomaly_labels)]))
 label_to_int["normal"]    = 1
@@ -209,8 +216,8 @@ function viz_cm(svm, data_test::DataFrame, scaler)
 
 	fig = Figure()
 	ax = Axis(fig[1, 1],
-		  xticks=([1, 2], ["anomalous", "normal"]),
-		  yticks=([i for i=1:n_labels], all_labels),
+		  xticks=([1, 2], ["anomaly", "normal"]),
+		  yticks=([i for i=1:n_labels], [reduced_labels[all_labels[i]] for i=1:n_labels]),
 		  xticklabelrotation=45.0,
 		  ylabel="truth",
 		  xlabel="prediction"
@@ -384,7 +391,7 @@ function viz_sensorδ_waterσ_grid(σ_H₂Os::Vector{Float64},
 	figs = [fig[i, j] for i in 1:3, j in 1:3]
 
 #top sensor error labels σ_m
-	for (label, layout) in zip(["σ_m=$(σ_ms[1])","σ_m=$(σ_ms[2])", "σ_m=$(σ_ms[3])"], figs[1, 1:3])
+	for (label, layout) in zip([L"σ_m=%$(σ_ms[1])",L"σ_m=%$(σ_ms[2])", L"σ_m=%$(σ_ms[3])"], figs[1, 1:3])
 		Label(layout[1, 1, Top()], 
 			 label,
 			 textsize = 40,
@@ -393,7 +400,7 @@ function viz_sensorδ_waterσ_grid(σ_H₂Os::Vector{Float64},
 	end
 
 #left water variance labels σ_H₂O
-	for (label, layout) in zip(["σ_H₂O=$(σ_H₂Os[1])","σ_H₂O=$(σ_H₂Os[2])", "σ_H₂O=$(σ_H₂Os[3])"], figs[1:3, 1])
+	for (label, layout) in zip([L"σ_{H_2O}=%$(σ_H₂Os[1])",L"σ_{H_2O}=%$(σ_H₂Os[2])", L"σ_{H_2O}=%$(σ_H₂Os[3])"], figs[1:3, 1])
 		Label(layout[1, 1, Left()], 
 			 label,
 			 textsize = 40,
@@ -474,8 +481,8 @@ function viz_sensorδ_waterσ_grid(σ_H₂Os::Vector{Float64},
 	end
 
 #Set boundaries to be 2% outside min and max data
-	zif71_lims_low_σ  = [0.98 * zif71_lims_low_σ[1], 1.02 * zif71_lims_low_σ[2]]
-	zif8_lims_low_σ   = [0.98 * zif8_lims_low_σ[1], 1.02 * zif8_lims_low_σ[2]]
+	zif71_lims_low_σ  = [0.999 * zif71_lims_low_σ[1], 1.001 * zif71_lims_low_σ[2]]
+	zif8_lims_low_σ   = [0.999 * zif8_lims_low_σ[1], 1.001 * zif8_lims_low_σ[2]]
 
 	zif71_lims_high_σ = [0.98 * zif71_lims_high_σ[1], 1.02 * zif71_lims_high_σ[2]]
 	zif8_lims_high_σ  = [0.98 * zif8_lims_high_σ[1], 1.02 * zif8_lims_high_σ[2]]
@@ -535,9 +542,9 @@ function viz_sensorδ_waterσ_grid(σ_H₂Os::Vector{Float64},
 							all_labels)
 
 			ax = Axis(fig[i, j][1, 2],
-					 xticks=([1, 2], ["anomalous", "normal"]),
-					 yticks=([i for i=1:n_labels], all_labels),
-					 xticklabelrotation=45.0,
+					 xticks=([1, 2], ["anomaly", "normal"]),
+					 yticks=([i for i=1:n_labels], [reduced_labels[all_labels[i]] for i=1:n_labels]),
+					 xticklabelrotation=22.5,
 					 ylabel="truth",
 					 xlabel="prediction",
 					 alignmode = Outside())
@@ -594,18 +601,15 @@ function viz_f1_score_heatmap(σ_H₂O_max::Float64,
 							  λ=0.5)
 	@assert validation_method=="hypersphere" || validation_method=="knee"
 	@assert hyperparameter_method=="bayesian" || hyperparameter_method=="grid"
-	
-	#σ_H₂O_max = 0.1
-	#σ_m_max = 0.001
 
-	σ_H₂Os = 0:σ_H₂O_max/res:σ_H₂O_max
-	σ_ms = 0:σ_m_max/res:σ_m_max
+	σ_H₂Os = [0, 0.001, 0.002, 0.003, 0.004, 0.005, 0.010, 0.020, 0.030, 0.040, 0.050]
+	σ_ms = [0, 0.00001, 0.00002, 0.00003, 0.00004, 0.00005, 0.00010, 0.00020, 3*10^-4, 0.00040, 0.00050]
 
 	num_normal_test_points = num_normal_train_points = 100
 	num_anomaly_train_points = 0
 	num_anomaly_test_points = 5
 
-	f1_score_grid = zeros(res+1, res+1)
+	f1_score_grid = zeros(length(σ_H₂Os), length(σ_ms))
 	
 
 	for (i, σ_H₂O) in enumerate(σ_H₂Os)
@@ -623,7 +627,7 @@ function viz_f1_score_heatmap(σ_H₂O_max::Float64,
 				#optimize hyperparameters and determine f1score
 				if validation_method == "hypersphere"
 					if hyperparameter_method == "bayesian"
-						(ν_opt, γ_opt), _ = AnomalyDetection.bayes_validation(data.X_train_scaled, n_iter=25)
+						(ν_opt, γ_opt), _ = AnomalyDetection.bayes_validation(data.X_train_scaled, n_iter=15)
 					elseif hyperparameter_method == "grid"
 						(ν_opt, γ_opt), _ = AnomalyDetection.determine_ν_opt_γ_opt_hypersphere_grid_search(data.X_train_scaled)
 					end
@@ -649,14 +653,14 @@ function viz_f1_score_heatmap(σ_H₂O_max::Float64,
 	fig = Figure()
 	
 	ax = Axis(fig[1, 1],
-		  xticks=(1:res+1, ["$(truncate(i, 3))" for i=0:σ_H₂O_max/res:σ_H₂O_max]),
-		  yticks=(1:res+1, ["$(truncate(σ_m_max-i, 5))" for i=0:σ_m_max/res:σ_m_max]),
+		  xticks=(1:length(σ_H₂Os), ["$(truncate(σ_H₂Os[i], 3))" for i=1:length(σ_H₂Os)]),
+		  yticks=(1:length(σ_ms), ["$(truncate(σ_ms[length(σ_ms)-i+1], 5))" for i=1:length(σ_ms)]),
 		  xticklabelrotation=45.0,
 		  ylabel="σ_m [g/g]",
 		  xlabel="σ_H₂O [relative humidity]"
     )
 
-	hm = heatmap!(1:res+1, 1:res+1, f1_score_grid,
+	hm = heatmap!(1:length(σ_H₂Os), 1:length(σ_ms), f1_score_grid,
 			      colormap=ColorSchemes.RdYlGn_4, colorrange=(0.0, 1.0))
 	Colorbar(fig[1, 2], hm, label="f1 score")
 

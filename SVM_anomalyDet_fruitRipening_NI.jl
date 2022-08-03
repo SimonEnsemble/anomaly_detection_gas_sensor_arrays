@@ -5,7 +5,7 @@ using Markdown
 using InteractiveUtils
 
 # ╔═╡ d090131e-6602-4c03-860c-ad3cb6c7844a
-using CairoMakie,CSV, DataFrames, ColorSchemes, Optim, Distributions, PlutoUI, ScikitLearn, Colors, Random, PlutoUI, JLD2, LinearAlgebra, PyCall
+using CairoMakie,CSV, DataFrames, ColorSchemes, Optim, Distributions, PlutoUI, ScikitLearn, Colors, Random, PlutoUI, JLD2, LinearAlgebra, PyCall, LaTeXStrings
 
 # ╔═╡ 0a6fe423-c3be-4a75-aa27-dfb84fde7fef
 SyntheticDataGen = include("src/SyntheticDataGen.jl")
@@ -25,6 +25,9 @@ md"# Anomaly Detection for Gas Sensor Arrays Using One-Class SVM in a Non-Inject
 
 # ╔═╡ 3bee5c1d-1d0e-4351-9655-7827d58c59d1
 Random.seed!(297333)
+
+# ╔═╡ 4d5fa4bc-a2af-46f8-8940-3f7096eb9bc7
+latexstring("\$ \\cancel{45} \$")
 
 # ╔═╡ 6d5bc919-351d-4b66-a8a6-5e92a42d4fac
 skopt = pyimport("skopt")
@@ -51,7 +54,7 @@ md"!!! example \"\"
 
 # ╔═╡ 6b884c33-abb2-4533-9db6-013dd440a1c4
 begin
-	Random.seed!(297333)
+	Random.seed!(397333)
 	
 	num_normal_train_points  = 100
 	num_anomaly_train_points = 0
@@ -90,7 +93,7 @@ begin
 end
 
 # ╔═╡ 7990ef58-1e45-44d0-8add-ba410a48dc98
-#AnomalyDetectionPlots.viz_bayes_values_by_point(bayes_plot_data, 50)
+AnomalyDetectionPlots.viz_bayes_values_by_point(bayes_plot_data, 50)
 
 # ╔═╡ 48d8afeb-2df0-44d1-9eaa-f28184813ab4
 begin
@@ -140,7 +143,7 @@ end
 
 # ╔═╡ 4b1759a7-eba1-4de5-8d6a-38106f3301c9
 begin
-	#=
+
 	Random.seed!(297333)
 	
 	#visualization of the effects of sensor error and water vapor variance
@@ -153,8 +156,7 @@ begin
 							 num_normal_test_points,
 							 num_anomaly_test_points,
 							 validation_method="hypersphere",
-							 num_runs=100)
-	=#
+							 num_runs=2)
 end
 
 # ╔═╡ 51b0ebd4-1dec-4b35-bb15-cd3df906aca3
@@ -228,8 +230,10 @@ end
 # ╔═╡ 00d90c63-6f3e-4906-ad35-ba999439e253
 
 begin
+	#=
 	Random.seed!(297333)
-	AnomalyDetectionPlots.viz_f1_score_heatmap(0.05, 0.0005, res=10, validation_method="hypersphere",hyperparameter_method="bayesian", λ=0.5, n_avg=5)
+	AnomalyDetectionPlots.viz_f1_score_heatmap(0.05, 0.0005, res=10, validation_method="hypersphere",hyperparameter_method="bayesian", λ=0.5, n_avg=1)
+	=#
 end
 
 
@@ -284,9 +288,6 @@ yy_true = [-1, -1, 1,  1,  1, 1,  1, -1]
 	
 end
 
-# ╔═╡ 1eb89257-cb13-4033-afc2-93dbbb400fc1
-
-
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
@@ -297,6 +298,7 @@ Colors = "5ae59095-9a9b-59fe-a467-6f913c188581"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
+LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Optim = "429524aa-4258-5aef-a3af-852621145aeb"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
@@ -312,6 +314,7 @@ Colors = "~0.12.8"
 DataFrames = "~1.2.2"
 Distributions = "~0.25.34"
 JLD2 = "~0.4.22"
+LaTeXStrings = "~1.3.0"
 Optim = "~1.5.0"
 PlutoUI = "~0.7.21"
 PyCall = "~1.93.1"
@@ -1613,6 +1616,7 @@ version = "3.5.0+0"
 # ╠═0a6fe423-c3be-4a75-aa27-dfb84fde7fef
 # ╠═3e7c36ca-8345-40fb-b199-34fe49dea73e
 # ╠═4745788b-d360-4305-b44b-8d0fca2aeb4f
+# ╠═4d5fa4bc-a2af-46f8-8940-3f7096eb9bc7
 # ╠═6d5bc919-351d-4b66-a8a6-5e92a42d4fac
 # ╠═31f71438-ff2f-49f9-a801-3a6489eaf271
 # ╠═5d920ea0-f04d-475f-b05b-86e7b199d7e0
@@ -1654,6 +1658,5 @@ version = "3.5.0+0"
 # ╠═211e8b05-6525-448e-80f2-f093e7488beb
 # ╠═b62fd403-cf0d-4ab5-94cf-291cefb0bbbc
 # ╠═773793c4-021a-4aa8-9b13-c27f94e694b0
-# ╠═1eb89257-cb13-4033-afc2-93dbbb400fc1
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
