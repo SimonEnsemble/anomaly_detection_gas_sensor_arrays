@@ -544,7 +544,7 @@ function viz_sensorδ_waterσ_grid(σ_H₂Os::Vector{Float64},
 			ax = Axis(fig[i, j][1, 2],
 					 xticks=([1, 2], ["anomaly", "normal"]),
 					 yticks=([i for i=1:n_labels], [reduced_labels[all_labels[i]] for i=1:n_labels]),
-					 xticklabelrotation=22.5,
+					 xticklabelrotation=25.5,
 					 ylabel="truth",
 					 xlabel="prediction",
 					 alignmode = Outside())
