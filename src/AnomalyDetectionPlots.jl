@@ -585,10 +585,7 @@ function viz_sensorδ_waterσ_grid(σ_H₂Os::Vector{Float64},
 		save("sensor_error_&_H2O_variance_plot_knee.pdf", fig)
 	end
 
-#Display finished 3x3 plot
-	fig
-
-	return plot_data_storage[2, 2, trunc(Int, num_runs/2)]
+	return plot_data_storage[2, 2, trunc(Int, num_runs/2)], fig
 end
 
 """
