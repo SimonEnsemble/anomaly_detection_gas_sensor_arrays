@@ -26,9 +26,6 @@ md"# Anomaly Detection for Gas Sensor Arrays Using One-Class SVM in a Non-Inject
 # ╔═╡ 3bee5c1d-1d0e-4351-9655-7827d58c59d1
 Random.seed!(297333)
 
-# ╔═╡ 4d5fa4bc-a2af-46f8-8940-3f7096eb9bc7
-latexstring("\$ \\cancel{45} \$")
-
 # ╔═╡ 6d5bc919-351d-4b66-a8a6-5e92a42d4fac
 skopt = pyimport("skopt")
 
@@ -42,34 +39,32 @@ begin
 	@sk_import svm : OneClassSVM
 end
 
-# ╔═╡ 738a227e-9665-4fe1-b3b5-d12c93c9300d
-begin
-	gases = SyntheticDataGen.gases
-	mofs  = SyntheticDataGen.mofs
-end
-
-# ╔═╡ 32c8e7ce-113c-4606-a463-47d9802a2238
+# ╔═╡ ebf79f0c-8399-42bf-b790-d4934906ede0
 md"!!! example \"\" 
-	generate data and scale it in order to train the anomaly detector."
+	Generate 100 3x3 plots of SVDD for low, medium, and high measurement error and H₂O composition variance values and return the plot that yields the median F1 score for each measurement error and H₂O variance set. Then use the data for the middle error and variance to perform a more detailed analysis. "
 
-# ╔═╡ 6b884c33-abb2-4533-9db6-013dd440a1c4
+# ╔═╡ 4b1759a7-eba1-4de5-8d6a-38106f3301c9
 begin
-	Random.seed!(397333)
+
+	Random.seed!(297333)
 	
+	#visualization of the effects of sensor error and water vapor variance
+	σ_H₂O_vector = [0.0, 0.01, 0.02]
+	σ_m_vector   = [0.0, 0.000025, 0.00005]
+
 	num_normal_train_points  = 100
 	num_anomaly_train_points = 0
 	num_normal_test_points   = 100
 	num_anomaly_test_points  = 5
-
-	σ_H₂O = 0.005
-	σ_m   = 0.00005
 	
-	data_set = AnomalyDetection.setup_dataset(num_normal_train_points,
-											  num_anomaly_train_points,
-											  num_normal_test_points,
-											  num_anomaly_test_points,
-									 		  σ_H₂O, 
-											  σ_m)
+	mid_data, _ = AnomalyDetectionPlots.viz_sensorδ_waterσ_grid(σ_H₂O_vector, 
+							 σ_m_vector,
+							 num_normal_train_points,
+							 num_anomaly_train_points,
+							 num_normal_test_points,
+							 num_anomaly_test_points,
+							 validation_method="hypersphere",
+							 num_runs=2)
 
 end
 
@@ -79,40 +74,36 @@ md"!!! example \"\"
 
 	uniform hypersphere of 'anomalies' around our data"
 
-# ╔═╡ eface5b9-30fc-43ff-b672-50afeb39ca5b
-begin
-	Random.seed!(397333)
-
-	(ν_opt, γ_opt), X_sphere, bayes_plot_data = AnomalyDetection.bayes_validation(data_set.X_train_scaled, plot_data_flag=true, ν_space=(3/size(data_set.X_train_scaled, 1), 0.4), n_iter=50)
-end
-
-# ╔═╡ 464b834c-2db8-424d-8ff8-d2cbc7e26b26
-# train the anomaly detector
-begin	
-	svm = AnomalyDetection.train_anomaly_detector(data_set.X_train_scaled, ν_opt, γ_opt)
-end
-
-# ╔═╡ 7990ef58-1e45-44d0-8add-ba410a48dc98
-AnomalyDetectionPlots.viz_bayes_values_by_point(bayes_plot_data, 50)
+# ╔═╡ 77382f3e-98b6-4aef-b946-8375018c3c3e
+md"## Step 1) Generate uniform hypersphere of synthetic data around normal training data.
+"
 
 # ╔═╡ 48d8afeb-2df0-44d1-9eaa-f28184813ab4
-begin
-	Random.seed!(297333)
-	#AnomalyDetectionPlots.viz_synthetic_anomaly_hypersphere(X_sphere, data_set.X_train_scaled)
-end
+AnomalyDetectionPlots.viz_synthetic_anomaly_hypersphere(mid_data["X_sphere"], mid_data["data"].X_train_scaled)
+
+# ╔═╡ 7af3b1f6-2c57-40c4-a841-961dd039090a
+md"## Step 2) Minimize error function Λ using bayesian optimization.
+"
+
+# ╔═╡ 7990ef58-1e45-44d0-8add-ba410a48dc98
+AnomalyDetectionPlots.viz_bayes_values_by_point(mid_data["bayes_plot_data"], length(mid_data["bayes_plot_data"]))
+
+# ╔═╡ 97a7e102-1a87-4364-9835-c7ed370f573c
+md"## Step 3) Train one class support vector machine and evaluate performance.
+"
 
 # ╔═╡ 6e278c3e-45a3-4aa8-b904-e3dfa73615d5
-AnomalyDetectionPlots.viz_decision_boundary(svm, data_set.scaler, data_set.data_test)
+AnomalyDetectionPlots.viz_decision_boundary(mid_data["svm"], mid_data["data"].scaler, mid_data["data"].data_test)
 
 # ╔═╡ ee8029cf-c6a6-439f-b190-cb297e0ddb70
-AnomalyDetectionPlots.viz_cm(svm, data_set.data_test, data_set.scaler)
+AnomalyDetectionPlots.viz_cm(mid_data["svm"], mid_data["data"].data_test, mid_data["data"].scaler)
 
 # ╔═╡ 12a6f9d0-f3db-4973-8c53-3a2953d78b5d
-AnomalyDetectionPlots.viz_decision_boundary(svm, data_set.scaler, data_set.data_train)
+AnomalyDetectionPlots.viz_decision_boundary(mid_data["svm"], mid_data["data"].scaler, mid_data["data"].data_train)
 
 # ╔═╡ 8c426257-f4a5-4015-b39f-eab5e84d91ee
 # check the f1 score to compare to other validation method(s)
-f1_hypersphere = AnomalyDetection.performance_metric(data_set.y_test, svm.predict(data_set.X_test_scaled))
+f1_hypersphere = AnomalyDetection.performance_metric(mid_data["data"].y_test, mid_data["svm"].predict(mid_data["data"].X_test_scaled))
 
 # ╔═╡ 1d29b57f-bfaa-4afc-b1f6-5d35ea395eee
 begin
@@ -129,35 +120,19 @@ begin
 	=#
 end
 
-# ╔═╡ 2cf7c5dd-5221-4f0e-bf66-b8c054b479f7
-# medium error and water variance
-#AnomalyDetectionPlots.viz_νγ_opt_heatmap(σ_H₂O, σ_m)
+# ╔═╡ 00d90c63-6f3e-4906-ad35-ba999439e253
 
-# ╔═╡ 30c8a41d-a1e3-4615-b6f0-69dce2a993c2
-# 0 sensor error and 0 water variance
-#AnomalyDetectionPlots.viz_νγ_opt_heatmap(0.0, 0.0)
-
-# ╔═╡ 18c79b10-6607-401d-8154-6b2e8f179249
-# high sensor error and water variance
-#AnomalyDetectionPlots.viz_νγ_opt_heatmap(0.05, 0.0005)
-
-# ╔═╡ 4b1759a7-eba1-4de5-8d6a-38106f3301c9
 begin
-
+	#=
 	Random.seed!(297333)
+
+	σ_m_max = σ_m_vector[end]	
+	σ_H₂O_max = σ_H₂O_vector[end]
 	
-	#visualization of the effects of sensor error and water vapor variance
-	σ_H₂O_vector = [0.0, 0.005, 0.05]
-	σ_m_vector   = [0.0, 0.00005, 0.0005]
-	AnomalyDetectionPlots.viz_sensorδ_waterσ_grid(σ_H₂O_vector, 
-							 σ_m_vector,
-							 num_normal_train_points,
-							 num_anomaly_train_points,
-							 num_normal_test_points,
-							 num_anomaly_test_points,
-							 validation_method="hypersphere",
-							 num_runs=2)
+	AnomalyDetectionPlots.viz_f1_score_heatmap(σ_H₂O_max, σ_m_max, res=10, validation_method="hypersphere",hyperparameter_method="bayesian", λ=0.5, n_avg=1)
+	=#
 end
+
 
 # ╔═╡ 51b0ebd4-1dec-4b35-bb15-cd3df906aca3
 md"!!! example \"\" 
@@ -171,37 +146,31 @@ begin
 	K = trunc(Int, 0.05 * num_normal_train_points)
 	
 	# use a density measure method to find optimal ν and γ
-	ν_opt_2, γ_opt_2 = AnomalyDetection.opt_ν_γ_by_density_measure_method(data_set.X_train_scaled, K)
+	ν_opt, γ_opt = AnomalyDetection.opt_ν_γ_by_density_measure_method(mid_data["data"].X_train_scaled, K)
 
 	# train the anomaly detector
-	svm_2 = AnomalyDetection.train_anomaly_detector(data_set.X_train_scaled, ν_opt_2, γ_opt_2)
+	svm = AnomalyDetection.train_anomaly_detector(mid_data["data"].X_train_scaled, ν_opt, γ_opt)
 
-	(ν_opt_2, γ_opt_2)
+	(ν_opt, γ_opt)
 end
 
 # ╔═╡ 9a9262d4-02ff-4d82-bb7b-8584e8b79022
-AnomalyDetectionPlots.viz_density_measures(data_set.X_train_scaled, K)
+AnomalyDetectionPlots.viz_density_measures(mid_data["data"].X_train_scaled, K)
 
 # ╔═╡ f0cb9b40-0ed8-450a-8f03-4f16ca65fa77
-AnomalyDetectionPlots.viz_decision_boundary(svm_2, data_set.scaler, data_set.data_test)
+AnomalyDetectionPlots.viz_decision_boundary(mid_data["svm"], mid_data["data"].scaler, mid_data["data"].data_test)
 
 # ╔═╡ 47d6c332-632c-4880-9708-59e6fa187c6c
-AnomalyDetectionPlots.viz_cm(svm_2, data_set.data_test, data_set.scaler)
+AnomalyDetectionPlots.viz_cm(svm, mid_data["data"].data_test, mid_data["data"].scaler)
 
 # ╔═╡ e4723de4-3a82-4c15-9057-c20b331259f7
-AnomalyDetectionPlots.viz_decision_boundary(svm_2, data_set.scaler, data_set.data_train)
+AnomalyDetectionPlots.viz_decision_boundary(svm, mid_data["data"].scaler, mid_data["data"].data_train)
 
 # ╔═╡ 55640b9c-9a0a-4d0d-8c29-e67a8228edc2
 begin
 	# check the f1 score to compare to other validation method(s)
-	f1_density = AnomalyDetection.performance_metric(data_set.y_test, svm_2.predict(data_set.X_test_scaled))
+	f1_density = AnomalyDetection.performance_metric(mid_data["data"].y_test, svm.predict(mid_data["data"].X_test_scaled))
 end
-
-# ╔═╡ 11e286be-d3a9-4896-a90c-fdd05fc35073
-f1_density
-
-# ╔═╡ f8dab032-e446-4e6e-8022-39ad3dbb1042
-f1_hypersphere
 
 # ╔═╡ ebd363f4-3929-4870-b5b8-2bae83b2789f
 #=
@@ -214,33 +183,24 @@ f1_hypersphere
 											 validation_method="knee")
 =#
 
-# ╔═╡ bbeec9a5-6260-4e8a-a444-a22a59898d22
-md"!!! example \"\" 
-	exploring the effects of water composition variance and sensor error on f1 score"
-
 # ╔═╡ 96e0e439-2c35-4d05-b809-394ef67396e2
-begin
-	Random.seed!(297333)
-	#AnomalyDetectionPlots.viz_f1_score_heatmap(0.05, 0.0005, res=10, validation_method="knee", n_avg=100) #knee method
-end
-
-# ╔═╡ 1d946d7d-7b73-404e-b7c4-12958823e854
-#AnomalyDetection.viz_f1_score_heatmap(0.05, 0.0001, res=10, validation_method="hypersphere", λ=0.1)
-
-# ╔═╡ 00d90c63-6f3e-4906-ad35-ba999439e253
-
 begin
 	#=
 	Random.seed!(297333)
-	AnomalyDetectionPlots.viz_f1_score_heatmap(0.05, 0.0005, res=10, validation_method="hypersphere",hyperparameter_method="bayesian", λ=0.5, n_avg=1)
+
+	AnomalyDetectionPlots.viz_f1_score_heatmap(0.05, 0.0005, res=10, validation_method="knee", n_avg=100) #knee method
 	=#
 end
 
+# ╔═╡ bbeec9a5-6260-4e8a-a444-a22a59898d22
+md"!!! example \"\" 
+	 Comparing F1 score between median different validation methods."
 
-# ╔═╡ e6bdf599-e022-475d-b119-ded006d43774
-#=
-AnomalyDetectionPlots.viz_f1_score_heatmap(0.05, 0.0001, res=10, validation_method="hypersphere",hyperparameter_method="grid", λ=0.5)
-=#
+# ╔═╡ 11e286be-d3a9-4896-a90c-fdd05fc35073
+f1_density
+
+# ╔═╡ f8dab032-e446-4e6e-8022-39ad3dbb1042
+f1_hypersphere
 
 # ╔═╡ 3aab547c-8b00-48da-aa8e-3d51e804c5df
 md"!!! example \"\" 
@@ -1616,27 +1576,23 @@ version = "3.5.0+0"
 # ╠═0a6fe423-c3be-4a75-aa27-dfb84fde7fef
 # ╠═3e7c36ca-8345-40fb-b199-34fe49dea73e
 # ╠═4745788b-d360-4305-b44b-8d0fca2aeb4f
-# ╠═4d5fa4bc-a2af-46f8-8940-3f7096eb9bc7
 # ╠═6d5bc919-351d-4b66-a8a6-5e92a42d4fac
 # ╠═31f71438-ff2f-49f9-a801-3a6489eaf271
 # ╠═5d920ea0-f04d-475f-b05b-86e7b199d7e0
-# ╠═738a227e-9665-4fe1-b3b5-d12c93c9300d
-# ╟─32c8e7ce-113c-4606-a463-47d9802a2238
-# ╠═6b884c33-abb2-4533-9db6-013dd440a1c4
+# ╟─ebf79f0c-8399-42bf-b790-d4934906ede0
+# ╠═4b1759a7-eba1-4de5-8d6a-38106f3301c9
 # ╟─9873c6d8-84ba-47e5-adcb-4d0f30829227
-# ╠═eface5b9-30fc-43ff-b672-50afeb39ca5b
-# ╠═464b834c-2db8-424d-8ff8-d2cbc7e26b26
-# ╠═7990ef58-1e45-44d0-8add-ba410a48dc98
+# ╟─77382f3e-98b6-4aef-b946-8375018c3c3e
 # ╠═48d8afeb-2df0-44d1-9eaa-f28184813ab4
+# ╟─7af3b1f6-2c57-40c4-a841-961dd039090a
+# ╠═7990ef58-1e45-44d0-8add-ba410a48dc98
+# ╟─97a7e102-1a87-4364-9835-c7ed370f573c
 # ╠═6e278c3e-45a3-4aa8-b904-e3dfa73615d5
 # ╠═ee8029cf-c6a6-439f-b190-cb297e0ddb70
 # ╠═12a6f9d0-f3db-4973-8c53-3a2953d78b5d
 # ╠═8c426257-f4a5-4015-b39f-eab5e84d91ee
 # ╠═1d29b57f-bfaa-4afc-b1f6-5d35ea395eee
-# ╠═2cf7c5dd-5221-4f0e-bf66-b8c054b479f7
-# ╠═30c8a41d-a1e3-4615-b6f0-69dce2a993c2
-# ╠═18c79b10-6607-401d-8154-6b2e8f179249
-# ╠═4b1759a7-eba1-4de5-8d6a-38106f3301c9
+# ╠═00d90c63-6f3e-4906-ad35-ba999439e253
 # ╟─51b0ebd4-1dec-4b35-bb15-cd3df906aca3
 # ╠═6ceab194-4861-4be1-901c-6713db5a4204
 # ╠═9a9262d4-02ff-4d82-bb7b-8584e8b79022
@@ -1644,14 +1600,11 @@ version = "3.5.0+0"
 # ╠═47d6c332-632c-4880-9708-59e6fa187c6c
 # ╠═e4723de4-3a82-4c15-9057-c20b331259f7
 # ╠═55640b9c-9a0a-4d0d-8c29-e67a8228edc2
+# ╠═ebd363f4-3929-4870-b5b8-2bae83b2789f
+# ╠═96e0e439-2c35-4d05-b809-394ef67396e2
+# ╟─bbeec9a5-6260-4e8a-a444-a22a59898d22
 # ╠═11e286be-d3a9-4896-a90c-fdd05fc35073
 # ╠═f8dab032-e446-4e6e-8022-39ad3dbb1042
-# ╠═ebd363f4-3929-4870-b5b8-2bae83b2789f
-# ╟─bbeec9a5-6260-4e8a-a444-a22a59898d22
-# ╠═96e0e439-2c35-4d05-b809-394ef67396e2
-# ╠═1d946d7d-7b73-404e-b7c4-12958823e854
-# ╠═00d90c63-6f3e-4906-ad35-ba999439e253
-# ╠═e6bdf599-e022-475d-b119-ded006d43774
 # ╟─3aab547c-8b00-48da-aa8e-3d51e804c5df
 # ╠═923c9837-82ab-4071-b716-faa3565fa327
 # ╠═a1843a87-a8d3-40ab-9959-3e14d520a4d1
