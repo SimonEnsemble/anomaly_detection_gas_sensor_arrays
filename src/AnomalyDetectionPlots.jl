@@ -426,15 +426,13 @@ function viz_sensorδ_waterσ_grid(σ_H₂Os::Vector{Float64},
 		for (j, σ_m) in enumerate(σ_ms)
 			for k = 1:num_runs
 
-				plot_data_storage[i, j, k] = Dict{String, Any}("data_test" => SyntheticDataGen.gen_data(num_normal_test, num_anomaly_test, σ_H₂O, σ_m))
-
 				#generate test and training data, feature vectors, target vectors and standard scaler
-				plot_data_storage[i, j, k]["data"] = AnomalyDetection.setup_dataset(num_normal_train, 
+				plot_data_storage[i, j, k] = Dict{String, Any}("data" => AnomalyDetection.setup_dataset(num_normal_train, 
 																					num_anomaly_train, 
 																					num_normal_test, 
 																					num_anomaly_test, 
 																					σ_H₂O, 
-																					σ_m)
+																					σ_m))
 
 				#optimize hyperparameters and determine f1score
 				if validation_method == "hypersphere"
