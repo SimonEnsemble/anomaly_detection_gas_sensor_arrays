@@ -17,7 +17,7 @@ anomaly_labels = ["CO₂ buildup", "C₂H₄ buildup", "C₂H₄ off", "CO₂ & 
 reduced_labels = Dict("normal" => "normal", 
 					  "CO₂ buildup" => "CO₂ ↑", 
 					  "C₂H₄ buildup" => "C₂H₄ ↑", 
-					  "C₂H₄ off" => "C₂H₄ ↓↓", 
+					  "C₂H₄ off" => "C₂H₄ off", 
 					  "CO₂ & C₂H₄ buildup" => "CO₂ & C₂H₄ ↑", 
 					  "low humidity" => "H₂O ↓",
 					  "anomalous" => "anomaly")
