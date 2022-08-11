@@ -186,7 +186,7 @@ function bayes_validation(X_train_scaled::Matrix{Float64};
 						  n_iter::Int=35,
 						  num_outliers::Int=500,
 						  λ::Float64=0.5,
-						  ν_space::Tuple{Float64, Float64}=(3/size(X_train_scaled, 1), 0.3),
+						  ν_space::Tuple{Float64, Float64}=(1/size(X_train_scaled, 1), 0.3),
 						  γ_space::Tuple{Float64, Float64}=(1.0e-3, 1.0),
 						  plot_data_flag::Bool=false)
 
