@@ -381,9 +381,12 @@ function viz_sensorδ_waterσ_grid(σ_H₂Os::Vector{Float64},
 								num_normal_test::Int64,
 								num_anomaly_test::Int64; 
 								validation_method::String="hypersphere",
-								num_runs::Int=100)
+								num_runs::Int=100,
+								seed=abs(rand(Int)))
 
 	@assert validation_method=="hypersphere" || validation_method=="knee"
+	Random.seed!(seed)
+
 
 #establish axes and figs for 9x9 grid
 	fig  = Figure(resolution = (2400, 1200))
@@ -583,6 +586,7 @@ function viz_sensorδ_waterσ_grid(σ_H₂Os::Vector{Float64},
 		save("sensor_error_&_H2O_variance_plot_knee.pdf", fig)
 	end
 
+	plot_data_storage[2, 2, trunc(Int, num_runs/2)]["seed"] = seed
 	return plot_data_storage[2, 2, trunc(Int, num_runs/2)], fig
 end
 
@@ -593,19 +597,19 @@ method 2: knee
 """
 function viz_f1_score_heatmap(σ_H₂O_max::Float64, 
 							  σ_m_max::Float64; 
-							  res::Int=10, 
+							  res::Int=5, 
 							  validation_method="knee",
 							  hyperparameter_method="bayesian", 
 							  n_avg::Int=10, 
-							  λ=0.5)
+							  λ=0.5,
+							  seed=abs(rand(Int)))
 	@assert validation_method=="hypersphere" || validation_method=="knee"
 	@assert hyperparameter_method=="bayesian" || hyperparameter_method=="grid"
 
-	#σ_H₂Os = [0, 0.001, 0.002, 0.003, 0.004, 0.005, 0.010, 0.020, 0.030, 0.040, 0.050]
-	#σ_ms = [0, 0.00001, 0.00002, 0.00003, 0.00004, 0.00005, 0.00010, 0.00020, 3*10^-4, 0.00040, 0.00050]
+	Random.seed!(seed)
 
-	σ_H₂Os = 0:σ_H₂O_max/res:σ_H₂O_max
-	σ_ms = 0:σ_m_max/res:σ_m_max
+	σ_H₂Os = [σ_H₂O_max * 10^(-res + i) for i=1:res]
+	σ_ms = [σ_m_max * 10^(-res + i) for i=1:res]
 
 	num_normal_test_points = num_normal_train_points = 100
 	num_anomaly_train_points = 0
@@ -664,7 +668,7 @@ function viz_f1_score_heatmap(σ_H₂O_max::Float64,
 
 	hm = heatmap!(1:length(σ_H₂Os), 1:length(σ_ms), f1_score_grid,
 			      colormap=ColorSchemes.RdYlGn_4, colorrange=(0.0, 1.0))
-	Colorbar(fig[1, 2], hm, label="f1 score")
+	Colorbar(fig[1, 2], hm, label="F1 score")
 
 	if validation_method == "hypersphere"
 		save("f1_score_plot_hypersphere.pdf", fig)
@@ -672,7 +676,7 @@ function viz_f1_score_heatmap(σ_H₂O_max::Float64,
 		save("f1_score_plot_knee.pdf", fig)
 	end
 
-	fig
+	return seed, fig
 end
 
 
