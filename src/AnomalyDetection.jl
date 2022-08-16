@@ -44,24 +44,18 @@ function setup_dataset(num_normal_train_points,
 					   num_anomaly_test_points,
 	 				   σ_H₂O, 
 					   σ_m;
-					   system="non-injective")
+					   system="non-injective",
+					   seed=abs(rand(Int)))
 	@assert system=="non-injective" || system=="injective"
+	Random.seed!(seed)
 	
 	# generate synthetic training data
-	if system=="non-injective"
-		data_train = SyntheticDataGen.gen_data(num_normal_train_points, 
+	data_train = SyntheticDataGen.gen_data(num_normal_train_points, 
 										num_anomaly_train_points, 
 										σ_H₂O, 
 										σ_m)
-	elseif system=="injective"
-		data_train = SyntheticDataGen.gen_data(num_normal_train_points, 
-										num_anomaly_train_points, 
-										σ_H₂O, 
-										σ_m)
-
+	if system=="injective"
 		data_train[:, "p H₂O [bar]"] .= 0
-	else
-		throw("training data injective vs non-injective system control flow error")
 	end
 
 
@@ -70,20 +64,12 @@ function setup_dataset(num_normal_train_points,
 	X_train_scaled   = scaler.transform(X_train)
 
 	# generate synthetic test data
-	if system=="non-injective"
-		data_test = SyntheticDataGen.gen_data(num_normal_test_points, 
+	data_test = SyntheticDataGen.gen_data(num_normal_test_points, 
 										num_anomaly_test_points, 
 										σ_H₂O, 
 										σ_m)
-	elseif system=="injective"
-		data_test = SyntheticDataGen.gen_data(num_normal_test_points, 
-										num_anomaly_test_points, 
-										σ_H₂O, 
-										σ_m)
-
+	if system=="injective"
 		data_test[:, "p H₂O [bar]"] .= 0
-	else
-		throw("training data injective vs non-injective system control flow error")
 	end
 
 	X_test, y_test = AnomalyDetection.data_to_Xy(data_test)
@@ -359,7 +345,8 @@ end
 """
 generates a distribution of outliers in a hypersphere around our data
 """
-function generate_uniform_vectors_in_hypersphere(num_outliers::Int64, R_sphere::Float64)
+function generate_uniform_vectors_in_hypersphere(num_outliers::Int64, 
+												R_sphere::Float64)
 	X = zeros(num_outliers, 2)
 	for i = 1:num_outliers
 		X[i, :] = gen_uniform_vector_in_hypersphere()

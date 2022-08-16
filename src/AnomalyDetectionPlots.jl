@@ -412,9 +412,7 @@ function viz_sensorδ_waterσ_grid(σ_H₂Os::Vector{Float64},
 			 rotation = pi/2)
 	end
 
-#create test data and find max/min for plots
-	data_set_test = Dict()
-
+#find max/min for plots
 	zif71_lims_high_σ = [Inf, 0]
 	zif8_lims_high_σ  = [Inf, 0]
 
@@ -435,7 +433,8 @@ function viz_sensorδ_waterσ_grid(σ_H₂Os::Vector{Float64},
 																					num_normal_test, 
 																					num_anomaly_test, 
 																					σ_H₂O, 
-																					σ_m))
+																					σ_m),
+																					seed=seed+k)
 
 				#optimize hyperparameters and determine f1score
 				if validation_method == "hypersphere"
@@ -484,8 +483,8 @@ function viz_sensorδ_waterσ_grid(σ_H₂Os::Vector{Float64},
 	end
 
 #Set boundaries to be 2% outside min and max data
-	zif71_lims_low_σ  = [0.999 * zif71_lims_low_σ[1], 1.001 * zif71_lims_low_σ[2]]
-	zif8_lims_low_σ   = [0.999 * zif8_lims_low_σ[1], 1.001 * zif8_lims_low_σ[2]]
+	zif71_lims_low_σ  = [0.990 * zif71_lims_low_σ[1], 1.010 * zif71_lims_low_σ[2]]
+	zif8_lims_low_σ   = [0.990 * zif8_lims_low_σ[1], 1.010 * zif8_lims_low_σ[2]]
 
 	zif71_lims_high_σ = [0.98 * zif71_lims_high_σ[1], 1.02 * zif71_lims_high_σ[2]]
 	zif8_lims_high_σ  = [0.98 * zif8_lims_high_σ[1], 1.02 * zif8_lims_high_σ[2]]
@@ -511,7 +510,7 @@ function viz_sensorδ_waterσ_grid(σ_H₂Os::Vector{Float64},
 			median_data = plot_data_storage[i, j, trunc(Int, num_runs/2)]
 
 #draw a background box colored according to f1score
-			fig[i, j]        = Box(fig, color = (ColorSchemes.RdYlGn_4[median_data["f1_score"]], 0.7))
+			fig[i, j]        = Box(fig)#, color = (ColorSchemes.RdYlGn_4[median_data["f1_score"]], 0.7))
 			axes[i, j].title = "F1 score = $(median_data["f1_score"])"
 			hidedecorations!(axes[i, j])
 
@@ -602,65 +601,61 @@ function viz_f1_score_heatmap(σ_H₂O_max::Float64,
 							  hyperparameter_method="bayesian", 
 							  n_avg::Int=10, 
 							  λ=0.5,
-							  seed=abs(rand(Int)))
+							  gen_data_flag=true,
+							  f1_score_grid = zeros(res, res))
 	@assert validation_method=="hypersphere" || validation_method=="knee"
 	@assert hyperparameter_method=="bayesian" || hyperparameter_method=="grid"
 
-	Random.seed!(seed)
-
-	σ_H₂Os = [σ_H₂O_max * 10^(-res + i) for i=1:res]
-	σ_ms = [σ_m_max * 10^(-res + i) for i=1:res]
+	σ_H₂Os = [σ_H₂O_max * 10.0^(-res + i) for i=1:res]
+	σ_ms = [σ_m_max * 10.0^(-res + i) for i=1:res]
 
 	num_normal_test_points = num_normal_train_points = 100
 	num_anomaly_train_points = 0
 	num_anomaly_test_points = 5
-
-	f1_score_grid = zeros(length(σ_H₂Os), length(σ_ms))
 	
-
-	for (i, σ_H₂O) in enumerate(σ_H₂Os)
-		for (j, σ_m) in enumerate(σ_ms)
-			f1_avg = 0.0
-			
-			for k = 1:n_avg
-				data = AnomalyDetection.setup_dataset(num_normal_train_points,
-										  num_anomaly_train_points,
-										  num_normal_test_points,
-										  num_anomaly_test_points,
-								 		  σ_H₂O, 
-										  σ_m)
-	
-				#optimize hyperparameters and determine f1score
-				if validation_method == "hypersphere"
-					if hyperparameter_method == "bayesian"
-						(ν_opt, γ_opt), _ = AnomalyDetection.bayes_validation(data.X_train_scaled, n_iter=40)
-					elseif hyperparameter_method == "grid"
-						(ν_opt, γ_opt), _ = AnomalyDetection.determine_ν_opt_γ_opt_hypersphere_grid_search(data.X_train_scaled)
+	if gen_data_flag
+		for (i, σ_H₂O) in enumerate(σ_H₂Os)
+			for (j, σ_m) in enumerate(σ_ms)
+				f1_avg = 0.0
+				
+				for k = 1:n_avg
+					data = AnomalyDetection.setup_dataset(num_normal_train_points,
+											num_anomaly_train_points,
+											num_normal_test_points,
+											num_anomaly_test_points,
+											σ_H₂O, 
+											σ_m)
+		
+					#optimize hyperparameters and determine f1score
+					if validation_method == "hypersphere"
+						if hyperparameter_method == "bayesian"
+							(ν_opt, γ_opt), _ = AnomalyDetection.bayes_validation(data.X_train_scaled, n_iter=40)
+						elseif hyperparameter_method == "grid"
+							(ν_opt, γ_opt), _ = AnomalyDetection.determine_ν_opt_γ_opt_hypersphere_grid_search(data.X_train_scaled)
+						end
+					elseif validation_method == "knee"
+						K            = trunc(Int, num_normal_train_points*0.05)
+						ν_opt, γ_opt = AnomalyDetection.opt_ν_γ_by_density_measure_method(data.X_train_scaled, K)
 					end
-				elseif validation_method == "knee"
-					K            = trunc(Int, num_normal_train_points*0.05)
-					ν_opt, γ_opt = AnomalyDetection.opt_ν_γ_by_density_measure_method(data.X_train_scaled, K)
+		
+					svm      = AnomalyDetection.train_anomaly_detector(data.X_train_scaled, ν_opt, γ_opt)
+					y_pred 	 = svm.predict(data.X_test_scaled)
+					f1_score = AnomalyDetection.performance_metric(data.y_test, y_pred)
+		
+					f1_avg += f1_score
 				end
-	
-				svm      = AnomalyDetection.train_anomaly_detector(data.X_train_scaled, ν_opt, γ_opt)
-				y_pred 	 = svm.predict(data.X_test_scaled)
-				f1_score = AnomalyDetection.performance_metric(data.y_test, y_pred)
-	
-				f1_avg += f1_score
+				
+				f1_score_grid[i, res-j+1] = f1_avg/n_avg
+				@warn "grid space ($(i), $(j)) finished"
 			end
-			
-			f1_score_grid[i, res-j+2] = f1_avg/n_avg
-
-			@warn "grid space ($(i), $(j)) finished"
-
 		end
 	end
 
 	fig = Figure()
 	
 	ax = Axis(fig[1, 1],
-		  xticks=(1:length(σ_H₂Os), ["$(truncate(σ_H₂Os[i], 4))" for i=1:length(σ_H₂Os)]),
-		  yticks=(1:length(σ_ms), ["$(truncate(σ_ms[length(σ_ms)-i+1], 6))" for i=1:length(σ_ms)]),
+		  xticks=(1:length(σ_H₂Os), ["$(truncate(σ_H₂Os[i], 5))" for i=1:length(σ_H₂Os)]),
+		  yticks=(1:length(σ_ms), ["$(truncate(σ_ms[length(σ_ms)-i+1], 8))" for i=1:length(σ_ms)]),
 		  xticklabelrotation=45.0,
 		  ylabel="σ, m [g/g]",
 		  xlabel="σ, H₂O [relative humidity]"
@@ -676,7 +671,7 @@ function viz_f1_score_heatmap(σ_H₂O_max::Float64,
 		save("f1_score_plot_knee.pdf", fig)
 	end
 
-	return seed, fig
+	return f1_score_grid, fig
 end
 
 
