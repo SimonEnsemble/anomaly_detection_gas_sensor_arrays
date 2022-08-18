@@ -99,14 +99,14 @@ function viz_bayes_values_by_point(plot_data::Vector{Tuple{Float64, Float64, Flo
 
 	num_data = length(plot_data)
 
-	xmin = minimum([plot_data[i][1] for i=1:num_data])
+	#xmin = minimum([plot_data[i][1] for i=1:num_data])
 	xmax = maximum([plot_data[i][1] for i=1:num_data])
-	ymin = minimum([plot_data[i][2] for i=1:num_data])
+	#ymin = minimum([plot_data[i][2] for i=1:num_data])
 	ymax = maximum([plot_data[i][2] for i=1:num_data])
 
 	
     fig = Figure()
-    ax  = Axis(fig[1, 1], ylabel="γ", xlabel="ν", limits = (0.5xmin, 1.25*xmax, -50*ymin, 1.25*ymax))
+    ax  = Axis(fig[1, 1], ylabel="γ", xlabel="ν", limits = (0, 1.25*xmax, 0, 1.25*ymax))
 
 	#unpack data
 	νs = [plot_data[i][1] for i=1:points]
@@ -433,8 +433,7 @@ function viz_sensorδ_waterσ_grid(σ_H₂Os::Vector{Float64},
 																					num_normal_test, 
 																					num_anomaly_test, 
 																					σ_H₂O, 
-																					σ_m),
-																					seed=seed+k)
+																					σ_m))
 
 				#optimize hyperparameters and determine f1score
 				if validation_method == "hypersphere"
@@ -451,7 +450,7 @@ function viz_sensorδ_waterσ_grid(σ_H₂Os::Vector{Float64},
 					AnomalyDetection.performance_metric(plot_data_storage[i, j, k]["data"].y_test, 
 														plot_data_storage[i, j, k]["svm"].predict(plot_data_storage[i, j, k]["data"].X_test_scaled)), 2)
 			end
-
+			@warn "grid space ($(i), $(j)) finished"
 			#sort the plot data storage by f1score and identify median data
 			
 			plot_data_storage[i, j, :] = plot_data_storage[i, j, sortperm([plot_data_storage[i, j, m]["f1_score"] for m=1:num_runs])]
