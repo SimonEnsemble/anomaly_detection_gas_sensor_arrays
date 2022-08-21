@@ -5,14 +5,65 @@ using Markdown
 using InteractiveUtils
 
 # ╔═╡ d090131e-6602-4c03-860c-ad3cb6c7844a
-using CairoMakie,CSV, DataFrames, ColorSchemes, Distributions, Optim, PlutoUI, Colors, JLD2, LinearAlgebra
+using CairoMakie,CSV, DataFrames, ColorSchemes, Distributions, Optim, PlutoUI, Colors, JLD2, LinearAlgebra, ScikitLearn, PyCall, LaTeXStrings
 
 # ╔═╡ 5019e8ac-040f-48fd-98e8-21ff7970aa23
 include("plot_theme.jl")
 
+# ╔═╡ 6a4411ca-c755-471a-a89a-c2f088d08f6c
+SyntheticDataGen = include("src/SyntheticDataGen.jl")
+
+# ╔═╡ 719afe92-7c53-4fee-8dd7-9f91714e3970
+AnomalyDetectionPlots = include("src/AnomalyDetectionPlots.jl")
+
+# ╔═╡ f70587a7-a2df-4bd2-bd87-f9c6aaadc661
+AnomalyDetection = include("src/AnomalyDetection.jl")
+
 # ╔═╡ 1784c510-5465-11ec-0dd1-13e5a66e4ce6
 md"# identifying C₂H₄, CO₂, and H₂O Henry Coefficients in ZIF-71 and ZIF-8
 "
+
+# ╔═╡ 40328dbb-2afd-40e7-8710-3d902bc7fdbb
+begin
+	num_normal_train_points  = 100
+	num_anomaly_train_points = 0
+	num_normal_test_points   = 100
+	num_anomaly_test_points  = 5
+
+	σ_H₂O = 0.005
+	σ_m   = 0.00005
+	
+	data_set = AnomalyDetection.setup_dataset(num_normal_train_points,
+											  num_anomaly_train_points,
+											  num_normal_test_points,
+											  num_anomaly_test_points,
+									 		  σ_H₂O, 
+											  σ_m)
+end
+
+# ╔═╡ f92940b3-0ab2-4923-b681-c6093c433c14
+	(ν_opt, γ_opt), X_sphere, bayes_plot_data = AnomalyDetection.bayes_validation(data_set.X_train_scaled, plot_data_flag=true, ν_space=(3/size(data_set.X_train_scaled, 1), 0.4), n_iter=50)
+
+# ╔═╡ 2bf50092-29f5-4ee1-bb46-30fd426d5aeb
+	svm = AnomalyDetection.train_anomaly_detector(data_set.X_train_scaled, ν_opt, γ_opt)
+
+# ╔═╡ d2c6dd0a-8546-4526-bec0-0730efdc4e3c
+AnomalyDetectionPlots.viz_decision_boundary(svm, data_set.scaler, data_set.data_train, incl_legend=true, incl_contour=false)
+
+# ╔═╡ dd31d450-5837-4003-ba47-7be914dabecf
+AnomalyDetectionPlots.viz_decision_boundary(svm, data_set.scaler, data_set.data_test, incl_contour=false)
+
+# ╔═╡ 0b3c5692-8406-4093-8a83-8dec605b3048
+SyntheticDataGen.viz_C2H4_CO2_composition(data_set.data_train)
+
+# ╔═╡ 0a909210-b9fe-4c03-9916-fbffd68e1449
+data_set.data_train
+
+# ╔═╡ 5c4124ae-96e5-445a-8d88-2f12b6f3ea7d
+SyntheticDataGen.viz_C2H4_CO2_composition(data_set.data_test)
+
+# ╔═╡ 1c8c91b6-948a-40e2-8cb5-8c0aa804ae67
+SyntheticDataGen.viz_H2O_compositions(data_set.data_test)
 
 # ╔═╡ d5c471c3-26be-46c0-a174-d580d0ed7f7d
 md"!!! example \"\"
@@ -256,12 +307,6 @@ f = svd(H, full=true)
 # ╔═╡ e75c56b8-87a4-405c-9e61-e7e86df3f432
 p_null = f.V[:, 3]
 
-# ╔═╡ 2617f194-21e5-44e0-95d9-4b8dac412664
-gases
-
-# ╔═╡ 79439a31-9c96-4278-be89-18e54d75c02d
-0.01 * 1e6
-
 # ╔═╡ 8edcc78e-a9d7-4e3c-bd57-6914c6f5e3d3
 begin
 	p₀ = [0.01, 0.01, 0.01]
@@ -318,9 +363,12 @@ Colors = "5ae59095-9a9b-59fe-a467-6f913c188581"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
+LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Optim = "429524aa-4258-5aef-a3af-852621145aeb"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
+PyCall = "438e738f-606a-5dbb-bf0a-cddfbfd45ab0"
+ScikitLearn = "3646fa90-6ef7-5e7e-9f22-8aca16db6324"
 
 [compat]
 CSV = "~0.9.11"
@@ -330,8 +378,11 @@ Colors = "~0.12.8"
 DataFrames = "~1.2.2"
 Distributions = "~0.25.34"
 JLD2 = "~0.4.17"
+LaTeXStrings = "~1.3.0"
 Optim = "~1.5.0"
 PlutoUI = "~0.7.21"
+PyCall = "~1.93.1"
+ScikitLearn = "~0.6.4"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
@@ -501,6 +552,12 @@ version = "3.41.0"
 [[deps.CompilerSupportLibraries_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "e66e0078-7015-5450-92f7-15fbd957f2ae"
+
+[[deps.Conda]]
+deps = ["Downloads", "JSON", "VersionParsing"]
+git-tree-sha1 = "6e47d11ea2776bc5627421d59cdcc1296c058071"
+uuid = "8f4d0f93-b110-5947-807f-2305c1781a2d"
+version = "1.7.0"
 
 [[deps.Contour]]
 deps = ["StaticArrays"]
@@ -1256,6 +1313,12 @@ git-tree-sha1 = "afadeba63d90ff223a6a48d2009434ecee2ec9e8"
 uuid = "92933f4c-e287-5a05-a399-4b506db050ca"
 version = "1.7.1"
 
+[[deps.PyCall]]
+deps = ["Conda", "Dates", "Libdl", "LinearAlgebra", "MacroTools", "Serialization", "VersionParsing"]
+git-tree-sha1 = "1fc929f47d7c151c839c5fc1375929766fb8edcc"
+uuid = "438e738f-606a-5dbb-bf0a-cddfbfd45ab0"
+version = "1.93.1"
+
 [[deps.QuadGK]]
 deps = ["DataStructures", "LinearAlgebra"]
 git-tree-sha1 = "78aadffb3efd2155af139781b8a8df1ef279ea39"
@@ -1318,6 +1381,18 @@ deps = ["Libdl", "SIMD"]
 git-tree-sha1 = "9cc2955f2a254b18be655a4ee70bc4031b2b189e"
 uuid = "7b38b023-a4d7-4c5e-8d43-3f3097f304eb"
 version = "0.3.0"
+
+[[deps.ScikitLearn]]
+deps = ["Compat", "Conda", "DataFrames", "Distributed", "IterTools", "LinearAlgebra", "MacroTools", "Parameters", "Printf", "PyCall", "Random", "ScikitLearnBase", "SparseArrays", "StatsBase", "VersionParsing"]
+git-tree-sha1 = "ccb822ff4222fcf6ff43bbdbd7b80332690f168e"
+uuid = "3646fa90-6ef7-5e7e-9f22-8aca16db6324"
+version = "0.6.4"
+
+[[deps.ScikitLearnBase]]
+deps = ["LinearAlgebra", "Random", "Statistics"]
+git-tree-sha1 = "7877e55c1523a4b336b433da39c8e8c08d2f221f"
+uuid = "6e75b9c4-186b-50bd-896f-2d2496a4843e"
+version = "0.5.0"
 
 [[deps.Scratch]]
 deps = ["Dates"]
@@ -1479,6 +1554,11 @@ git-tree-sha1 = "53915e50200959667e78a92a418594b428dffddf"
 uuid = "1cfade01-22cf-5700-b092-accc4b62d6e1"
 version = "0.4.1"
 
+[[deps.VersionParsing]]
+git-tree-sha1 = "58d6e80b4ee071f5efd07fda82cb9fbe17200868"
+uuid = "81def892-9a0e-5fdd-b105-ffc91e053289"
+version = "1.3.0"
+
 [[deps.WeakRefStrings]]
 deps = ["DataAPI", "InlineStrings", "Parsers"]
 git-tree-sha1 = "c69f9da3ff2f4f02e811c3323c22e5dfcb584cfa"
@@ -1614,6 +1694,18 @@ version = "3.5.0+0"
 # ╟─1784c510-5465-11ec-0dd1-13e5a66e4ce6
 # ╠═d090131e-6602-4c03-860c-ad3cb6c7844a
 # ╠═5019e8ac-040f-48fd-98e8-21ff7970aa23
+# ╠═6a4411ca-c755-471a-a89a-c2f088d08f6c
+# ╠═719afe92-7c53-4fee-8dd7-9f91714e3970
+# ╠═f70587a7-a2df-4bd2-bd87-f9c6aaadc661
+# ╠═40328dbb-2afd-40e7-8710-3d902bc7fdbb
+# ╠═f92940b3-0ab2-4923-b681-c6093c433c14
+# ╠═2bf50092-29f5-4ee1-bb46-30fd426d5aeb
+# ╠═d2c6dd0a-8546-4526-bec0-0730efdc4e3c
+# ╠═dd31d450-5837-4003-ba47-7be914dabecf
+# ╠═0b3c5692-8406-4093-8a83-8dec605b3048
+# ╠═0a909210-b9fe-4c03-9916-fbffd68e1449
+# ╠═5c4124ae-96e5-445a-8d88-2f12b6f3ea7d
+# ╠═1c8c91b6-948a-40e2-8cb5-8c0aa804ae67
 # ╟─d5c471c3-26be-46c0-a174-d580d0ed7f7d
 # ╠═d657ed23-3eb4-49d0-a59c-811e8189c376
 # ╟─d5544844-21ed-4a8c-8715-45038b502453
@@ -1636,8 +1728,6 @@ version = "3.5.0+0"
 # ╠═4ef435b9-eee5-43a4-bc2e-20c6b3b2e2be
 # ╠═294b2945-1d85-427b-9727-3f1a871fcbb8
 # ╠═e75c56b8-87a4-405c-9e61-e7e86df3f432
-# ╠═2617f194-21e5-44e0-95d9-4b8dac412664
-# ╠═79439a31-9c96-4278-be89-18e54d75c02d
 # ╠═8edcc78e-a9d7-4e3c-bd57-6914c6f5e3d3
 # ╠═7c76b64b-e121-4cf8-9c6d-b876253ccf9a
 # ╠═6b7e4c1c-74fe-49f0-84e6-7f0023eb4cad

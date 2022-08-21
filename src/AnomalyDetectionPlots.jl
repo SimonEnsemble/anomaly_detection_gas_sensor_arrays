@@ -106,7 +106,7 @@ function viz_bayes_values_by_point(plot_data::Vector{Tuple{Float64, Float64, Flo
 
 	
     fig = Figure()
-    ax  = Axis(fig[1, 1], ylabel="γ", xlabel="ν", limits = (0, 1.25*xmax, 0, 1.25*ymax))
+    ax  = Axis(fig[1, 1], ylabel="γ", xlabel="ν", limits = (0, 1.25*xmax, -0.05, 1.25*ymax))
 
 	#unpack data
 	νs = [plot_data[i][1] for i=1:points]
@@ -385,7 +385,6 @@ function viz_sensorδ_waterσ_grid(σ_H₂Os::Vector{Float64},
 								seed=abs(rand(Int)))
 
 	@assert validation_method=="hypersphere" || validation_method=="knee"
-	Random.seed!(seed)
 
 
 #establish axes and figs for 9x9 grid
@@ -606,7 +605,7 @@ function viz_f1_score_heatmap(σ_H₂O_max::Float64,
 	@assert hyperparameter_method=="bayesian" || hyperparameter_method=="grid"
 
 	σ_H₂Os = [σ_H₂O_max * 10.0^(-res + i) for i=1:res]
-	σ_ms = [σ_m_max * 10.0^(-res + i) for i=1:res]
+	σ_ms = reverse([σ_m_max * 10.0^(-res + i) for i=1:res])
 
 	num_normal_test_points = num_normal_train_points = 100
 	num_anomaly_train_points = 0
@@ -628,7 +627,9 @@ function viz_f1_score_heatmap(σ_H₂O_max::Float64,
 					#optimize hyperparameters and determine f1score
 					if validation_method == "hypersphere"
 						if hyperparameter_method == "bayesian"
-							(ν_opt, γ_opt), _ = AnomalyDetection.bayes_validation(data.X_train_scaled, n_iter=40)
+							ν_space::Tuple{Float64, Float64}=(1.0e-5, 0.99)
+							γ_space::Tuple{Float64, Float64}=(1.0e-5, 0.99)
+							(ν_opt, γ_opt), _ = AnomalyDetection.bayes_validation(data.X_train_scaled, n_iter=40, ν_space=ν_space, γ_space=γ_space)
 						elseif hyperparameter_method == "grid"
 							(ν_opt, γ_opt), _ = AnomalyDetection.determine_ν_opt_γ_opt_hypersphere_grid_search(data.X_train_scaled)
 						end

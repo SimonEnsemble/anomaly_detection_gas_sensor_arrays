@@ -1,11 +1,34 @@
 ### A Pluto.jl notebook ###
-# v0.19.9
+# v0.19.11
 
 using Markdown
 using InteractiveUtils
 
 # ╔═╡ db06b5c1-514f-4857-aa56-6bb9ceb0afea
-using CairoMakie,CSV, DataFrames, ColorSchemes, Optim, Distributions, PlutoUI, ScikitLearn, Colors, Random, PlutoUI, JLD2, LinearAlgebra, PyCall
+using CairoMakie,CSV, DataFrames, ColorSchemes, Optim, Distributions, PlutoUI, ScikitLearn, Colors, Random, PlutoUI, JLD2, LinearAlgebra, PyCall, LaTeXStrings, ScikitLearn, GLMakie
+
+# ╔═╡ 830d1f6b-b0f5-4ec2-a741-19cf3190aeee
+begin
+using GeometryBasics: Rect3f
+let
+    x = y = z = 1:10
+    f(x, y, z) = x^2 + y^2 + z^2
+    positions = vec([(i, j, k) for i in x, j in y, k in z])
+    vals = [f(ix, iy, iz) for ix in x, iy in y, iz in z]
+    fig, ax, pltobj = meshscatter(positions, color = vec(vals),
+        marker = Rect3f(Vec3f(-5), Vec3f(9)), # here, if you use less than 10, you will see smaller squares.
+        colormap = (:Egypt, 0.75), colorrange = (minimum(vals), maximum(vals)),
+        transparency = true, shading = false,
+        figure = (; resolution = (1200, 800)),
+        axis = (; type = Axis3, perspectiveness = 0.5, azimuth = 2.19, elevation = 0.57,
+            xlabel = "x label", ylabel = "y label", zlabel = "z label",
+            aspect = (1, 1, 1)))
+    Colorbar(fig[1, 2], pltobj, label = "f values", height = Relative(0.5))
+    colsize!(fig.layout, 1, Aspect(1, 1.0))
+    limits!(ax, -1, 11, -1, 11, -1, 11)
+    fig
+end
+end
 
 # ╔═╡ f0eaba8c-1ef1-44d8-8432-a23ad403daf0
 SyntheticDataGen = include("src/SyntheticDataGen.jl")
@@ -20,8 +43,14 @@ AnomalyDetectionPlots = include("src/AnomalyDetectionPlots.jl")
 include("plot_theme.jl")
 
 # ╔═╡ 02a36ec0-e822-11ec-2856-4d2081a7a78a
-md"# Anomaly Detection for Gas Sensor Arrays Using One-Class SVM in an Injective System.
+md"# Anomaly Detection SVDD playground
 "
+
+# ╔═╡ 2c5cf3fc-f714-44d9-87b6-96a318372a35
+#=
+using CairoMakie,CSV, DataFrames, ColorSchemes, Distributions, Optim, PlutoUI, Colors, JLD2, LinearAlgebra, ScikitLearn, PyCall, LaTeXStrings
+
+=#
 
 # ╔═╡ 8e415893-be2f-426c-9163-4df7ace22410
 skopt = pyimport("skopt")
@@ -52,8 +81,8 @@ begin
 	gases = SyntheticDataGen.gases
 	mofs  = SyntheticDataGen.mofs
 
-	σ_H₂O = 0.0
-	σ_m   = 0.00005
+	σ_H₂O = 1e-2
+	σ_m   = 1e-4
 end
 
 # ╔═╡ 3cd0d136-7191-4f57-9262-6121667b81ff
@@ -73,87 +102,6 @@ begin
 
 end
 
-# ╔═╡ 991b7149-7d6a-48f2-93ae-ba2a5c098c82
-abc = [(1.203, 1.563)]
-
-# ╔═╡ 7e860d52-9e24-4366-a427-6060dc6cdda3
-typeof([(1.203, 1.563, 1.22)])
-
-# ╔═╡ 620097b9-12b1-4969-a47e-462b893e7593
-push!(abc, (0.2, 0.1))
-
-# ╔═╡ db6d89d2-d7e1-428b-87a9-8eed1eea4850
-abc[1][2]
-
-# ╔═╡ aef2a4b8-f306-4e9c-9d83-ef951bc514f2
-function bayes_validation(X_train_scaled::Matrix{Float64}; 
-						n_iter::Int=25,
-						num_outliers::Int=500,
-						λ::Float64=0.5,
-						ν_space::Tuple{Float64, Float64}=(3/size(X_train_scaled, 1), 0.1),
-						γ_space::Tuple{Float64, Float64}=(1.0e-3, 1.0),
-						plot_data_flag::Bool=false)
-
-	R_sphere = maximum([norm(x) for x in eachrow(X_train_scaled)])
-	X_sphere = AnomalyDetection.generate_uniform_vectors_in_hypersphere(num_outliers, R_sphere)
-	plot_data::Vector{Tuple{Float64, Float64, Float64}} = []
-
-	#nested function used by BayesSearchCV as a scoring method, the return is maximized
-	function bayes_objective_function(svm, X, _)
-		# term 1: estimate of error on normal data as fraction support vectors
-		fraction_svs = svm.n_support_[1] / size(X, 1)
-
-		# term 2: estimating the volume inside the decision boundary
-		y_sphere_pred   = svm.predict(X_sphere)
-		num_inside 		= sum(y_sphere_pred .== 1)
-		fraction_inside = num_inside / length(y_sphere_pred)
-
-		#error function
-		Λ = λ * fraction_svs + (1 - λ) * fraction_inside
-
-		#push data needed for plot
-		push!(plot_data, (svm.nu, svm.gamma, Λ))
-
-		#debuging code
-		#=
-		println("num sv's = $(svm.n_support_[1])")
-		println("gamma = $(svm.gamma)")
-		println("nu = $(svm.nu)")
-		println("fraction sv's = $(fraction_svs)")
-		println("fraction synthetic data inside = $(fraction_inside)")
-		println("Size of X used in optimizer = $(size(X, 1))")
-		=#
-
-		#the objective function is maximized so,
-		#in order to minimize the error function, make error negative.
-		return -Λ
-	end
-
-	params = Dict("nu" => ν_space, "gamma" => γ_space)
-
-	opt = skopt.BayesSearchCV(
-		OneClassSVM(), 
-		params,
-		n_iter=n_iter,
-		scoring=bayes_objective_function,
-		cv = [(collect(0:size(X_train_scaled, 1)-1), collect(0:size(X_train_scaled, 1)-1))]
-		)
-
-	#create a new y as the target vector
-	#this isn't used but required by the BayesSearchCV algorithm.
-	y′ = [NaN for i=1:size(X_train_scaled, 1)]
-
-	#fit the optimizer using X and y'
-	opt.fit(X_train_scaled, y′)
-
-	#return opt.cv_results_
-	if plot_data_flag
-		return (opt.best_params_["nu"], opt.best_params_["gamma"]), X_sphere, plot_data
-	end
-	
-	return (opt.best_params_["nu"], opt.best_params_["gamma"]), X_sphere
-end
-
 # ╔═╡ 6a3759e1-03bc-4f4e-a140-8bc564c3dd57
 begin
 	#=
@@ -161,17 +109,17 @@ begin
 	
 	(ν_opt, γ_opt), X_sphere = AnomalyDetection.determine_ν_opt_γ_opt_hypersphere_grid_search(data_set.X_train_scaled)
 	=#
-	(ν_opt, γ_opt), X_sphere, validation_steps = bayes_validation(data_set.X_train_scaled, plot_data_flag=true)
+	(ν_opt, γ_opt), X_sphere, validation_steps = AnomalyDetection.bayes_validation(data_set.X_train_scaled, plot_data_flag=true)
 
 	(ν_opt, γ_opt)
 end
 
-# ╔═╡ b4e3c01d-e400-4e7e-9b14-ea1b9b7d8190
-length(validation_steps)
-
 # ╔═╡ 0749a966-9f25-4f8a-9085-54c236286c4a
 # train the anomaly detector
 svm = AnomalyDetection.train_anomaly_detector(data_set.X_train_scaled, ν_opt, γ_opt)
+
+# ╔═╡ 9bbf7bda-dfba-412e-afa4-2746ab17ccbb
+AnomalyDetectionPlots.viz_synthetic_anomaly_hypersphere(X_sphere, data_set.X_train_scaled)
 
 # ╔═╡ 43805088-82c3-4bb9-9a0b-6df5f73d3809
 AnomalyDetectionPlots.viz_decision_boundary(svm, data_set.scaler, data_set.data_test)
@@ -181,9 +129,6 @@ AnomalyDetectionPlots.viz_cm(svm, data_set.data_test, data_set.scaler)
 
 # ╔═╡ 3bedb6ff-31c7-4eb8-b77b-ccf9ddc4f812
 AnomalyDetectionPlots.viz_decision_boundary(svm, data_set.scaler, data_set.data_train)
-
-# ╔═╡ 9bbf7bda-dfba-412e-afa4-2746ab17ccbb
-AnomalyDetectionPlots.viz_synthetic_anomaly_hypersphere(X_sphere, data_set.X_train_scaled)
 
 # ╔═╡ 2a5ed74b-3fb4-4e6e-95ce-87cff112ac0d
 function viz_bayes_values(plot_data::Vector{Tuple{Float64, Float64, Float64}})
@@ -209,112 +154,90 @@ function viz_bayes_values(plot_data::Vector{Tuple{Float64, Float64, Float64}})
     return fig
 end
 
-# ╔═╡ ddf71830-b39a-4153-b747-074069eea84c
-AnomalyDetectionPlots.viz_bayes_values(validation_steps)
-
 # ╔═╡ 6d09c2b8-fa9c-4e28-8f6c-3166e455d024
 AnomalyDetectionPlots.viz_bayes_values_by_point(validation_steps, length(validation_steps))
 
-# ╔═╡ d368480f-281b-433d-a049-0c807c397f99
-function viz_f1_score_heatmap(σ_H₂O_max::Float64, 
-							  σ_m_max::Float64; 
-							  res::Int=10, 
-							  validation_method="knee",
-							  hyperparameter_method="bayesian", 
-							  n_avg::Int=10, 
-							  λ=0.5)
-	@assert validation_method=="hypersphere" || validation_method=="knee"
-	@assert hyperparameter_method=="bayesian" || hyperparameter_method=="grid"
-	
-	#σ_H₂O_max = 0.1
-	#σ_m_max = 0.001
+# ╔═╡ 16541996-35ed-43e2-b57f-889a8e2671f3
 
-	σ_H₂Os = 0:σ_H₂O_max/res:σ_H₂O_max
-	σ_ms = 0:σ_m_max/res:σ_m_max
 
-	num_normal_test_points = num_normal_train_points = 100
-	num_anomaly_train_points = 0
-	num_anomaly_test_points = 5
+# ╔═╡ c694e8f4-93a6-4d53-9b77-3b78e49a6e6d
 
-	f1_score_grid = zeros(res+1, res+1)
-	
 
-	for (i, σ_H₂O) in enumerate(σ_H₂Os)
-		for (j, σ_m) in enumerate(σ_ms)
-			f1_avg = 0.0
-			
-			for k = 1:n_avg
-				data = AnomalyDetection.setup_dataset(num_normal_train_points,
+# ╔═╡ 1c468007-c1da-40c0-a220-73871d607b7c
+
+
+# ╔═╡ 9d7dab5a-c8ac-48c2-a86a-c47fafc4a0d9
+
+
+# ╔═╡ 2fed8870-ebbf-48f7-8ab6-533f3caf7e20
+begin
+	test_data_set = AnomalyDetection.setup_dataset(num_normal_train_points,
 										  num_anomaly_train_points,
 										  num_normal_test_points,
 										  num_anomaly_test_points,
 								 		  σ_H₂O, 
 										  σ_m)
-	
-				#optimize hyperparameters and determine f1score
-				if validation_method == "hypersphere"
-					if hyperparameter_method == "bayesian"
-						(ν_opt, γ_opt), _ = AnomalyDetection.bayes_validation(data.X_train_scaled)
-					elseif hyperparameter_method == "grid"
-						(ν_opt, γ_opt), _ = AnomalyDetection.determine_ν_opt_γ_opt_hypersphere_grid_search(data.X_train_scaled)
-					end
-				elseif validation_method == "knee"
-					K            = trunc(Int, num_normal_train_points*0.05)
-					ν_opt, γ_opt = AnomalyDetection.opt_ν_γ_by_density_measure_method(data.X_train_scaled, K)
-				end
-	
-				svm      = AnomalyDetection.train_anomaly_detector(data.X_train_scaled, ν_opt, γ_opt)
-				y_pred 	 = svm.predict(data.X_test_scaled)
-				f1_score = AnomalyDetection.performance_metric(data.y_test, y_pred)
-	
-				f1_avg += f1_score
-			end
-			
-			f1_score_grid[i, res- j+2] = f1_avg/n_avg
+end
 
+# ╔═╡ cf26b478-6c5e-492b-b308-92a24c3a2a40
+test_data_set.data_train
+
+# ╔═╡ ebbeeea6-8bd6-4d41-b850-7379d3ca37b6
+function viz_C2H4_CO2_H2O_composition(data::DataFrame)
+    fig = Figure(resolution=(600, 600))
+
+    for data_g in groupby(data, :label)
+        label = data_g[1, "label"]
+
+		    fig, ax, pltobj = meshscatter(
+				 data_g[:, "p C₂H₄ [bar]"] * 1e6,
+                 data_g[:, "p CO₂ [bar]"] * 1e6,
+				 data_g[:, "p H₂O [bar]"] ./ SyntheticDataGen.p_H₂O_vapor,
+        		 figure = (; resolution = (1200, 800)),
+        		 axis = (; type = Axis3, 
+				 		   perspectiveness = 0.5, 
+				 		   azimuth = 2.19, 
+				 		   elevation = 1.0, 
+				 		   xlabel = "p, C₂H₄ [ppm]", 
+				 		   ylabel = "p, CO₂ [ppm]", 
+				 		   zlabel = "p, H₂O [relative humidity]",
+            			   aspect = (1, 1, 1)))
+    end
+
+    fig
+end
+
+# ╔═╡ bd82c489-693d-4bd3-b4b0-027db2524baa
+viz_C2H4_CO2_H2O_composition(test_data_set.data_train)
+
+# ╔═╡ c1442503-17a6-40a2-b6b3-afee93bc34b1
+meshscatter
+
+# ╔═╡ d7e46511-894f-4196-a55f-cf0ac25256b6
+SyntheticDataGen.p_H₂O_vapor
+
+# ╔═╡ e7b08fc4-418a-4d4d-80e2-51270a190705
+
+function viz_H2O_compositions(data::DataFrame)
+    fig = Figure()
+    ax = Axis(fig[1, 1],
+              xlabel="p, H₂O [relative humidity]",
+              ylabel="# compositions")
+	for water_anomaly in [true, false]
+		ids = (data[:, "label"] .== "low humidity") .== water_anomaly
+		if sum(ids) > 0
+    		hist!(data[ids, "p H₂O [bar]"] / SyntheticDataGen.p_H₂O_vapor)
 		end
 	end
-
-	fig = Figure()
-	
-	ax = Axis(fig[1, 1],
-		  xticks=(1:res+1, ["$(AnomalyDetectionPlots.truncate(i, 3))" for i=0:σ_H₂O_max/res:σ_H₂O_max]),
-		  yticks=(1:res+1, ["$(AnomalyDetectionPlots.truncate(σ_m_max-i, 5))" for i=0:σ_m_max/res:σ_m_max]),
-		  xticklabelrotation=45.0,
-		  ylabel="σ_m [g/g]",
-		  xlabel="σ_H₂O [relative humidity]"
-    )
-
-	hm = heatmap!(1:res+1, 1:res+1, f1_score_grid,
-			      colormap=ColorSchemes.RdYlGn_4, colorrange=(0.0, 1.0))
-	Colorbar(fig[1, 2], hm, label="f1 score")
-
-	if validation_method == "hypersphere"
-		save("f1_score_plot_hypersphere.pdf", fig)
-	elseif validation_method == "knee"
-		save("f1_score_plot_knee.pdf", fig)
-	end
-
-	fig
+    ylims!(0.0, nothing)
+    fig
 end
 
-# ╔═╡ 042f470c-7441-4f05-93a3-52465835a9dd
-viz_f1_score_heatmap(0.05,0.0005)
+# ╔═╡ cb7cbe94-f095-4b61-aa63-9382519d6211
+viz_H2O_compositions(test_data_set.data_train)
 
-# ╔═╡ 0efc7511-b0a1-4fab-9428-465f5d3d5a3e
-5*ones(5)
-
-# ╔═╡ 6776ad06-2424-472a-9541-7e90e87633d4
-begin
-
-rrr = [0.1, 0.3, 0.5, 0.9, 1.45, 2.99]
-
-	
-ColorSchemes.RdYlGn_4[0.9]
-end
-
-# ╔═╡ 11dc3b63-1e54-4ded-96df-d45d9ab4fe3d
-rrr1 = [(rrr[i] - minimum(rrr))/(maximum(rrr) - minimum(rrr)) for i=1:length(rrr)]
+# ╔═╡ 4399bc2a-5717-4a8f-914a-fa2e3fb87b95
+sum([true, false, false])
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -325,7 +248,10 @@ ColorSchemes = "35d6a980-a343-548e-a6ea-1d62b119f2f4"
 Colors = "5ae59095-9a9b-59fe-a467-6f913c188581"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
+GeometryBasics = "5c1252a2-5f33-56bf-86c9-59e7332b4326"
 JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
+LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Optim = "429524aa-4258-5aef-a3af-852621145aeb"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
@@ -340,7 +266,10 @@ ColorSchemes = "~3.18.0"
 Colors = "~0.12.8"
 DataFrames = "~1.3.4"
 Distributions = "~0.25.62"
+GLMakie = "~0.6.3"
+GeometryBasics = "~0.4.3"
 JLD2 = "~0.4.22"
+LaTeXStrings = "~1.3.0"
 Optim = "~1.7.0"
 PlutoUI = "~0.7.39"
 PyCall = "~1.93.1"
@@ -618,6 +547,11 @@ git-tree-sha1 = "bad72f730e9e91c08d9427d5e8db95478a3c323d"
 uuid = "2e619515-83b5-522b-bb60-26c02a35a201"
 version = "2.4.8+0"
 
+[[deps.Extents]]
+git-tree-sha1 = "5e1e4c53fa39afe63a7d356e30452249365fba99"
+uuid = "411431e0-e8b7-467b-b5e0-f676ba4f2910"
+version = "0.1.1"
+
 [[deps.FFMPEG]]
 deps = ["FFMPEG_jll"]
 git-tree-sha1 = "b57e3acbe22f8484b4b5ff66a7499717fe1a9cc8"
@@ -721,11 +655,35 @@ version = "1.0.10+0"
 deps = ["Random"]
 uuid = "9fa8497b-333b-5362-9e8d-4d0656e87820"
 
+[[deps.GLFW]]
+deps = ["GLFW_jll"]
+git-tree-sha1 = "35dbc482f0967d8dceaa7ce007d16f9064072166"
+uuid = "f7f18e0c-5ee9-5ccd-a5bf-e8befd85ed98"
+version = "3.4.1"
+
+[[deps.GLFW_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl", "Libglvnd_jll", "Pkg", "Xorg_libXcursor_jll", "Xorg_libXi_jll", "Xorg_libXinerama_jll", "Xorg_libXrandr_jll"]
+git-tree-sha1 = "d972031d28c8c8d9d7b41a536ad7bb0c2579caca"
+uuid = "0656b61e-2033-5cc2-a64a-77c0f6c09b89"
+version = "3.3.8+0"
+
+[[deps.GLMakie]]
+deps = ["ColorTypes", "Colors", "FileIO", "FixedPointNumbers", "FreeTypeAbstraction", "GLFW", "GeometryBasics", "LinearAlgebra", "Makie", "Markdown", "MeshIO", "ModernGL", "Observables", "Printf", "Serialization", "ShaderAbstractions", "StaticArrays"]
+git-tree-sha1 = "0aef73476219aed21f6032d34bc6eba81dd372a9"
+uuid = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
+version = "0.6.3"
+
+[[deps.GeoInterface]]
+deps = ["Extents"]
+git-tree-sha1 = "fb28b5dc239d0174d7297310ef7b84a11804dfab"
+uuid = "cf35fbd7-0cd7-5166-be24-54bfbe79505f"
+version = "1.0.1"
+
 [[deps.GeometryBasics]]
-deps = ["EarCut_jll", "IterTools", "LinearAlgebra", "StaticArrays", "StructArrays", "Tables"]
-git-tree-sha1 = "83ea630384a13fc4f002b77690bc0afeb4255ac9"
+deps = ["EarCut_jll", "GeoInterface", "IterTools", "LinearAlgebra", "StaticArrays", "StructArrays", "Tables"]
+git-tree-sha1 = "a7a97895780dab1085a97769316aa348830dc991"
 uuid = "5c1252a2-5f33-56bf-86c9-59e7332b4326"
-version = "0.4.2"
+version = "0.4.3"
 
 [[deps.Gettext_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl", "Libiconv_jll", "Pkg", "XML2_jll"]
@@ -973,6 +931,12 @@ git-tree-sha1 = "64613c82a59c120435c067c2b809fc61cf5166ae"
 uuid = "d4300ac3-e22c-5743-9152-c294e39db1e4"
 version = "1.8.7+0"
 
+[[deps.Libglvnd_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg", "Xorg_libX11_jll", "Xorg_libXext_jll"]
+git-tree-sha1 = "7739f837d6447403596a75d19ed01fd08d6f56bf"
+uuid = "7e76a0d4-f3c7-5321-8279-8d96eeed0f29"
+version = "1.3.0+3"
+
 [[deps.Libgpg_error_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "c333716e46366857753e273ce6a69ee0945a6db9"
@@ -1064,6 +1028,12 @@ version = "0.4.1"
 deps = ["Artifacts", "Libdl"]
 uuid = "c8ffd9c3-330d-5841-b78e-0817d7145fa1"
 
+[[deps.MeshIO]]
+deps = ["ColorTypes", "FileIO", "GeometryBasics", "Printf"]
+git-tree-sha1 = "8be09d84a2d597c7c0c34d7d604c039c9763e48c"
+uuid = "7269a6da-0436-5bbc-96c2-40638cbb6118"
+version = "0.4.10"
+
 [[deps.Missings]]
 deps = ["DataAPI"]
 git-tree-sha1 = "bf210ce90b6c9eed32d25dbcae1ebc565df2687f"
@@ -1072,6 +1042,12 @@ version = "1.0.2"
 
 [[deps.Mmap]]
 uuid = "a63ad114-7e13-5084-954f-fe012c677804"
+
+[[deps.ModernGL]]
+deps = ["Libdl"]
+git-tree-sha1 = "344f8896e55541e30d5ccffcbf747c98ad57ca47"
+uuid = "66fc600b-dfda-50eb-8b99-91cfa97b1301"
+version = "1.1.4"
 
 [[deps.MosaicViews]]
 deps = ["MappedArrays", "OffsetArrays", "PaddedViews", "StackViews"]
@@ -1385,6 +1361,12 @@ version = "1.3.13"
 [[deps.Serialization]]
 uuid = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
 
+[[deps.ShaderAbstractions]]
+deps = ["ColorTypes", "FixedPointNumbers", "GeometryBasics", "LinearAlgebra", "Observables", "StaticArrays", "StructArrays", "Tables"]
+git-tree-sha1 = "6b5bba824b515ec026064d1e7f5d61432e954b71"
+uuid = "65257c39-d410-5151-9873-9b3e5be5013e"
+version = "0.2.9"
+
 [[deps.SharedArrays]]
 deps = ["Distributed", "Mmap", "Random", "Serialization"]
 uuid = "1a1011a3-84de-559e-8e89-a11a2f7dc383"
@@ -1576,6 +1558,12 @@ git-tree-sha1 = "4e490d5c960c314f33885790ed410ff3a94ce67e"
 uuid = "0c0b7dd1-d40b-584c-a123-a41640f87eec"
 version = "1.0.9+4"
 
+[[deps.Xorg_libXcursor_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg", "Xorg_libXfixes_jll", "Xorg_libXrender_jll"]
+git-tree-sha1 = "12e0eb3bc634fa2080c1c37fccf56f7c22989afd"
+uuid = "935fb764-8cf2-53bf-bb30-45bb1f8bf724"
+version = "1.2.0+4"
+
 [[deps.Xorg_libXdmcp_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "4fe47bd2247248125c428978740e18a681372dd4"
@@ -1587,6 +1575,30 @@ deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg", "Xorg_libX11_jll"]
 git-tree-sha1 = "b7c0aa8c376b31e4852b360222848637f481f8c3"
 uuid = "1082639a-0dae-5f34-9b06-72781eeb8cb3"
 version = "1.3.4+4"
+
+[[deps.Xorg_libXfixes_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg", "Xorg_libX11_jll"]
+git-tree-sha1 = "0e0dc7431e7a0587559f9294aeec269471c991a4"
+uuid = "d091e8ba-531a-589c-9de9-94069b037ed8"
+version = "5.0.3+4"
+
+[[deps.Xorg_libXi_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg", "Xorg_libXext_jll", "Xorg_libXfixes_jll"]
+git-tree-sha1 = "89b52bc2160aadc84d707093930ef0bffa641246"
+uuid = "a51aa0fd-4e3c-5386-b890-e753decda492"
+version = "1.7.10+4"
+
+[[deps.Xorg_libXinerama_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg", "Xorg_libXext_jll"]
+git-tree-sha1 = "26be8b1c342929259317d8b9f7b53bf2bb73b123"
+uuid = "d1454406-59df-5ea1-beac-c340f2130bc3"
+version = "1.1.4+4"
+
+[[deps.Xorg_libXrandr_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg", "Xorg_libXext_jll", "Xorg_libXrender_jll"]
+git-tree-sha1 = "34cea83cb726fb58f325887bf0612c6b3fb17631"
+uuid = "ec84b674-ba8e-5d96-8ba1-2a689ba10484"
+version = "1.5.2+4"
 
 [[deps.Xorg_libXrender_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg", "Xorg_libX11_jll"]
@@ -1680,6 +1692,7 @@ version = "3.5.0+0"
 # ╔═╡ Cell order:
 # ╟─02a36ec0-e822-11ec-2856-4d2081a7a78a
 # ╠═db06b5c1-514f-4857-aa56-6bb9ceb0afea
+# ╠═2c5cf3fc-f714-44d9-87b6-96a318372a35
 # ╠═f0eaba8c-1ef1-44d8-8432-a23ad403daf0
 # ╠═4f39dfe1-1403-46be-b4fa-b9c8a3ad18fe
 # ╠═a16c947a-0527-459a-b725-57888e5cfdb2
@@ -1690,24 +1703,26 @@ version = "3.5.0+0"
 # ╠═90230c29-3f14-469f-ba65-058844cbea70
 # ╠═3cd0d136-7191-4f57-9262-6121667b81ff
 # ╠═6a3759e1-03bc-4f4e-a140-8bc564c3dd57
-# ╠═b4e3c01d-e400-4e7e-9b14-ea1b9b7d8190
 # ╠═0749a966-9f25-4f8a-9085-54c236286c4a
 # ╠═9bbf7bda-dfba-412e-afa4-2746ab17ccbb
 # ╠═43805088-82c3-4bb9-9a0b-6df5f73d3809
 # ╠═a2d00e2e-bcfd-4c1b-92d0-98fb5202fe3a
 # ╠═3bedb6ff-31c7-4eb8-b77b-ccf9ddc4f812
-# ╠═991b7149-7d6a-48f2-93ae-ba2a5c098c82
-# ╠═7e860d52-9e24-4366-a427-6060dc6cdda3
-# ╠═620097b9-12b1-4969-a47e-462b893e7593
-# ╠═db6d89d2-d7e1-428b-87a9-8eed1eea4850
-# ╠═aef2a4b8-f306-4e9c-9d83-ef951bc514f2
 # ╠═2a5ed74b-3fb4-4e6e-95ce-87cff112ac0d
-# ╠═ddf71830-b39a-4153-b747-074069eea84c
 # ╠═6d09c2b8-fa9c-4e28-8f6c-3166e455d024
-# ╠═042f470c-7441-4f05-93a3-52465835a9dd
-# ╠═d368480f-281b-433d-a049-0c807c397f99
-# ╠═0efc7511-b0a1-4fab-9428-465f5d3d5a3e
-# ╠═6776ad06-2424-472a-9541-7e90e87633d4
-# ╠═11dc3b63-1e54-4ded-96df-d45d9ab4fe3d
+# ╠═16541996-35ed-43e2-b57f-889a8e2671f3
+# ╠═c694e8f4-93a6-4d53-9b77-3b78e49a6e6d
+# ╠═1c468007-c1da-40c0-a220-73871d607b7c
+# ╠═bd82c489-693d-4bd3-b4b0-027db2524baa
+# ╠═9d7dab5a-c8ac-48c2-a86a-c47fafc4a0d9
+# ╠═2fed8870-ebbf-48f7-8ab6-533f3caf7e20
+# ╠═cf26b478-6c5e-492b-b308-92a24c3a2a40
+# ╠═ebbeeea6-8bd6-4d41-b850-7379d3ca37b6
+# ╠═830d1f6b-b0f5-4ec2-a741-19cf3190aeee
+# ╠═c1442503-17a6-40a2-b6b3-afee93bc34b1
+# ╠═cb7cbe94-f095-4b61-aa63-9382519d6211
+# ╠═d7e46511-894f-4196-a55f-cf0ac25256b6
+# ╠═e7b08fc4-418a-4d4d-80e2-51270a190705
+# ╠═4399bc2a-5717-4a8f-914a-fa2e3fb87b95
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

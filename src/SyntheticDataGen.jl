@@ -123,7 +123,7 @@ function viz_C2H4_CO2_composition(data::DataFrame)
                 xlabel="p, C₂H₄ [ppm]",
                 ylabel="p, CO₂ [ppm]"
     )
-    ax_top   = Axis(fig[1, 1], ylabel="density", ticklabels=[], aspect=AxisAspect(2))
+    ax_top   = Axis(fig[1, 1], ylabel="density", aspect=AxisAspect(2))
     ax_right = Axis(fig[2, 2], xlabel="density", aspect=AxisAspect(0.5))
     hidedecorations!(ax_top, grid=false, label=false)
     hidedecorations!(ax_right, grid=false, label=false)

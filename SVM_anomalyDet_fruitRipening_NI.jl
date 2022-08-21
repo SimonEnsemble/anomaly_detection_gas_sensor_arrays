@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.9
+# v0.19.11
 
 using Markdown
 using InteractiveUtils
@@ -40,25 +40,14 @@ end
 md"!!! example \"\" 
 	Generate 100 3x3 plots of SVDD for low, medium, and high measurement error and H₂O composition variance values and return the plot that yields the median F1 score for each measurement error and H₂O variance set. Then use the data for the middle error and variance to perform a more detailed analysis. "
 
-# ╔═╡ 746a5110-8d5e-4529-9c2c-801828fda62a
-begin
-		σ_H₂O_vector = [1e-5, 1e-3, 1e-1]
-	σ_m_vector   = [1e-8, 1e-6, 1e-4]
-	
-		num_normal_train_points  = 100
-	num_anomaly_train_points = 0
-	num_normal_test_points   = 100
-	num_anomaly_test_points  = 5
-end
-
 # ╔═╡ 4b1759a7-eba1-4de5-8d6a-38106f3301c9
 begin
-#=
+
 	Random.seed!(297333)
 	
 	#visualization of the effects of sensor error and water vapor variance
-	σ_H₂O_vector = [1e-5, 1e-3, 1e-1]
-	σ_m_vector   = [1e-8, 1e-6, 1e-4]
+	σ_H₂O_vector = [ 1e-1, 1e-2, 1e-5] #big to small
+	σ_m_vector   = [ 1e-8, 1e-5, 1e-4] #small to big
 
 	num_normal_train_points  = 100
 	num_anomaly_train_points = 0
@@ -72,8 +61,8 @@ begin
 							 num_normal_test_points,
 							 num_anomaly_test_points,
 							 validation_method="hypersphere",
-							 num_runs=2)
-=#
+							 num_runs=6)
+
 
 end
 
@@ -129,17 +118,25 @@ begin
 	=#
 end
 
+# ╔═╡ 1de459f8-c674-425c-a7d9-310030bfc5d6
+#=
+ 0.459232  0.663484  0.778661  0.745568  0.754774
+ 0.468448  0.671174  0.784641  0.763323  0.766442
+ 0.464444  0.661173  0.725367  0.72549   0.717594
+ 0.390468  0.673164  0.676349  0.674668  0.682375
+ 0.257813  0.377985  0.360175  0.34803   0.353619
+=#
+
 # ╔═╡ 00d90c63-6f3e-4906-ad35-ba999439e253
 
 begin
-	
-	Random.seed!(297333)
+	#=
 
 	σ_m_max = σ_m_vector[end]	
-	σ_H₂O_max = σ_H₂O_vector[end]
+	σ_H₂O_max = σ_H₂O_vector[1]
 	
-	f1_heatmap_data, _ = AnomalyDetectionPlots.viz_f1_score_heatmap(σ_H₂O_max, σ_m_max, res=5, validation_method="hypersphere",hyperparameter_method="bayesian", λ=0.5, n_avg=1)
-	
+	f1_heatmap_data, _ = AnomalyDetectionPlots.viz_f1_score_heatmap(σ_H₂O_max, σ_m_max, res=5, validation_method="hypersphere",hyperparameter_method="bayesian", λ=0.5, n_avg=4)
+	=#
 end
 
 
@@ -275,12 +272,6 @@ end
 
 # ╔═╡ 4c3c93e3-a595-4984-a091-6466a2b54756
 worst_f1(100, 20)
-
-# ╔═╡ e9145d9b-d111-4b7c-92f9-b5fd6bb2c7e9
-5e-6
-
-# ╔═╡ 3bee5c1d-1d0e-4351-9655-7827d58c59d1
-#Random.seed!(297333)
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -1613,7 +1604,6 @@ version = "3.5.0+0"
 # ╠═31f71438-ff2f-49f9-a801-3a6489eaf271
 # ╠═5d920ea0-f04d-475f-b05b-86e7b199d7e0
 # ╟─ebf79f0c-8399-42bf-b790-d4934906ede0
-# ╠═746a5110-8d5e-4529-9c2c-801828fda62a
 # ╠═4b1759a7-eba1-4de5-8d6a-38106f3301c9
 # ╟─9873c6d8-84ba-47e5-adcb-4d0f30829227
 # ╟─77382f3e-98b6-4aef-b946-8375018c3c3e
@@ -1626,6 +1616,7 @@ version = "3.5.0+0"
 # ╠═12a6f9d0-f3db-4973-8c53-3a2953d78b5d
 # ╠═8c426257-f4a5-4015-b39f-eab5e84d91ee
 # ╠═1d29b57f-bfaa-4afc-b1f6-5d35ea395eee
+# ╠═1de459f8-c674-425c-a7d9-310030bfc5d6
 # ╠═00d90c63-6f3e-4906-ad35-ba999439e253
 # ╟─51b0ebd4-1dec-4b35-bb15-cd3df906aca3
 # ╠═6ceab194-4861-4be1-901c-6713db5a4204
@@ -1647,7 +1638,5 @@ version = "3.5.0+0"
 # ╠═773793c4-021a-4aa8-9b13-c27f94e694b0
 # ╠═02b9e2a3-3b98-46b9-b107-661e2cadd555
 # ╠═4c3c93e3-a595-4984-a091-6466a2b54756
-# ╠═e9145d9b-d111-4b7c-92f9-b5fd6bb2c7e9
-# ╠═3bee5c1d-1d0e-4351-9655-7827d58c59d1
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
