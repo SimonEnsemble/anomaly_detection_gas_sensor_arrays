@@ -201,6 +201,81 @@ end
 
 """
 ****************************************************
+gas composition space and sensor calibration visualizations
+****************************************************
+"""
+
+function viz_C2H4_CO2_H2O_density_compositions(training_data::DataFrame, 														   test_data::DataFrame)
+
+	# this is the figure that will hold the layout (single column of composition plots)
+	fig = Figure(resolution=(1200, 1600),figure_padding = 100)
+
+	# create training (left) and testing (right) data axis'
+	train_ax = Axis(fig[1, 1], title="Training Data", titlegap=80, titlesize=50)
+	test_ax = Axis(fig[1, 2], title="Test Data", titlegap=80, titlesize=50)
+	hidedecorations!(train_ax)
+	hidedecorations!(test_ax)
+	data = [training_data, test_data]
+	gas = AnomalyDetection.gases
+
+	# create a vector of axis'
+	axs = [[Axis(fig[1, j][i, 1], ylabel="# compositions", title=gas[i], ) for i in 1:length(gas)] for j=1:2]
+
+	# create axis labels
+	for i=1:length(gas)
+		for j=1:2
+			if gas[i] == "H₂O"
+				axs[j][i].xlabel = "p, H₂O [relative humidity]"
+			else
+				axs[j][i].xlabel = "p, " * gas[i] * " [ppm]"
+			end
+		end
+	end
+
+	# plot data histograms
+	for i=1:length(gas)
+		for j=1:2
+			for data_g in groupby(data[j], :label)
+			label = data_g[1, "label"]
+												
+				if gas[i] == "H₂O"
+					hist!(axs[j][i], 
+						  data_g[:, "p H₂O [bar]"] / SyntheticDataGen.p_H₂O_vapor,
+						  label=label,
+						  color=(SyntheticDataGen.label_to_color[label], 0.5),
+						  alignmode = Outside(10))
+				else
+					hist!(axs[j][i],
+						  data_g[:, "p " * gas[i] * " [bar]"] * 1e6,
+						  label=label,	
+						  color=(SyntheticDataGen.label_to_color[label], 0.5),
+						  alignmode = Outside(10))
+				end
+			end
+		end
+	end
+
+	# manually setting the CO2 test data axis ticks
+	axs[2][2].xticks = ([5e3, 1e4, 1.5e4, 2e4], ["5000", "10000", "15000", "20000"])
+	rowgap!(fig.layout, Relative(0.05))
+
+	# set plot legends
+	for i=1:length(gas)
+		linkyaxes!(axs[1][i], axs[2][i])
+		for j=1:2
+			if gas[i] == "H₂O"
+				axislegend(axs[j][i], position=:lt)
+			else
+				axislegend(axs[j][i], position=:rt)
+			end
+		end
+	end
+	
+	return fig
+end
+
+"""
+****************************************************
 deployment of the One class support vector machine
 ****************************************************
 """

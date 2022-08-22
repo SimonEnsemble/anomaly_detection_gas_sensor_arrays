@@ -9,6 +9,10 @@ using CairoMakie,CSV, DataFrames, ColorSchemes, Optim, Distributions, PlutoUI, S
 
 # ╔═╡ 830d1f6b-b0f5-4ec2-a741-19cf3190aeee
 begin
+	#=
+	this is an example borrowed from cairo makie to get some ideas for structuring my 3d plot
+	=#
+	
 using GeometryBasics: Rect3f
 let
     x = y = z = 1:10
@@ -154,21 +158,6 @@ function viz_bayes_values(plot_data::Vector{Tuple{Float64, Float64, Float64}})
     return fig
 end
 
-# ╔═╡ 6d09c2b8-fa9c-4e28-8f6c-3166e455d024
-AnomalyDetectionPlots.viz_bayes_values_by_point(validation_steps, length(validation_steps))
-
-# ╔═╡ 16541996-35ed-43e2-b57f-889a8e2671f3
-
-
-# ╔═╡ c694e8f4-93a6-4d53-9b77-3b78e49a6e6d
-
-
-# ╔═╡ 1c468007-c1da-40c0-a220-73871d607b7c
-
-
-# ╔═╡ 9d7dab5a-c8ac-48c2-a86a-c47fafc4a0d9
-
-
 # ╔═╡ 2fed8870-ebbf-48f7-8ab6-533f3caf7e20
 begin
 	test_data_set = AnomalyDetection.setup_dataset(num_normal_train_points,
@@ -179,32 +168,49 @@ begin
 										  σ_m)
 end
 
-# ╔═╡ cf26b478-6c5e-492b-b308-92a24c3a2a40
+# ╔═╡ aa4b7c20-861e-4f62-92a1-284b4764dda8
 test_data_set.data_train
+
+# ╔═╡ a95cc9d0-42a6-4182-8bc2-6fe520fe65c5
+		data_points = [(test_data_set.data_train[i, "p C₂H₄ [bar]"] * 1e6,
+		test_data_set.data_train[i, "p CO₂ [bar]"] * 1e6,
+		test_data_set.data_train[i, "p H₂O [bar]"] / SyntheticDataGen.p_H₂O_vapor)
+			for i=1:length(test_data_set.data_train[:, "p C₂H₄ [bar]"])]
+
+# ╔═╡ 6dfe2883-1ab7-4272-8d0d-53b9d5173e36
+length(data_points)
+
+# ╔═╡ 3ed08a87-a131-4f67-bc24-958b17cc0824
+test_data_set.data_train[:, "p H₂O [bar]"] / SyntheticDataGen.p_H₂O_vapor
 
 # ╔═╡ ebbeeea6-8bd6-4d41-b850-7379d3ca37b6
 function viz_C2H4_CO2_H2O_composition(data::DataFrame)
-    fig = Figure(resolution=(600, 600))
+    #figure = Figure(resolution=(600, 600))
+	#axis = Axis(figure[1,1])
 
-    for data_g in groupby(data, :label)
-        label = data_g[1, "label"]
+    #for data_g in groupby(data, :label)
+        label = data[1, "label"]
+		data_points = [(data[i, "p C₂H₄ [bar]"] * 1e6,
+		data[i, "p CO₂ [bar]"] * 1e6,
+		data[i, "p H₂O [bar]"] / SyntheticDataGen.p_H₂O_vapor)
+			for i=1:length(data[:, "p C₂H₄ [bar]"])]
 
-		    fig, ax, pltobj = meshscatter(
-				 data_g[:, "p C₂H₄ [bar]"] * 1e6,
-                 data_g[:, "p CO₂ [bar]"] * 1e6,
-				 data_g[:, "p H₂O [bar]"] ./ SyntheticDataGen.p_H₂O_vapor,
+		    figure, axis, pltobj = meshscatter([data_points[i] for i=1:10], markersize = 0.5,
         		 figure = (; resolution = (1200, 800)),
         		 axis = (; type = Axis3, 
-				 		   perspectiveness = 0.5, 
+				 		   perspectiveness = 0.1, 
 				 		   azimuth = 2.19, 
 				 		   elevation = 1.0, 
 				 		   xlabel = "p, C₂H₄ [ppm]", 
 				 		   ylabel = "p, CO₂ [ppm]", 
 				 		   zlabel = "p, H₂O [relative humidity]",
             			   aspect = (1, 1, 1)))
-    end
+			limits!(axis, 80, 200, 500, 8000, 0.0, 1.0)
+    #end
 
-    fig
+
+   figure
+ 
 end
 
 # ╔═╡ bd82c489-693d-4bd3-b4b0-027db2524baa
@@ -235,6 +241,148 @@ end
 
 # ╔═╡ cb7cbe94-f095-4b61-aa63-9382519d6211
 viz_H2O_compositions(test_data_set.data_train)
+
+# ╔═╡ 37987a23-cee5-448e-abc3-2947770dcd38
+AnomalyDetection.gases
+
+# ╔═╡ 3cd4f7cb-4bd0-48e6-b659-2c3612b5f577
+"p, " * AnomalyDetection.gases[1] * " [ppm]"
+
+# ╔═╡ cb455af3-ae93-4df5-bb56-5ffd493806be
+
+
+# ╔═╡ 711ca7ee-3a07-46e6-8da4-9aa0f3e8bdca
+function viz_C2H4_CO2_H2O_density_compositions(training_data::DataFrame, 														   test_data::DataFrame)
+
+	#this is the figure that will hold the layout (single column of composition plots)
+	fig = Figure(resolution=(1200, 1600),figure_padding = 100)
+	train_ax = Axis(fig[1, 1], title="Training Data", titlegap=80, titlesize=50)
+	test_ax = Axis(fig[1, 2], title="Test Data", titlegap=80, titlesize=50)
+	hidedecorations!(train_ax)
+	hidedecorations!(test_ax)
+	data = [training_data, test_data]
+
+	gas = AnomalyDetection.gases
+
+	#create a vector of axis'
+	axs = [[Axis(fig[1, j][i, 1], ylabel="# compositions", title=gas[i], ) for i in 1:length(gas)] for j=1:2]
+
+	for i=1:length(gas)
+		for j=1:2
+			if gas[i] == "H₂O"
+				axs[j][i].xlabel = "p, H₂O [relative humidity]"
+			else
+				axs[j][i].xlabel = "p, " * gas[i] * " [ppm]"
+			end
+		end
+	end
+
+	for i=1:length(gas)
+		for j=1:2
+			for data_g in groupby(data[j], :label)
+			label = data_g[1, "label"]
+												
+				if gas[i] == "H₂O"
+					hist!(axs[j][i], 
+						  data_g[:, "p H₂O [bar]"] / SyntheticDataGen.p_H₂O_vapor,
+						  label=label,
+						  color=(SyntheticDataGen.label_to_color[label], 0.5),
+					alignmode = Outside(10))
+				else
+					hist!(axs[j][i],
+						  data_g[:, "p " * gas[i] * " [bar]"] * 1e6,
+						  label=label,	
+						  color=(SyntheticDataGen.label_to_color[label], 0.5),
+					alignmode = Outside(10))
+				end
+			end
+		end
+	end
+
+	axs[2][2].xticks = ([5e3, 1e4, 1.5e4, 2e4], ["5000", "10000", "15000", "20000"])
+	
+	#hidedecorations!.(axs, grid=false)
+	
+	rowgap!(fig.layout, Relative(0.05))
+
+	for i=1:length(gas)
+				linkyaxes!(axs[1][i], axs[2][i])
+		for j=1:2
+			if gas[i] == "H₂O"
+				axislegend(axs[j][i], position=:lt)
+			else
+				axislegend(axs[j][i], position=:rt)
+			end
+		end
+	end
+	
+	return fig
+end
+
+# ╔═╡ 6f0f68c6-e280-49e5-8f12-66541837bc07
+function viz_C2H4_CO2_H2O_density_compositions(data::DataFrame)
+
+	#this is the figure that will hold the layout (single column of composition plots)
+	fig = Figure(resolution=(600, 1600))
+
+	training_data = fig
+
+	gas = AnomalyDetection.gases
+
+	#create a vector of axis'
+	axs = [Axis(fig[i, 1], ylabel="# compositions", title=gas[i], ) for i in 1:length(gas)]
+
+	for i=1:length(gas)
+		if gas[i] == "H₂O"
+			axs[i].xlabel = "p, H₂O [relative humidity]"
+		else
+			axs[i].xlabel = "p, " * gas[i] * " [ppm]"
+		end
+	end
+
+	    for data_g in groupby(data, :label)
+        label = data_g[1, "label"]
+			for i=1:length(gas)
+				if gas[i] == "H₂O"
+					hist!(axs[i], 
+						  data_g[:, "p H₂O [bar]"] / SyntheticDataGen.p_H₂O_vapor,
+						  label=label,
+						  color=(SyntheticDataGen.label_to_color[label], 0.5))
+				else
+					hist!(axs[i],
+				  		  data_g[:, "p " * gas[i] * " [bar]"] * 1e6,
+				  		  label=label,	
+				  		  color=(SyntheticDataGen.label_to_color[label], 0.5)
+		        )
+				end
+			end
+		end
+	
+	
+	#hidedecorations!.(axs, grid=false)
+	
+	rowgap!(fig.layout, Relative(0.05))
+	
+
+	for i=1:length(axs)
+		if gas[i] == "H₂O"
+			axislegend(axs[i], position=:lt)
+		else
+			axislegend(axs[i], position=:rt)
+		end
+	end
+	
+	return fig
+end
+
+# ╔═╡ 8289311f-59cd-4713-b893-f487f945a2d7
+viz_C2H4_CO2_H2O_density_compositions(test_data_set.data_train, 														   test_data_set.data_test)
+
+# ╔═╡ 02d12b5f-e807-484a-87d6-e71053d71188
+viz_C2H4_CO2_H2O_density_compositions(test_data_set.data_train)
+
+# ╔═╡ b0fe91a0-1dae-449e-9ffb-99c7456bb804
+viz_C2H4_CO2_H2O_density_compositions(test_data_set.data_test)
 
 # ╔═╡ 4399bc2a-5717-4a8f-914a-fa2e3fb87b95
 sum([true, false, false])
@@ -1709,20 +1857,26 @@ version = "3.5.0+0"
 # ╠═a2d00e2e-bcfd-4c1b-92d0-98fb5202fe3a
 # ╠═3bedb6ff-31c7-4eb8-b77b-ccf9ddc4f812
 # ╠═2a5ed74b-3fb4-4e6e-95ce-87cff112ac0d
-# ╠═6d09c2b8-fa9c-4e28-8f6c-3166e455d024
-# ╠═16541996-35ed-43e2-b57f-889a8e2671f3
-# ╠═c694e8f4-93a6-4d53-9b77-3b78e49a6e6d
-# ╠═1c468007-c1da-40c0-a220-73871d607b7c
 # ╠═bd82c489-693d-4bd3-b4b0-027db2524baa
-# ╠═9d7dab5a-c8ac-48c2-a86a-c47fafc4a0d9
 # ╠═2fed8870-ebbf-48f7-8ab6-533f3caf7e20
-# ╠═cf26b478-6c5e-492b-b308-92a24c3a2a40
+# ╠═aa4b7c20-861e-4f62-92a1-284b4764dda8
+# ╠═a95cc9d0-42a6-4182-8bc2-6fe520fe65c5
+# ╠═6dfe2883-1ab7-4272-8d0d-53b9d5173e36
+# ╠═3ed08a87-a131-4f67-bc24-958b17cc0824
 # ╠═ebbeeea6-8bd6-4d41-b850-7379d3ca37b6
 # ╠═830d1f6b-b0f5-4ec2-a741-19cf3190aeee
 # ╠═c1442503-17a6-40a2-b6b3-afee93bc34b1
 # ╠═cb7cbe94-f095-4b61-aa63-9382519d6211
 # ╠═d7e46511-894f-4196-a55f-cf0ac25256b6
 # ╠═e7b08fc4-418a-4d4d-80e2-51270a190705
+# ╠═37987a23-cee5-448e-abc3-2947770dcd38
+# ╠═3cd4f7cb-4bd0-48e6-b659-2c3612b5f577
+# ╠═cb455af3-ae93-4df5-bb56-5ffd493806be
+# ╠═711ca7ee-3a07-46e6-8da4-9aa0f3e8bdca
+# ╠═6f0f68c6-e280-49e5-8f12-66541837bc07
+# ╠═8289311f-59cd-4713-b893-f487f945a2d7
+# ╠═02d12b5f-e807-484a-87d6-e71053d71188
+# ╠═b0fe91a0-1dae-449e-9ffb-99c7456bb804
 # ╠═4399bc2a-5717-4a8f-914a-fa2e3fb87b95
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
