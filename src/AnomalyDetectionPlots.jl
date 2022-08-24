@@ -1,6 +1,6 @@
 module AnomalyDetectionPlots
 
-using ScikitLearn, DataFrames, CairoMakie, ColorSchemes, LinearAlgebra, Statistics, Random, PyCall, LaTeXStrings, JLD
+using ScikitLearn, DataFrames, CairoMakie, ColorSchemes, LinearAlgebra, Statistics, Random, PyCall, LaTeXStrings, JLD2
 SyntheticDataGen = include("SyntheticDataGen.jl")
 AnomalyDetection = include("AnomalyDetection.jl")
 skopt = pyimport("skopt")
@@ -576,7 +576,7 @@ if gen_data_flag
 		end
 	end
 else
-plot_data_storage = load("sensor_error_&_H2O_variance_plot.jld","plot_data_storage")
+plot_data_storage = load("sensor_error_&_H2O_variance_plot.jld2","plot_data_storage")
 end
 
 #Plot the median data, contour, confusion matrix for each water variance and sensor error value
@@ -663,7 +663,7 @@ end
 	end
 
 	if gen_data_flag
-		save("sensor_error_&_H2O_variance_plot.jld","plot_data_storage", plot_data_storage)
+		save("sensor_error_&_H2O_variance_plot.jld2","plot_data_storage", plot_data_storage)
 	end
 
 	return plot_data_storage[2, 2, trunc(Int, num_runs/2)], fig
@@ -732,7 +732,7 @@ function viz_f1_score_heatmap(σ_H₂O_max::Float64,
 			end
 		end
 	else
-		f1_score_grid = load("f1_score_plot.jld", "f1_score_grid")
+		f1_score_grid = load("f1_score_plot.jld2", "f1_score_grid")
 	end
 
 	fig = Figure()
@@ -756,7 +756,7 @@ function viz_f1_score_heatmap(σ_H₂O_max::Float64,
 	end
 
 	if gen_data_flag
-		save("f1_score_plot.jld","f1_score_grid", f1_score_grid)
+		save("f1_score_plot.jld2","f1_score_grid", f1_score_grid)
 	end
 
 	return f1_score_grid, fig
