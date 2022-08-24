@@ -61,10 +61,14 @@ begin
 							 num_normal_test_points,
 							 num_anomaly_test_points,
 							 validation_method="hypersphere",
-							 num_runs=2)
+							 num_runs=2,
+	gen_data_flag=true)
 
 
 end
+
+# ╔═╡ b28cbe5e-b7b6-45fd-a602-52ff4bda86ea
+@load "sensor_error_&_H2O_variance_plot.jld2" plot_data_storage
 
 # ╔═╡ 9873c6d8-84ba-47e5-adcb-4d0f30829227
 md"!!! example \"\" 
@@ -1605,6 +1609,7 @@ version = "3.5.0+0"
 # ╠═5d920ea0-f04d-475f-b05b-86e7b199d7e0
 # ╟─ebf79f0c-8399-42bf-b790-d4934906ede0
 # ╠═4b1759a7-eba1-4de5-8d6a-38106f3301c9
+# ╠═b28cbe5e-b7b6-45fd-a602-52ff4bda86ea
 # ╟─9873c6d8-84ba-47e5-adcb-4d0f30829227
 # ╟─77382f3e-98b6-4aef-b946-8375018c3c3e
 # ╠═48d8afeb-2df0-44d1-9eaa-f28184813ab4

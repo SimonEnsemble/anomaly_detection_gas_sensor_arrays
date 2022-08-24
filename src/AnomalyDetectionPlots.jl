@@ -515,9 +515,11 @@ if gen_data_flag
 					(ν_opt, γ_opt), X_sphere, bayes_plot_data = AnomalyDetection.bayes_validation(plot_data_storage[i, j, k]["data"].X_train_scaled, n_iter=40, plot_data_flag=true)
 					plot_data_storage[i, j, k]["X_sphere"] = X_sphere
 					plot_data_storage[i, j, k]["bayes_plot_data"] = bayes_plot_data
+					plot_data_storage[i, j, k]["ν_opt, γ_opt"] = (ν_opt, γ_opt)
 				elseif validation_method == "knee"
 					K            = trunc(Int, num_normal_train*0.05)
 					ν_opt, γ_opt = AnomalyDetection.opt_ν_γ_by_density_measure_method(plot_data_storage[i, j, k]["data"].X_train_scaled, K)
+					plot_data_storage[i, j, k]["ν_opt, γ_opt"] = (ν_opt, γ_opt)
 				end
 
 				plot_data_storage[i, j, k]["svm"]      = AnomalyDetection.train_anomaly_detector(plot_data_storage[i, j, k]["data"].X_train_scaled, ν_opt, γ_opt)
@@ -576,7 +578,18 @@ if gen_data_flag
 		end
 	end
 else
-plot_data_storage = load("sensor_error_&_H2O_variance_plot.jld2","plot_data_storage")
+	@load "sensor_error_&_H2O_variance_plot.jld2" plot_data_storage
+
+	#due to an issue with jld2 storing the SVM py object as null, I have to retrain the SVM
+	for (i, σ_H₂O) in enumerate(σ_H₂Os)
+		for (j, σ_m) in enumerate(σ_ms)
+			mid_num = trunc(Int, num_runs/2)
+
+			ν_opt = plot_data_storage[i, j, mid_num]["ν_opt, γ_opt"][1]
+			γ_opt = plot_data_storage[i, j, mid_num]["ν_opt, γ_opt"][2]
+			plot_data_storage[i, j, mid_num]["svm"] = AnomalyDetection.train_anomaly_detector(plot_data_storage[i, j, mid_num]["data"].X_train_scaled, ν_opt, γ_opt)
+		end
+	end
 end
 
 #Plot the median data, contour, confusion matrix for each water variance and sensor error value
@@ -663,7 +676,7 @@ end
 	end
 
 	if gen_data_flag
-		save("sensor_error_&_H2O_variance_plot.jld2","plot_data_storage", plot_data_storage)
+		@save "sensor_error_&_H2O_variance_plot.jld2" plot_data_storage
 	end
 
 	return plot_data_storage[2, 2, trunc(Int, num_runs/2)], fig
@@ -732,7 +745,7 @@ function viz_f1_score_heatmap(σ_H₂O_max::Float64,
 			end
 		end
 	else
-		f1_score_grid = load("f1_score_plot.jld2", "f1_score_grid")
+		@load "f1_score_plot.jld2" f1_score_grid
 	end
 
 	fig = Figure()
@@ -756,10 +769,10 @@ function viz_f1_score_heatmap(σ_H₂O_max::Float64,
 	end
 
 	if gen_data_flag
-		save("f1_score_plot.jld2","f1_score_grid", f1_score_grid)
+		@save "f1_score_plot.jld2" f1_score_grid
 	end
 
-	return f1_score_grid, fig
+	return fig
 end
 
 
