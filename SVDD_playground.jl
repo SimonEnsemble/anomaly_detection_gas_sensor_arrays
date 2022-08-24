@@ -251,74 +251,6 @@ AnomalyDetection.gases
 # ╔═╡ cb455af3-ae93-4df5-bb56-5ffd493806be
 
 
-# ╔═╡ 711ca7ee-3a07-46e6-8da4-9aa0f3e8bdca
-function viz_C2H4_CO2_H2O_density_compositions(training_data::DataFrame, 														   test_data::DataFrame)
-
-	#this is the figure that will hold the layout (single column of composition plots)
-	fig = Figure(resolution=(1200, 1600),figure_padding = 100)
-	train_ax = Axis(fig[1, 1], title="Training Data", titlegap=80, titlesize=50)
-	test_ax = Axis(fig[1, 2], title="Test Data", titlegap=80, titlesize=50)
-	hidedecorations!(train_ax)
-	hidedecorations!(test_ax)
-	data = [training_data, test_data]
-
-	gas = AnomalyDetection.gases
-
-	#create a vector of axis'
-	axs = [[Axis(fig[1, j][i, 1], ylabel="# compositions", title=gas[i], ) for i in 1:length(gas)] for j=1:2]
-
-	for i=1:length(gas)
-		for j=1:2
-			if gas[i] == "H₂O"
-				axs[j][i].xlabel = "p, H₂O [relative humidity]"
-			else
-				axs[j][i].xlabel = "p, " * gas[i] * " [ppm]"
-			end
-		end
-	end
-
-	for i=1:length(gas)
-		for j=1:2
-			for data_g in groupby(data[j], :label)
-			label = data_g[1, "label"]
-												
-				if gas[i] == "H₂O"
-					hist!(axs[j][i], 
-						  data_g[:, "p H₂O [bar]"] / SyntheticDataGen.p_H₂O_vapor,
-						  label=label,
-						  color=(SyntheticDataGen.label_to_color[label], 0.5),
-					alignmode = Outside(10))
-				else
-					hist!(axs[j][i],
-						  data_g[:, "p " * gas[i] * " [bar]"] * 1e6,
-						  label=label,	
-						  color=(SyntheticDataGen.label_to_color[label], 0.5),
-					alignmode = Outside(10))
-				end
-			end
-		end
-	end
-
-	axs[2][2].xticks = ([5e3, 1e4, 1.5e4, 2e4], ["5000", "10000", "15000", "20000"])
-	
-	#hidedecorations!.(axs, grid=false)
-	
-	rowgap!(fig.layout, Relative(0.05))
-
-	for i=1:length(gas)
-				linkyaxes!(axs[1][i], axs[2][i])
-		for j=1:2
-			if gas[i] == "H₂O"
-				axislegend(axs[j][i], position=:lt)
-			else
-				axislegend(axs[j][i], position=:rt)
-			end
-		end
-	end
-	
-	return fig
-end
-
 # ╔═╡ 6f0f68c6-e280-49e5-8f12-66541837bc07
 function viz_C2H4_CO2_H2O_density_compositions(data::DataFrame)
 
@@ -375,14 +307,75 @@ function viz_C2H4_CO2_H2O_density_compositions(data::DataFrame)
 	return fig
 end
 
+# ╔═╡ 711ca7ee-3a07-46e6-8da4-9aa0f3e8bdca
+function viz_C2H4_CO2_H2O_density_compositions(training_data::DataFrame, 														   test_data::DataFrame)
+
+	#this is the figure that will hold the layout (single column of composition plots)
+	fig = Figure(resolution=(1200, 1600),figure_padding = 100)
+	train_ax = Axis(fig[1, 1], title="Training Data", titlegap=80, titlesize=50)
+	test_ax = Axis(fig[1, 2], title="Test Data", titlegap=80, titlesize=50)
+	hidedecorations!(train_ax)
+	hidedecorations!(test_ax)
+	data = [training_data, test_data]
+
+	gas = AnomalyDetection.gases
+
+	#create a vector of axis'
+	axs = [[Axis(fig[1, j][i, 1], ylabel="# compositions", title=gas[i]) for i in 1:length(gas)] for j=1:2]
+
+	for i=1:length(gas)
+		for j=1:2
+			if gas[i] == "H₂O"
+				axs[j][i].xlabel = "p, H₂O [relative humidity]"
+			else
+				axs[j][i].xlabel = "p, " * gas[i] * " [ppm]"
+			end
+		end
+	end
+
+	for i=1:length(gas)
+		for j=1:2
+			for data_g in groupby(data[j], :label)
+			label = data_g[1, "label"]
+												
+				if gas[i] == "H₂O"
+					hist!(axs[j][i], 
+						  data_g[:, "p H₂O [bar]"] / SyntheticDataGen.p_H₂O_vapor,
+						  label=label,
+						  color=(SyntheticDataGen.label_to_color[label], 0.5))
+				else
+					hist!(axs[j][i],
+						  data_g[:, "p " * gas[i] * " [bar]"] * 1e6,
+						  label=label,	
+						  color=(SyntheticDataGen.label_to_color[label], 0.5))
+				end
+			end
+		end
+	end
+
+	axs[2][2].xticks = ([5e3, 1e4, 1.5e4, 2e4], ["5000", "10000", "15000", "20000"])
+	
+	#hidedecorations!.(axs, grid=false)
+	
+	rowgap!(fig.layout, Relative(0.05))
+
+	for i=1:length(gas)
+				linkyaxes!(axs[1][i], axs[2][i])
+		for j=1:2
+			if gas[i] == "H₂O"
+				axislegend(axs[j][i], position=:lt)
+			else
+				axislegend(axs[j][i], position=:rt)
+			end
+		end
+	end
+	#contents(fig[1, 1][1, 1]).figure_padding=100
+	
+	return fig
+end
+
 # ╔═╡ 8289311f-59cd-4713-b893-f487f945a2d7
 viz_C2H4_CO2_H2O_density_compositions(test_data_set.data_train, 														   test_data_set.data_test)
-
-# ╔═╡ 02d12b5f-e807-484a-87d6-e71053d71188
-viz_C2H4_CO2_H2O_density_compositions(test_data_set.data_train)
-
-# ╔═╡ b0fe91a0-1dae-449e-9ffb-99c7456bb804
-viz_C2H4_CO2_H2O_density_compositions(test_data_set.data_test)
 
 # ╔═╡ 4399bc2a-5717-4a8f-914a-fa2e3fb87b95
 sum([true, false, false])
@@ -1872,11 +1865,9 @@ version = "3.5.0+0"
 # ╠═37987a23-cee5-448e-abc3-2947770dcd38
 # ╠═3cd4f7cb-4bd0-48e6-b659-2c3612b5f577
 # ╠═cb455af3-ae93-4df5-bb56-5ffd493806be
-# ╠═711ca7ee-3a07-46e6-8da4-9aa0f3e8bdca
 # ╠═6f0f68c6-e280-49e5-8f12-66541837bc07
+# ╠═711ca7ee-3a07-46e6-8da4-9aa0f3e8bdca
 # ╠═8289311f-59cd-4713-b893-f487f945a2d7
-# ╠═02d12b5f-e807-484a-87d6-e71053d71188
-# ╠═b0fe91a0-1dae-449e-9ffb-99c7456bb804
 # ╠═4399bc2a-5717-4a8f-914a-fa2e3fb87b95
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

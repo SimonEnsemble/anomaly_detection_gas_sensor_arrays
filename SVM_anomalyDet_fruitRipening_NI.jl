@@ -61,7 +61,7 @@ begin
 							 num_normal_test_points,
 							 num_anomaly_test_points,
 							 validation_method="hypersphere",
-							 num_runs=6)
+							 num_runs=2)
 
 
 end

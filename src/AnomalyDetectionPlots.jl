@@ -1,6 +1,6 @@
 module AnomalyDetectionPlots
 
-using ScikitLearn, DataFrames, CairoMakie, ColorSchemes, LinearAlgebra, Statistics, Random, PyCall, LaTeXStrings
+using ScikitLearn, DataFrames, CairoMakie, ColorSchemes, LinearAlgebra, Statistics, Random, PyCall, LaTeXStrings, JLD
 SyntheticDataGen = include("SyntheticDataGen.jl")
 AnomalyDetection = include("AnomalyDetection.jl")
 skopt = pyimport("skopt")
@@ -205,7 +205,7 @@ gas composition space and sensor calibration visualizations
 ****************************************************
 """
 
-function viz_C2H4_CO2_H2O_density_compositions(training_data::DataFrame, 														   test_data::DataFrame)
+function viz_C2H4_CO2_H2O_density_compositions(training_data::DataFrame, test_data::DataFrame)
 
 	# this is the figure that will hold the layout (single column of composition plots)
 	fig = Figure(resolution=(1200, 1600),figure_padding = 100)
@@ -457,7 +457,7 @@ function viz_sensorδ_waterσ_grid(σ_H₂Os::Vector{Float64},
 								num_anomaly_test::Int64; 
 								validation_method::String="hypersphere",
 								num_runs::Int=100,
-								seed=abs(rand(Int)))
+								gen_data_flag=true)
 
 	@assert validation_method=="hypersphere" || validation_method=="knee"
 
@@ -486,6 +486,7 @@ function viz_sensorδ_waterσ_grid(σ_H₂Os::Vector{Float64},
 			 rotation = pi/2)
 	end
 
+if gen_data_flag
 #find max/min for plots
 	zif71_lims_high_σ = [Inf, 0]
 	zif8_lims_high_σ  = [Inf, 0]
@@ -574,6 +575,9 @@ function viz_sensorδ_waterσ_grid(σ_H₂Os::Vector{Float64},
 			end
 		end
 	end
+else
+plot_data_storage = load("sensor_error_&_H2O_variance_plot.jld","plot_data_storage")
+end
 
 #Plot the median data, contour, confusion matrix for each water variance and sensor error value
 	for (i, σ_H₂O) in enumerate(σ_H₂Os)
@@ -593,8 +597,8 @@ function viz_sensorδ_waterσ_grid(σ_H₂Os::Vector{Float64},
 					  xlabel    = "m, " * mofs[1] * " [g/g]",
 					  ylabel    = "m, " * mofs[2] * " [g/g]",
 					  aspect    = 1,
-					  xticks    = LinearTicks(3),
-					  yticks    = LinearTicks(3),
+					  xticks    = median_data["zif71_lims"],
+					  yticks    = median_data["zif8_lims"],
 					  alignmode = Outside(10))
 
 
@@ -622,7 +626,7 @@ function viz_sensorδ_waterσ_grid(σ_H₂Os::Vector{Float64},
 					 xticklabelrotation=25.5,
 					 ylabel="truth",
 					 xlabel="prediction",
-					 alignmode = Outside())
+					 alignmode = Mixed(top=10, right=10, bottom=10))
 
 			@assert SyntheticDataGen.viable_labels[1] == "normal"
 
@@ -658,7 +662,10 @@ function viz_sensorδ_waterσ_grid(σ_H₂Os::Vector{Float64},
 		save("sensor_error_&_H2O_variance_plot_knee.pdf", fig)
 	end
 
-	plot_data_storage[2, 2, trunc(Int, num_runs/2)]["seed"] = seed
+	if gen_data_flag
+		save("sensor_error_&_H2O_variance_plot.jld","plot_data_storage", plot_data_storage)
+	end
+
 	return plot_data_storage[2, 2, trunc(Int, num_runs/2)], fig
 end
 
@@ -674,8 +681,7 @@ function viz_f1_score_heatmap(σ_H₂O_max::Float64,
 							  hyperparameter_method="bayesian", 
 							  n_avg::Int=10, 
 							  λ=0.5,
-							  gen_data_flag=true,
-							  f1_score_grid = zeros(res, res))
+							  gen_data_flag=true)
 	@assert validation_method=="hypersphere" || validation_method=="knee"
 	@assert hyperparameter_method=="bayesian" || hyperparameter_method=="grid"
 
@@ -687,6 +693,7 @@ function viz_f1_score_heatmap(σ_H₂O_max::Float64,
 	num_anomaly_test_points = 5
 	
 	if gen_data_flag
+		f1_score_grid = zeros(res, res)
 		for (i, σ_H₂O) in enumerate(σ_H₂Os)
 			for (j, σ_m) in enumerate(σ_ms)
 				f1_avg = 0.0
@@ -724,6 +731,8 @@ function viz_f1_score_heatmap(σ_H₂O_max::Float64,
 				@warn "grid space ($(i), $(j)) finished"
 			end
 		end
+	else
+		f1_score_grid = load("f1_score_plot.jld", "f1_score_grid")
 	end
 
 	fig = Figure()
@@ -744,6 +753,10 @@ function viz_f1_score_heatmap(σ_H₂O_max::Float64,
 		save("f1_score_plot_hypersphere.pdf", fig)
 	elseif validation_method == "knee"
 		save("f1_score_plot_knee.pdf", fig)
+	end
+
+	if gen_data_flag
+		save("f1_score_plot.jld","f1_score_grid", f1_score_grid)
 	end
 
 	return f1_score_grid, fig
