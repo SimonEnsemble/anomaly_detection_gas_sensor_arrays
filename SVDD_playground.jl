@@ -7,33 +7,6 @@ using InteractiveUtils
 # ╔═╡ db06b5c1-514f-4857-aa56-6bb9ceb0afea
 using CairoMakie,CSV, DataFrames, ColorSchemes, Optim, Distributions, PlutoUI, ScikitLearn, Colors, Random, PlutoUI, JLD2, LinearAlgebra, PyCall, LaTeXStrings, ScikitLearn, GLMakie
 
-# ╔═╡ 830d1f6b-b0f5-4ec2-a741-19cf3190aeee
-begin
-	#=
-	this is an example borrowed from cairo makie to get some ideas for structuring my 3d plot
-	=#
-	
-using GeometryBasics: Rect3f
-let
-    x = y = z = 1:10
-    f(x, y, z) = x^2 + y^2 + z^2
-    positions = vec([(i, j, k) for i in x, j in y, k in z])
-    vals = [f(ix, iy, iz) for ix in x, iy in y, iz in z]
-    fig, ax, pltobj = meshscatter(positions, color = vec(vals),
-        marker = Rect3f(Vec3f(-5), Vec3f(9)), # here, if you use less than 10, you will see smaller squares.
-        colormap = (:Egypt, 0.75), colorrange = (minimum(vals), maximum(vals)),
-        transparency = true, shading = false,
-        figure = (; resolution = (1200, 800)),
-        axis = (; type = Axis3, perspectiveness = 0.5, azimuth = 2.19, elevation = 0.57,
-            xlabel = "x label", ylabel = "y label", zlabel = "z label",
-            aspect = (1, 1, 1)))
-    Colorbar(fig[1, 2], pltobj, label = "f values", height = Relative(0.5))
-    colsize!(fig.layout, 1, Aspect(1, 1.0))
-    limits!(ax, -1, 11, -1, 11, -1, 11)
-    fig
-end
-end
-
 # ╔═╡ f0eaba8c-1ef1-44d8-8432-a23ad403daf0
 SyntheticDataGen = include("src/SyntheticDataGen.jl")
 
@@ -181,40 +154,94 @@ test_data_set.data_train
 length(data_points)
 
 # ╔═╡ 3ed08a87-a131-4f67-bc24-958b17cc0824
-test_data_set.data_train[:, "p H₂O [bar]"] / SyntheticDataGen.p_H₂O_vapor
+test_data_set.data_train[:, "p H₂O [bar]"] * 1e6#/ SyntheticDataGen.p_H₂O_vapor
+
+# ╔═╡ 4a70d75f-a5a4-4219-93e6-2b46dc70954e
+begin
+	test = ["abc", "cab", "bac"]
+indexin(["cab"], test)[1]
+end
 
 # ╔═╡ ebbeeea6-8bd6-4d41-b850-7379d3ca37b6
 function viz_C2H4_CO2_H2O_composition(data::DataFrame)
-    #figure = Figure(resolution=(600, 600))
-	#axis = Axis(figure[1,1])
 
-    #for data_g in groupby(data, :label)
-        label = data[1, "label"]
-		data_points = [(data[i, "p C₂H₄ [bar]"] * 1e6,
-		data[i, "p CO₂ [bar]"] * 1e6,
-		data[i, "p H₂O [bar]"] / SyntheticDataGen.p_H₂O_vapor)
-			for i=1:length(data[:, "p C₂H₄ [bar]"])]
+	gases=AnomalyDetection.gases
 
-		    figure, axis, pltobj = meshscatter([data_points[i] for i=1:10], markersize = 0.5,
-        		 figure = (; resolution = (1200, 800)),
-        		 axis = (; type = Axis3, 
-				 		   perspectiveness = 0.1, 
-				 		   azimuth = 2.19, 
-				 		   elevation = 1.0, 
-				 		   xlabel = "p, C₂H₄ [ppm]", 
-				 		   ylabel = "p, CO₂ [ppm]", 
-				 		   zlabel = "p, H₂O [relative humidity]",
-            			   aspect = (1, 1, 1)))
-			limits!(axis, 80, 200, 500, 8000, 0.0, 1.0)
-    #end
+	num_data = length(data[:, 1])
+	composition_matrix = Matrix(data[:, "p " .* AnomalyDetection.gases .* " [bar]"])
+	scaler = StandardScaler().fit(composition_matrix)
+	scaled_compositions = scaler.transform(composition_matrix)
 
+	scaled_comps_df = DataFrame(:label => data[:, "label"],
+								:C₂H₄ => scaled_compositions[:, indexin(["C₂H₄"], gases)[1]],
+		:CO₂ => scaled_compositions[:, indexin(["CO₂"], gases)[1]],
+		:H₂O => scaled_compositions[:, indexin(["H₂O"], gases)[1]],
+	)
+
+	plot_lims = [minimum(scaled_comps_df[:, "C₂H₄"]), 
+				maximum(scaled_comps_df[:, "C₂H₄"]), 
+				minimum(scaled_comps_df[:, "CO₂"]),
+				maximum(scaled_comps_df[:, "CO₂"]), 
+				minimum(scaled_comps_df[:, "H₂O"]),
+				maximum(scaled_comps_df[:, "H₂O"])]
+
+	actual_lims = [minimum(data[:, "p C₂H₄ [bar]"])*1e6, 
+			    maximum(data[:, "p C₂H₄ [bar]"])*1e6, 
+				minimum(data[:, "p CO₂ [bar]"])*1e6,
+				maximum(data[:, "p CO₂ [bar]"])*1e6, 
+				minimum(data[:, "p H₂O [bar]"])/ SyntheticDataGen.p_H₂O_vapor,
+				maximum(data[:, "p H₂O [bar]"])/ SyntheticDataGen.p_H₂O_vapor]
+		
+
+    figure = Figure(resolution = (1200, 800))
+	axis = Axis3(figure[1,1], 
+			  	 perspectiveness = 0.4, 
+			  	 azimuth = -0.9, 
+			  	 elevation = 0.3, 
+				 xlabel = "p, C₂H₄ [ppm]", 
+				 ylabel = "p, CO₂ [ppm]", 
+				 zlabel = "p, H₂O [relative humidity]",
+			  	 aspect = (1, 1, 1),
+	xticks=(LinRange(plot_lims[1], plot_lims[2], 5),
+		["$(trunc(Int, LinRange(actual_lims[1], actual_lims[2], 5)[i]))" for i=1:5]),
+	yticks=(LinRange(plot_lims[3], plot_lims[4], 5),
+		["$(trunc(Int, LinRange(actual_lims[3], actual_lims[4], 5)[i]))" for i=1:5]),
+	zticks=(LinRange(plot_lims[5], plot_lims[6], 5),
+		["$(AnomalyDetectionPlots.truncate(LinRange(actual_lims[5], actual_lims[6], 5)[i], 2))" for i=1:5]))
+
+    for data_g in groupby(scaled_comps_df, :label)
+		num_data = length(data_g[:, 1])
+	
+        label = data_g[1, "label"]
+		data_points = [(data_g[i, "C₂H₄"],
+						data_g[i, "CO₂"],
+						data_g[i, "H₂O"]) for i=1:num_data]
+
+		    global pltobj = meshscatter!([data_points[i] for i=1:num_data], markersize=0.1, color=SyntheticDataGen.label_to_color[label])
+
+    end
+			limits!(axis, 
+					minimum(scaled_comps_df[:, "C₂H₄"]), 
+					maximum(scaled_comps_df[:, "C₂H₄"]), 
+					minimum(scaled_comps_df[:, "CO₂"]),
+					maximum(scaled_comps_df[:, "CO₂"]), 
+					minimum(scaled_comps_df[:, "H₂O"]),
+					maximum(scaled_comps_df[:, "H₂O"]))
+
+	#Legend(figure[1, 2], pltobj)
 
    figure
- 
 end
+ 
+
+# ╔═╡ 6646c856-4db8-47da-902a-6f48cc255834
+LinRange(0,10,10)
 
 # ╔═╡ bd82c489-693d-4bd3-b4b0-027db2524baa
 viz_C2H4_CO2_H2O_composition(test_data_set.data_train)
+
+# ╔═╡ 2b41acc8-4c80-4ef0-bcbf-75ac79429957
+viz_C2H4_CO2_H2O_composition(test_data_set.data_test)
 
 # ╔═╡ c1442503-17a6-40a2-b6b3-afee93bc34b1
 meshscatter
@@ -390,7 +417,6 @@ Colors = "5ae59095-9a9b-59fe-a467-6f913c188581"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
-GeometryBasics = "5c1252a2-5f33-56bf-86c9-59e7332b4326"
 JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
@@ -408,7 +434,6 @@ Colors = "~0.12.8"
 DataFrames = "~1.3.4"
 Distributions = "~0.25.62"
 GLMakie = "~0.6.3"
-GeometryBasics = "~0.4.3"
 JLD2 = "~0.4.22"
 LaTeXStrings = "~1.3.0"
 Optim = "~1.7.0"
@@ -1850,14 +1875,16 @@ version = "3.5.0+0"
 # ╠═a2d00e2e-bcfd-4c1b-92d0-98fb5202fe3a
 # ╠═3bedb6ff-31c7-4eb8-b77b-ccf9ddc4f812
 # ╠═2a5ed74b-3fb4-4e6e-95ce-87cff112ac0d
-# ╠═bd82c489-693d-4bd3-b4b0-027db2524baa
 # ╠═2fed8870-ebbf-48f7-8ab6-533f3caf7e20
 # ╠═aa4b7c20-861e-4f62-92a1-284b4764dda8
 # ╠═a95cc9d0-42a6-4182-8bc2-6fe520fe65c5
 # ╠═6dfe2883-1ab7-4272-8d0d-53b9d5173e36
 # ╠═3ed08a87-a131-4f67-bc24-958b17cc0824
+# ╠═4a70d75f-a5a4-4219-93e6-2b46dc70954e
 # ╠═ebbeeea6-8bd6-4d41-b850-7379d3ca37b6
-# ╠═830d1f6b-b0f5-4ec2-a741-19cf3190aeee
+# ╠═6646c856-4db8-47da-902a-6f48cc255834
+# ╠═bd82c489-693d-4bd3-b4b0-027db2524baa
+# ╠═2b41acc8-4c80-4ef0-bcbf-75ac79429957
 # ╠═c1442503-17a6-40a2-b6b3-afee93bc34b1
 # ╠═cb7cbe94-f095-4b61-aa63-9382519d6211
 # ╠═d7e46511-894f-4196-a55f-cf0ac25256b6
