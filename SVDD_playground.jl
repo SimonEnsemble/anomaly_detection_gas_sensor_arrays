@@ -5,7 +5,7 @@ using Markdown
 using InteractiveUtils
 
 # ╔═╡ db06b5c1-514f-4857-aa56-6bb9ceb0afea
-using CairoMakie,CSV, DataFrames, ColorSchemes, Optim, Distributions, PlutoUI, ScikitLearn, Colors, Random, PlutoUI, JLD2, LinearAlgebra, PyCall, LaTeXStrings, ScikitLearn, GLMakie
+using CairoMakie,CSV, DataFrames, ColorSchemes, Optim, Distributions, PlutoUI, ScikitLearn, Colors, Random, PlutoUI, JLD2, LinearAlgebra, PyCall, LaTeXStrings, ScikitLearn, GLMakie, Revise, Makie
 
 # ╔═╡ f0eaba8c-1ef1-44d8-8432-a23ad403daf0
 SyntheticDataGen = include("src/SyntheticDataGen.jl")
@@ -263,6 +263,9 @@ function viz_H2O_compositions(data::DataFrame)
 		end
 	end
     ylims!(0.0, nothing)
+	print("$(ax.limits[][1])")
+	ax.xticks=[1,2]
+	print("$(ax.xticks)")
     fig
 end
 
@@ -276,7 +279,10 @@ AnomalyDetection.gases
 "p, " * AnomalyDetection.gases[1] * " [ppm]"
 
 # ╔═╡ cb455af3-ae93-4df5-bb56-5ffd493806be
+@load "f1_score_plot.jld2" f1_score_grid
 
+# ╔═╡ 69e2f8fd-945f-4764-9bc9-215df23b43a9
+f1_score_grid
 
 # ╔═╡ 6f0f68c6-e280-49e5-8f12-66541837bc07
 function viz_C2H4_CO2_H2O_density_compositions(data::DataFrame)
@@ -335,7 +341,8 @@ function viz_C2H4_CO2_H2O_density_compositions(data::DataFrame)
 end
 
 # ╔═╡ 711ca7ee-3a07-46e6-8da4-9aa0f3e8bdca
-function viz_C2H4_CO2_H2O_density_compositions(training_data::DataFrame, 														   test_data::DataFrame)
+function viz_C2H4_CO2_H2O_density_compositions(training_data::DataFrame, 														   test_data::DataFrame,
+												σ_H₂O)
 
 	#this is the figure that will hold the layout (single column of composition plots)
 	fig = Figure(resolution=(1200, 1600),figure_padding = 100)
@@ -362,25 +369,67 @@ function viz_C2H4_CO2_H2O_density_compositions(training_data::DataFrame, 							
 
 	for i=1:length(gas)
 		for j=1:2
+			
 			for data_g in groupby(data[j], :label)
-			label = data_g[1, "label"]
+				label = data_g[1, "label"]
+				
+				#generate a distribution
+				gas_distr = SyntheticDataGen.setup_gas_comp_distn(σ_H₂O, label)
 												
 				if gas[i] == "H₂O"
+
+					distr = gas_distr.f_H₂O
+					x_min, x_max = quantile.(distr, [0.01, 0.99])
+					xs = range(x_min, x_max, 1000)
+					ys = [pdf(distr, xs[i]) for i=1:length(xs)]
+					
+					lines!(axs[j][i], xs, ys, label=label, color=SyntheticDataGen.label_to_color[label])
+
+					#=
 					hist!(axs[j][i], 
 						  data_g[:, "p H₂O [bar]"] / SyntheticDataGen.p_H₂O_vapor,
 						  label=label,
 						  color=(SyntheticDataGen.label_to_color[label], 0.5))
-				else
+					=#
+
+					
+				elseif gas[i] == "CO₂"
+
+					distr = gas_distr.f_CO₂
+					x_min, x_max = quantile.(distr, [0.01, 0.99])
+					xs = range(x_min, x_max, 1000)
+					ys = [pdf(distr, xs[i]) for i=1:length(xs)]
+					
+					lines!(axs[j][i], xs, ys, label=label, color=SyntheticDataGen.label_to_color[label])
+					
+					#=
 					hist!(axs[j][i],
 						  data_g[:, "p " * gas[i] * " [bar]"] * 1e6,
 						  label=label,	
 						  color=(SyntheticDataGen.label_to_color[label], 0.5))
+					=#
+
+				elseif gas[i] == "C₂H₄"
+
+					distr = gas_distr.f_C₂H₄
+					x_min, x_max = quantile.(distr, [0.01, 0.99])
+					xs = range(x_min, x_max, 1000)
+					ys = [pdf(distr, xs[i]) for i=1:length(xs)]
+					
+					lines!(axs[j][i], xs, ys, label=label, color=SyntheticDataGen.label_to_color[label])
+					
+					#=
+					hist!(axs[j][i],
+						  data_g[:, "p " * gas[i] * " [bar]"] * 1e6,
+						  label=AnomalyDetectionPlots.reduced_labels[label],	
+						  color=(SyntheticDataGen.label_to_color[label], 0.5))
+					=#
 				end
 			end
 		end
 	end
 
-	axs[2][2].xticks = ([5e3, 1e4, 1.5e4, 2e4], ["5000", "10000", "15000", "20000"])
+	#axs[2][2].xticks = ([5e3, 1e4, 1.5e4, 2e4], ["5000", "10000", "15000", "20000"])
 	
 	#hidedecorations!.(axs, grid=false)
 	
@@ -388,21 +437,40 @@ function viz_C2H4_CO2_H2O_density_compositions(training_data::DataFrame, 							
 
 	for i=1:length(gas)
 				linkyaxes!(axs[1][i], axs[2][i])
-		for j=1:2
-			if gas[i] == "H₂O"
-				axislegend(axs[j][i], position=:lt)
-			else
-				axislegend(axs[j][i], position=:rt)
-			end
-		end
 	end
-	#contents(fig[1, 1][1, 1]).figure_padding=100
+
+	axislegend(axs[1][1], position=:rt)
+	axislegend(axs[2][1], position=:rt)
 	
 	return fig
 end
 
+# ╔═╡ fd5b2fda-f1e3-45e7-84fc-fc183b03ca08
+begin
+	gas_distr = SyntheticDataGen.setup_gas_comp_distn(σ_H₂O, "normal")
+	distr = gas_distr.f_C₂H₄
+					x_min, x_max = quantile.(distr, [0.01, 0.99])
+	distr
+end
+
+# ╔═╡ 6d7eb007-86bf-476a-a130-3c48196a2cfe
+typeof(:abc)
+
 # ╔═╡ 8289311f-59cd-4713-b893-f487f945a2d7
-viz_C2H4_CO2_H2O_density_compositions(test_data_set.data_train, 														   test_data_set.data_test)
+viz_C2H4_CO2_H2O_density_compositions(test_data_set.data_train, 														  test_data_set.data_test,
+									  σ_H₂O)
+
+# ╔═╡ c16f1892-f588-4dda-b869-9a12fe814fe9
+test_data_set.data_test
+
+# ╔═╡ 18cd611c-c696-45c3-a32b-8dfc83fcb148
+σ_H₂O
+
+# ╔═╡ b0f97b98-4be9-42ac-8bf9-a2703230755c
+typeof((1.2, 2.3))
+
+# ╔═╡ 3b292f29-578f-4a56-942c-a272e97b82ce
+reverse([1, 2, 3])
 
 # ╔═╡ 4399bc2a-5717-4a8f-914a-fa2e3fb87b95
 sum([true, false, false])
@@ -420,10 +488,12 @@ GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
 JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 Optim = "429524aa-4258-5aef-a3af-852621145aeb"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 PyCall = "438e738f-606a-5dbb-bf0a-cddfbfd45ab0"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
 ScikitLearn = "3646fa90-6ef7-5e7e-9f22-8aca16db6324"
 
 [compat]
@@ -436,9 +506,11 @@ Distributions = "~0.25.62"
 GLMakie = "~0.6.3"
 JLD2 = "~0.4.22"
 LaTeXStrings = "~1.3.0"
+Makie = "~0.17.3"
 Optim = "~1.7.0"
 PlutoUI = "~0.7.39"
 PyCall = "~1.93.1"
+Revise = "~3.4.0"
 ScikitLearn = "~0.6.4"
 """
 
@@ -557,6 +629,12 @@ deps = ["ChainRulesCore", "LinearAlgebra", "Test"]
 git-tree-sha1 = "1e315e3f4b0b7ce40feded39c73049692126cf53"
 uuid = "9e997f8a-9a97-42d5-a9f1-ce6bfc15e2c0"
 version = "0.1.3"
+
+[[deps.CodeTracking]]
+deps = ["InteractiveUtils", "UUIDs"]
+git-tree-sha1 = "1833bda4a027f4b2a1c984baddcf755d77266818"
+uuid = "da1fd8a2-8d9e-5ec2-8556-3022fb5608a2"
+version = "1.1.0"
 
 [[deps.CodecZlib]]
 deps = ["TranscodingStreams", "Zlib_jll"]
@@ -1034,6 +1112,12 @@ git-tree-sha1 = "b53380851c6e6664204efb2e62cd24fa5c47e4ba"
 uuid = "aacddb02-875f-59d6-b918-886e6ef4fbf8"
 version = "2.1.2+0"
 
+[[deps.JuliaInterpreter]]
+deps = ["CodeTracking", "InteractiveUtils", "Random", "UUIDs"]
+git-tree-sha1 = "0f960b1404abb0b244c1ece579a0ec78d056a5d1"
+uuid = "aa1ae85d-cabe-5617-a682-6adf51b2e16a"
+version = "0.9.15"
+
 [[deps.KernelDensity]]
 deps = ["Distributions", "DocStringExtensions", "FFTW", "Interpolations", "StatsBase"]
 git-tree-sha1 = "591e8dc09ad18386189610acafb970032c519707"
@@ -1145,6 +1229,12 @@ version = "0.3.15"
 
 [[deps.Logging]]
 uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
+
+[[deps.LoweredCodeUtils]]
+deps = ["JuliaInterpreter"]
+git-tree-sha1 = "dedbebe234e06e1ddad435f5c6f4b85cd8ce55f7"
+uuid = "6f1432cf-f94c-5a45-995e-cdbf5db27b0b"
+version = "2.2.2"
 
 [[deps.MKL_jll]]
 deps = ["Artifacts", "IntelOpenMP_jll", "JLLWrappers", "LazyArtifacts", "Libdl", "Pkg"]
@@ -1473,6 +1563,12 @@ deps = ["UUIDs"]
 git-tree-sha1 = "838a3a4188e2ded87a4f9f184b4b0d78a1e91cb7"
 uuid = "ae029012-a4dd-5104-9daa-d747884805df"
 version = "1.3.0"
+
+[[deps.Revise]]
+deps = ["CodeTracking", "Distributed", "FileWatching", "JuliaInterpreter", "LibGit2", "LoweredCodeUtils", "OrderedCollections", "Pkg", "REPL", "Requires", "UUIDs", "Unicode"]
+git-tree-sha1 = "dad726963ecea2d8a81e26286f625aee09a91b7c"
+uuid = "295af30f-e4ad-537b-8983-00126c2a3abe"
+version = "3.4.0"
 
 [[deps.Rmath]]
 deps = ["Random", "Rmath_jll"]
@@ -1892,9 +1988,16 @@ version = "3.5.0+0"
 # ╠═37987a23-cee5-448e-abc3-2947770dcd38
 # ╠═3cd4f7cb-4bd0-48e6-b659-2c3612b5f577
 # ╠═cb455af3-ae93-4df5-bb56-5ffd493806be
+# ╠═69e2f8fd-945f-4764-9bc9-215df23b43a9
 # ╠═6f0f68c6-e280-49e5-8f12-66541837bc07
 # ╠═711ca7ee-3a07-46e6-8da4-9aa0f3e8bdca
+# ╠═fd5b2fda-f1e3-45e7-84fc-fc183b03ca08
+# ╠═6d7eb007-86bf-476a-a130-3c48196a2cfe
 # ╠═8289311f-59cd-4713-b893-f487f945a2d7
+# ╠═c16f1892-f588-4dda-b869-9a12fe814fe9
+# ╠═18cd611c-c696-45c3-a32b-8dfc83fcb148
+# ╠═b0f97b98-4be9-42ac-8bf9-a2703230755c
+# ╠═3b292f29-578f-4a56-942c-a272e97b82ce
 # ╠═4399bc2a-5717-4a8f-914a-fa2e3fb87b95
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

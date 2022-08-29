@@ -1,6 +1,6 @@
 module SyntheticDataGen
 
-using Distributions, DataFrames, JLD2, ColorSchemes, CairoMakie
+using Distributions, DataFrames, JLD2, ColorSchemes, CairoMakie, Revise
 
 export GasCompDistribution, setup_gas_comp_distn, gen_gas_comps, sensor_response!, gen_data
 

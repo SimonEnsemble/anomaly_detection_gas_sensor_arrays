@@ -1,6 +1,6 @@
 module AnomalyDetectionPlots
 
-using ScikitLearn, DataFrames, CairoMakie, ColorSchemes, LinearAlgebra, Statistics, Random, PyCall, LaTeXStrings, JLD2
+using ScikitLearn, DataFrames, CairoMakie, ColorSchemes, LinearAlgebra, Statistics, Random, PyCall, LaTeXStrings, JLD2, Makie.GeometryBasics, Revise
 SyntheticDataGen = include("SyntheticDataGen.jl")
 AnomalyDetection = include("AnomalyDetection.jl")
 skopt = pyimport("skopt")
@@ -442,6 +442,28 @@ function truncate(n::Float64, digits::Int)
 end
 
 """
+generates a box to visualize varying limits in data
+"""
+function viz_limit_box!(ax, 
+						xlims::Vector{Float64}, 
+						ylims::Vector{Float64}, 
+						w::Int)
+
+	line_xs = [[xlims[1], xlims[1]],
+			   [xlims[1], xlims[2]],
+			   [xlims[2], xlims[2]],
+			   [xlims[2], xlims[1]]]
+	line_ys = [[ylims[1], ylims[2]],
+			   [ylims[2], ylims[2]],
+			   [ylims[2], ylims[1]],
+			   [ylims[1], ylims[1]]]	
+	for i=1:4		   		
+		lines!(ax, line_xs[i], line_ys[i], linestyle=:dash, linewidth=w, color=(:grey, 0.8))
+	end
+
+end
+
+"""
 vizualizes effects of water variance and sensor error using validation:
 method 1: hypersphere
 method 2: knee
@@ -457,7 +479,10 @@ function viz_sensorδ_waterσ_grid(σ_H₂Os::Vector{Float64},
 								num_anomaly_test::Int64; 
 								validation_method::String="hypersphere",
 								num_runs::Int=100,
-								gen_data_flag=true)
+								gen_data_flag=true,
+								tune_bounds_flag=true,
+								bound_tuning_low_variance=(-0.1, 0.1),
+								bound_tuning_high_variance=(-0.1, 0.1))
 
 	@assert validation_method=="hypersphere" || validation_method=="knee"
 
@@ -540,7 +565,7 @@ if gen_data_flag
 		for (j, σ_m) in enumerate(σ_ms)
 
 			#low variance
-			if (i < 3) && (j < 3)
+			if (i > 1)
 			zif71_lims_low_σ = [minimum([minimum(plot_data_storage[i, j, trunc(Int, num_runs/2)]["data"].data_test[:, "m ZIF-71 [g/g]"]), zif71_lims_low_σ[1]]), 
 					maximum([maximum(plot_data_storage[i, j, trunc(Int, num_runs/2)]["data"].data_test[:, "m ZIF-71 [g/g]"]), zif71_lims_low_σ[2]])]
 
@@ -558,17 +583,17 @@ if gen_data_flag
 		end
 	end
 
-#Set boundaries to be 2% outside min and max data
-	zif71_lims_low_σ  = [0.990 * zif71_lims_low_σ[1], 1.010 * zif71_lims_low_σ[2]]
-	zif8_lims_low_σ   = [0.990 * zif8_lims_low_σ[1], 1.010 * zif8_lims_low_σ[2]]
+#Set boundaries to be slightly outside min and max data
+	zif71_lims_low_σ  = [1.02 * zif71_lims_low_σ[1], 1.05 * zif71_lims_low_σ[2]]
+	zif8_lims_low_σ   = [1.02 * zif8_lims_low_σ[1], 1.05 * zif8_lims_low_σ[2]]
 
-	zif71_lims_high_σ = [0.98 * zif71_lims_high_σ[1], 1.02 * zif71_lims_high_σ[2]]
-	zif8_lims_high_σ  = [0.98 * zif8_lims_high_σ[1], 1.02 * zif8_lims_high_σ[2]]
+	zif71_lims_high_σ = [0.98 * zif71_lims_high_σ[1], 1.05 * zif71_lims_high_σ[2]]
+	zif8_lims_high_σ  = [0.98 * zif8_lims_high_σ[1], 1.05 * zif8_lims_high_σ[2]]
 
 #Store the new boundaries to be used in the plots later
 	for (i, σ_H₂O) in enumerate(σ_H₂Os)
 		for (j, σ_m) in enumerate(σ_ms)
-			if (i < 3) && (j < 3)
+			if (i > 1)
 			plot_data_storage[i, j, trunc(Int, num_runs/2)]["zif71_lims"] = zif71_lims_low_σ
 			plot_data_storage[i, j, trunc(Int, num_runs/2)]["zif8_lims"]  = zif8_lims_low_σ
 			else
@@ -588,6 +613,32 @@ else
 			ν_opt = plot_data_storage[i, j, mid_num]["ν_opt, γ_opt"][1]
 			γ_opt = plot_data_storage[i, j, mid_num]["ν_opt, γ_opt"][2]
 			plot_data_storage[i, j, mid_num]["svm"] = AnomalyDetection.train_anomaly_detector(plot_data_storage[i, j, mid_num]["data"].X_train_scaled, ν_opt, γ_opt)
+			plot_data_storage[i, j, mid_num]["data"].scaler = StandardScaler().fit(plot_data_storage[i, j, mid_num]["data"].X_train)
+		end
+	end
+end
+
+if tune_bounds_flag
+	zif71_lims_low_σ = plot_data_storage[2, 1, trunc(Int, num_runs/2)]["zif71_lims"]
+	zif71_tune_low_σ = (bound_tuning_low_variance[1] * zif71_lims_low_σ[1], bound_tuning_low_variance[2] * zif71_lims_low_σ[2])
+	zif8_lims_low_σ = plot_data_storage[2, 1, trunc(Int, num_runs/2)]["zif8_lims"]
+	zif8_tune_low_σ = (bound_tuning_low_variance[1] * zif8_lims_low_σ[1], bound_tuning_low_variance[2] * zif8_lims_low_σ[2])
+
+	zif71_lims_high_σ = plot_data_storage[1, 1, trunc(Int, num_runs/2)]["zif71_lims"]
+	zif71_tune_high_σ = (bound_tuning_high_variance[1] * zif71_lims_high_σ[1], bound_tuning_high_variance[2] * zif71_lims_high_σ[2])
+	zif8_lims_high_σ = plot_data_storage[1, 1, trunc(Int, num_runs/2)]["zif8_lims"]
+	zif8_tune_high_σ = (bound_tuning_high_variance[1] * zif8_lims_high_σ[1], bound_tuning_high_variance[2] * zif8_lims_high_σ[2])
+
+#fine tuning boundaries
+	for (i, σ_H₂O) in enumerate(σ_H₂Os)
+		for (j, σ_m) in enumerate(σ_ms)
+			if (i > 1)
+			plot_data_storage[i, j, trunc(Int, num_runs/2)]["zif71_lims"] = [zif71_lims_low_σ[1] + zif71_tune_low_σ[1],  zif71_lims_low_σ[2] + zif71_tune_low_σ[2]]
+			plot_data_storage[i, j, trunc(Int, num_runs/2)]["zif8_lims"]  = [zif8_lims_low_σ[1] + zif8_tune_low_σ[1],  zif8_lims_low_σ[2] + zif8_tune_low_σ[2]]
+			else
+			plot_data_storage[i, j, trunc(Int, num_runs/2)]["zif71_lims"] = [zif71_lims_high_σ[1] + zif71_tune_high_σ[1], zif71_lims_high_σ[2] + zif71_tune_high_σ[2]]
+			plot_data_storage[i, j, trunc(Int, num_runs/2)]["zif8_lims"]  = [zif8_lims_high_σ[1] + zif8_tune_high_σ[1], zif8_lims_high_σ[2] + zif8_tune_high_σ[2]]
+			end
 		end
 	end
 end
@@ -598,9 +649,11 @@ end
 
 #identify median data set as the third dim index num_runs/2
 			median_data = plot_data_storage[i, j, trunc(Int, num_runs/2)]
+			median_data["zif71_lims"] = [truncate(median_data["zif71_lims"][1], 3), truncate(median_data["zif71_lims"][2], 3)]
+			median_data["zif8_lims"] = [truncate(median_data["zif8_lims"][1], 3), truncate(median_data["zif8_lims"][2], 3)]
 
 #draw a background box colored according to f1score
-			fig[i, j]        = Box(fig)#, color = (ColorSchemes.RdYlGn_4[median_data["f1_score"]], 0.7))
+			fig[i, j]        = Box(fig)#, color = (ColorSchemes.RdYlGn_4[median_data["f1_score"]], 0.7)) #incl to color by f1
 			axes[i, j].title = "F1 score = $(median_data["f1_score"])"
 			hidedecorations!(axes[i, j])
 
@@ -609,10 +662,13 @@ end
 			ax  = Axis(fig[i, j][1, 1], 
 					  xlabel    = "m, " * mofs[1] * " [g/g]",
 					  ylabel    = "m, " * mofs[2] * " [g/g]",
-					  aspect    = 1,
 					  xticks    = median_data["zif71_lims"],
 					  yticks    = median_data["zif8_lims"],
+					  aspect    = DataAspect(),
 					  alignmode = Outside(10))
+
+			xlims!(ax, median_data["zif71_lims"])
+			ylims!(ax, median_data["zif8_lims"])
 
 
 			viz_decision_boundary!(ax, 
@@ -622,6 +678,11 @@ end
 								  median_data["zif71_lims"], 
 								  median_data["zif8_lims"], 
 								  incl_legend=false)
+
+#draw a box according to the low variance boundaries to aid visualization of limits
+			low_σ_data = plot_data_storage[3, 1, trunc(Int, num_runs/2)]
+			box_line_width = 3
+			viz_limit_box!(ax, low_σ_data["zif71_lims"], low_σ_data["zif8_lims"], box_line_width)
 
 #confusion matrix position RIGHT
 			pos 	   = fig[i, j][1, 2] 
@@ -637,9 +698,8 @@ end
 					 xticks=([1, 2], ["anomaly", "normal"]),
 					 yticks=([i for i=1:n_labels], [reduced_labels[all_labels[i]] for i=1:n_labels]),
 					 xticklabelrotation=25.5,
-					 ylabel="truth",
 					 xlabel="prediction",
-					 alignmode = Mixed(top=10, right=10, bottom=10))
+					 alignmode = Outside(10))
 
 			@assert SyntheticDataGen.viable_labels[1] == "normal"
 
@@ -657,12 +717,12 @@ end
 					colormap=ColorSchemes.algae, 
 					colorrange=(0, maximum(cm[:, 1])))
 
-			for i = 1:2
-				for j = 1:length(all_labels)
-					text!("$(cm[i, j])",
-						 position=(i, j), 
+			for k = 1:2
+				for l = 1:length(all_labels)
+					text!("$(cm[k, l])",
+						 position=(k, l), 
 						 align=(:center, :center), 
-						 color=cm[i, j] > sum(cm[:, j]) / 2 ? :white : :black)
+						 color=cm[k, l] > sum(cm[:, l]) / 2 ? :white : :black)
 				end
 			end
 		end
@@ -704,9 +764,9 @@ function viz_f1_score_heatmap(σ_H₂O_max::Float64,
 	num_normal_test_points = num_normal_train_points = 100
 	num_anomaly_train_points = 0
 	num_anomaly_test_points = 5
+	f1_score_grid = zeros(res, res)
 	
 	if gen_data_flag
-		f1_score_grid = zeros(res, res)
 		for (i, σ_H₂O) in enumerate(σ_H₂Os)
 			for (j, σ_m) in enumerate(σ_ms)
 				f1_avg = 0.0
@@ -722,9 +782,9 @@ function viz_f1_score_heatmap(σ_H₂O_max::Float64,
 					#optimize hyperparameters and determine f1score
 					if validation_method == "hypersphere"
 						if hyperparameter_method == "bayesian"
-							ν_space::Tuple{Float64, Float64}=(1.0e-5, 0.99)
-							γ_space::Tuple{Float64, Float64}=(1.0e-5, 0.99)
-							(ν_opt, γ_opt), _ = AnomalyDetection.bayes_validation(data.X_train_scaled, n_iter=40, ν_space=ν_space, γ_space=γ_space)
+							#ν_space::Tuple{Float64, Float64}=(1.0e-5, 0.99)
+							#γ_space::Tuple{Float64, Float64}=(1.0e-3, 0.99)
+							(ν_opt, γ_opt), _ = AnomalyDetection.bayes_validation(data.X_train_scaled, n_iter=40)#, ν_space=ν_space, γ_space=γ_space)
 						elseif hyperparameter_method == "grid"
 							(ν_opt, γ_opt), _ = AnomalyDetection.determine_ν_opt_γ_opt_hypersphere_grid_search(data.X_train_scaled)
 						end
@@ -740,8 +800,8 @@ function viz_f1_score_heatmap(σ_H₂O_max::Float64,
 					f1_avg += f1_score
 				end
 				
-				f1_score_grid[i, res-j+1] = f1_avg/n_avg
-				@warn "grid space ($(i), $(j)) finished"
+				f1_score_grid[res-i+1, res-j+1] = f1_avg/n_avg
+				@warn "grid space ($(i), $(j)) finished, σ_H₂O=$(σ_H₂O), σ_m=$(σ_m), f1=$(f1_avg)"
 			end
 		end
 	else
