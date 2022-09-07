@@ -5,7 +5,7 @@ using Markdown
 using InteractiveUtils
 
 # ╔═╡ d090131e-6602-4c03-860c-ad3cb6c7844a
-using CairoMakie,CSV, DataFrames, ColorSchemes, Optim, Distributions, PlutoUI, ScikitLearn, Colors, Random, PlutoUI, JLD2, LinearAlgebra, PyCall, LaTeXStrings, Makie.GeometryBasics, Revise
+using CairoMakie,CSV, DataFrames, ColorSchemes, Optim, Distributions, PlutoUI, ScikitLearn, Colors, Random, PlutoUI, JLD, JLD2, LinearAlgebra, PyCall, LaTeXStrings, Makie.GeometryBasics, Revise, PyCallJLD
 
 # ╔═╡ 0a6fe423-c3be-4a75-aa27-dfb84fde7fef
 SyntheticDataGen = include("src/SyntheticDataGen.jl")
@@ -39,14 +39,23 @@ begin
 	@sk_import svm : OneClassSVM
 end
 
+# ╔═╡ 0931dbf0-aecb-4708-8e11-391e28ffbd04
+begin
+	X = zeros(5,2)
+	for i = 1:5
+		for j= 1:2
+			X[i, j] = 2*i+j
+		end
+	end
+	scaler = StandardScaler().fit(X)
+end
+
 # ╔═╡ ebf79f0c-8399-42bf-b790-d4934906ede0
 md"!!! example \"\" 
 	Generate 100 3x3 plots of SVDD for low, medium, and high measurement error and H₂O composition variance values and return the plot that yields the median F1 score for each measurement error and H₂O variance set. Then use the data for the middle error and variance to perform a more detailed analysis. "
 
 # ╔═╡ 4b1759a7-eba1-4de5-8d6a-38106f3301c9
 begin
-
-	Random.seed!(297333)
 	
 	#visualization of the effects of sensor error and water vapor variance
 	σ_H₂O_vector = [ 1e-1, 1e-2, 1e-5] #big to small
@@ -64,18 +73,18 @@ begin
 							 num_normal_test_points,
 							 num_anomaly_test_points,
 							 validation_method="hypersphere",
-							 num_runs=2,
-							 gen_data_flag=false,
+							 num_runs=100,
+							 gen_data_flag=true,
 							 tune_bounds_flag=false,
-							 bound_tuning_low_variance=(0.01, 0.01),
-						     bound_tuning_high_variance=(0.0, 0.0)
+							 bound_tuning_low_variance=(0.01, 0.01, 0.01, 0.01),
+						     bound_tuning_high_variance=(0.0, 0.0, 0.0, 0.0)
 	)
 
 
 end
 
-# ╔═╡ b28cbe5e-b7b6-45fd-a602-52ff4bda86ea
-#@load "sensor_error_&_H2O_variance_plot.jld2" plot_data_storage
+# ╔═╡ 1e30612e-7bcd-47dc-a1fb-1e127aad4a55
+plot_data_storage = JLD.load("sensor_error_&_H2O_variance_plot.jld", "plot_data_storage")
 
 # ╔═╡ 9873c6d8-84ba-47e5-adcb-4d0f30829227
 md"!!! example \"\" 
@@ -149,11 +158,18 @@ begin
 											   res=5, 
 											   validation_method="hypersphere", 
    											   hyperparameter_method="bayesian", 
-											   λ=0.5, 
-											   n_avg=1,
-											   gen_data_flag=false)
+											   λ=0.8, 
+											   n_avg=100,
+											   gen_data_flag=true)
 end
 
+
+# ╔═╡ 5d516f0f-1c0e-44ba-9049-f16df8304555
+begin
+foob = zeros(2, 3)
+foob[1, 2] = 5
+	foob
+end
 
 # ╔═╡ 93dfb516-5221-4445-a58f-d7d753f549c4
 reverse([1, 2, 3])
@@ -303,6 +319,7 @@ ColorSchemes = "35d6a980-a343-548e-a6ea-1d62b119f2f4"
 Colors = "5ae59095-9a9b-59fe-a467-6f913c188581"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+JLD = "4138dd39-2aa7-5051-a626-17a0bb65d9c8"
 JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
@@ -310,6 +327,7 @@ Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 Optim = "429524aa-4258-5aef-a3af-852621145aeb"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 PyCall = "438e738f-606a-5dbb-bf0a-cddfbfd45ab0"
+PyCallJLD = "de320387-30cd-5f83-91a8-a6e0ae8b8444"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
 ScikitLearn = "3646fa90-6ef7-5e7e-9f22-8aca16db6324"
@@ -321,12 +339,14 @@ ColorSchemes = "~3.19.0"
 Colors = "~0.12.8"
 DataFrames = "~1.3.4"
 Distributions = "~0.25.68"
+JLD = "~0.12.5"
 JLD2 = "~0.4.22"
 LaTeXStrings = "~1.3.0"
 Makie = "~0.17.13"
 Optim = "~1.7.2"
 PlutoUI = "~0.7.39"
 PyCall = "~1.94.1"
+PyCallJLD = "~0.2.1"
 Revise = "~3.4.0"
 ScikitLearn = "~0.6.4"
 """
@@ -393,6 +413,18 @@ version = "1.0.1"
 
 [[deps.Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
+
+[[deps.Blosc]]
+deps = ["Blosc_jll"]
+git-tree-sha1 = "310b77648d38c223d947ff3f50f511d08690b8d5"
+uuid = "a74b3585-a348-5f62-a45c-50e91977d574"
+version = "0.7.3"
+
+[[deps.Blosc_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl", "Lz4_jll", "Pkg", "Zlib_jll", "Zstd_jll"]
+git-tree-sha1 = "91d6baa911283650df649d0aea7c28639273ae7b"
+uuid = "0b7ba130-8d10-5ba8-a3d6-c5182647fed9"
+version = "1.21.1+0"
 
 [[deps.Bzip2_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -768,6 +800,18 @@ git-tree-sha1 = "53bb909d1151e57e2484c3d1b53e19552b887fb2"
 uuid = "42e2da0e-8278-4e71-bc24-59509adca0fe"
 version = "1.0.2"
 
+[[deps.HDF5]]
+deps = ["Blosc", "Compat", "HDF5_jll", "Libdl", "Mmap", "Random", "Requires"]
+git-tree-sha1 = "698c099c6613d7b7f151832868728f426abe698b"
+uuid = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
+version = "0.15.7"
+
+[[deps.HDF5_jll]]
+deps = ["Artifacts", "JLLWrappers", "LibCURL_jll", "Libdl", "OpenSSL_jll", "Pkg", "Zlib_jll"]
+git-tree-sha1 = "c003b31e2e818bc512b0ff99d7dce03b0c1359f5"
+uuid = "0234f1f7-429e-5d53-9886-15a909be8d59"
+version = "1.12.2+1"
+
 [[deps.HarfBuzz_jll]]
 deps = ["Artifacts", "Cairo_jll", "Fontconfig_jll", "FreeType2_jll", "Glib_jll", "Graphite2_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Pkg"]
 git-tree-sha1 = "129acf094d168394e80ee1dc4bc06ec835e510a3"
@@ -885,6 +929,12 @@ version = "1.4.0"
 git-tree-sha1 = "a3f24677c21f5bbe9d2a714f95dcd58337fb2856"
 uuid = "82899510-4779-5014-852e-03e436cf321d"
 version = "1.0.0"
+
+[[deps.JLD]]
+deps = ["Compat", "FileIO", "HDF5", "Printf"]
+git-tree-sha1 = "390ed210fcbdaffde2efe7890f39bd1e681a62d7"
+uuid = "4138dd39-2aa7-5051-a626-17a0bb65d9c8"
+version = "0.12.5"
 
 [[deps.JLD2]]
 deps = ["FileIO", "MacroTools", "Mmap", "OrderedCollections", "Pkg", "Printf", "Reexport", "TranscodingStreams", "UUIDs"]
@@ -1033,6 +1083,12 @@ deps = ["JuliaInterpreter"]
 git-tree-sha1 = "dedbebe234e06e1ddad435f5c6f4b85cd8ce55f7"
 uuid = "6f1432cf-f94c-5a45-995e-cdbf5db27b0b"
 version = "2.2.2"
+
+[[deps.Lz4_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
+git-tree-sha1 = "5d494bc6e85c4c9b626ee0cab05daa4085486ab1"
+uuid = "5ced341a-0733-55b8-9ab6-a4889d929147"
+version = "1.9.3+0"
 
 [[deps.MKL_jll]]
 deps = ["Artifacts", "IntelOpenMP_jll", "JLLWrappers", "LazyArtifacts", "Libdl", "Pkg"]
@@ -1307,6 +1363,12 @@ deps = ["Conda", "Dates", "Libdl", "LinearAlgebra", "MacroTools", "Serialization
 git-tree-sha1 = "53b8b07b721b77144a0fbbbc2675222ebf40a02d"
 uuid = "438e738f-606a-5dbb-bf0a-cddfbfd45ab0"
 version = "1.94.1"
+
+[[deps.PyCallJLD]]
+deps = ["JLD", "PyCall"]
+git-tree-sha1 = "8b7f68cb3bfcdb3526e9f82a0795ae17842bc9de"
+uuid = "de320387-30cd-5f83-91a8-a6e0ae8b8444"
+version = "0.2.1"
 
 [[deps.QOI]]
 deps = ["ColorTypes", "FileIO", "FixedPointNumbers"]
@@ -1652,6 +1714,12 @@ version = "1.4.0+3"
 deps = ["Libdl"]
 uuid = "83775a58-1f1d-513f-b197-d71354ab007a"
 
+[[deps.Zstd_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
+git-tree-sha1 = "e45044cd873ded54b6a5bac0eb5c971392cf1927"
+uuid = "3161d3a3-bdf6-5164-811a-617609db77b4"
+version = "1.5.2+0"
+
 [[deps.isoband_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "51b5eeb3f98367157a7a12a1fb0aa5328946c03c"
@@ -1729,9 +1797,10 @@ version = "3.5.0+0"
 # ╠═6d5bc919-351d-4b66-a8a6-5e92a42d4fac
 # ╠═31f71438-ff2f-49f9-a801-3a6489eaf271
 # ╠═5d920ea0-f04d-475f-b05b-86e7b199d7e0
+# ╠═0931dbf0-aecb-4708-8e11-391e28ffbd04
 # ╟─ebf79f0c-8399-42bf-b790-d4934906ede0
 # ╠═4b1759a7-eba1-4de5-8d6a-38106f3301c9
-# ╠═b28cbe5e-b7b6-45fd-a602-52ff4bda86ea
+# ╠═1e30612e-7bcd-47dc-a1fb-1e127aad4a55
 # ╟─9873c6d8-84ba-47e5-adcb-4d0f30829227
 # ╟─77382f3e-98b6-4aef-b946-8375018c3c3e
 # ╠═48d8afeb-2df0-44d1-9eaa-f28184813ab4
@@ -1745,6 +1814,7 @@ version = "3.5.0+0"
 # ╠═1d29b57f-bfaa-4afc-b1f6-5d35ea395eee
 # ╠═1de459f8-c674-425c-a7d9-310030bfc5d6
 # ╠═00d90c63-6f3e-4906-ad35-ba999439e253
+# ╠═5d516f0f-1c0e-44ba-9049-f16df8304555
 # ╠═93dfb516-5221-4445-a58f-d7d753f549c4
 # ╠═c9279b98-dbf1-4968-9fb0-632d15b3885e
 # ╟─51b0ebd4-1dec-4b35-bb15-cd3df906aca3

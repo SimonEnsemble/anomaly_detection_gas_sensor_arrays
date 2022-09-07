@@ -1,6 +1,6 @@
 module AnomalyDetectionPlots
 
-using ScikitLearn, DataFrames, CairoMakie, ColorSchemes, LinearAlgebra, Statistics, Random, PyCall, LaTeXStrings, JLD2, Makie.GeometryBasics, Revise
+using ScikitLearn, DataFrames, CairoMakie, ColorSchemes, LinearAlgebra, Statistics, Random, PyCall, LaTeXStrings, JLD2, Makie.GeometryBasics, Revise, PyCallJLD
 SyntheticDataGen = include("SyntheticDataGen.jl")
 AnomalyDetection = include("AnomalyDetection.jl")
 skopt = pyimport("skopt")
@@ -120,6 +120,13 @@ function viz_bayes_values_by_point(plot_data::Vector{Tuple{Float64, Float64, Flo
 	sl = scatterlines!(νs, γs, color=(:grey, 0.3), markersize=12, markercolor=[colors[i] for i=1:points])
 	Colorbar(fig[1, 2], limits = (maximum(Λs), minimum(Λs)), colormap= reverse(ColorSchemes.thermal), label="error function")
 
+	#indicate starting point
+	ν_init = νs[1]
+	γ_init = γs[1]
+	scatter!([ν_init], [γ_init], marker=:x, markersize=25, color=:green)
+	text!("initial",position = (ν_init, 1.1*γ_init), align=(:left, :baseline))
+
+	#indicate optimal nu and gamma
 	if points == length(Λs)
 		ideal_index = argmin(Λs)
 		ν_opt = νs[ideal_index]
@@ -470,6 +477,8 @@ method 2: knee
 
 num_runs: number of iterations to run each plot then sort by f1 score,
 the median plot is selected for display
+
+bound tuning format (x1, x2, y1, y2)
 """
 function viz_sensorδ_waterσ_grid(σ_H₂Os::Vector{Float64}, 
 								σ_ms::Vector{Float64},
@@ -481,8 +490,8 @@ function viz_sensorδ_waterσ_grid(σ_H₂Os::Vector{Float64},
 								num_runs::Int=100,
 								gen_data_flag=true,
 								tune_bounds_flag=true,
-								bound_tuning_low_variance=(-0.1, 0.1),
-								bound_tuning_high_variance=(-0.1, 0.1))
+								bound_tuning_low_variance=(-0.01, 0.01, -0.01, 0.01),
+								bound_tuning_high_variance=(-0.01, 0.01, -0.01, 0.01))
 
 	@assert validation_method=="hypersphere" || validation_method=="knee"
 
@@ -603,6 +612,7 @@ if gen_data_flag
 		end
 	end
 else
+	#plot_data_storage = JLD.load("sensor_error_&_H2O_variance_plot.jld", "plot_data_storage")
 	@load "sensor_error_&_H2O_variance_plot.jld2" plot_data_storage
 
 	#due to an issue with jld2 storing the SVM py object as null, I have to retrain the SVM
@@ -622,12 +632,12 @@ if tune_bounds_flag
 	zif71_lims_low_σ = plot_data_storage[2, 1, trunc(Int, num_runs/2)]["zif71_lims"]
 	zif71_tune_low_σ = (bound_tuning_low_variance[1] * zif71_lims_low_σ[1], bound_tuning_low_variance[2] * zif71_lims_low_σ[2])
 	zif8_lims_low_σ = plot_data_storage[2, 1, trunc(Int, num_runs/2)]["zif8_lims"]
-	zif8_tune_low_σ = (bound_tuning_low_variance[1] * zif8_lims_low_σ[1], bound_tuning_low_variance[2] * zif8_lims_low_σ[2])
+	zif8_tune_low_σ = (bound_tuning_low_variance[3] * zif8_lims_low_σ[1], bound_tuning_low_variance[4] * zif8_lims_low_σ[2])
 
 	zif71_lims_high_σ = plot_data_storage[1, 1, trunc(Int, num_runs/2)]["zif71_lims"]
 	zif71_tune_high_σ = (bound_tuning_high_variance[1] * zif71_lims_high_σ[1], bound_tuning_high_variance[2] * zif71_lims_high_σ[2])
 	zif8_lims_high_σ = plot_data_storage[1, 1, trunc(Int, num_runs/2)]["zif8_lims"]
-	zif8_tune_high_σ = (bound_tuning_high_variance[1] * zif8_lims_high_σ[1], bound_tuning_high_variance[2] * zif8_lims_high_σ[2])
+	zif8_tune_high_σ = (bound_tuning_high_variance[3] * zif8_lims_high_σ[1], bound_tuning_high_variance[4] * zif8_lims_high_σ[2])
 
 #fine tuning boundaries
 	for (i, σ_H₂O) in enumerate(σ_H₂Os)
@@ -680,9 +690,9 @@ end
 								  incl_legend=false)
 
 #draw a box according to the low variance boundaries to aid visualization of limits
-			low_σ_data = plot_data_storage[3, 1, trunc(Int, num_runs/2)]
+			low_σ_data_lims = (plot_data_storage[2, 1, trunc(Int, num_runs/2)]["zif71_lims"], plot_data_storage[2, 1, trunc(Int, num_runs/2)]["zif8_lims"])
 			box_line_width = 3
-			viz_limit_box!(ax, low_σ_data["zif71_lims"], low_σ_data["zif8_lims"], box_line_width)
+			viz_limit_box!(ax, low_σ_data_lims[1], low_σ_data_lims[2], box_line_width)
 
 #confusion matrix position RIGHT
 			pos 	   = fig[i, j][1, 2] 
@@ -736,7 +746,8 @@ end
 	end
 
 	if gen_data_flag
-		@save "sensor_error_&_H2O_variance_plot.jld2" plot_data_storage
+		#JLD.save("sensor_error_&_H2O_variance_plot.jld", "plot_data_storage", plot_data_storage)
+		@save "sensor_error_&_H2O_variance_plot.jld" plot_data_storage
 	end
 
 	return plot_data_storage[2, 2, trunc(Int, num_runs/2)], fig
@@ -782,9 +793,9 @@ function viz_f1_score_heatmap(σ_H₂O_max::Float64,
 					#optimize hyperparameters and determine f1score
 					if validation_method == "hypersphere"
 						if hyperparameter_method == "bayesian"
-							#ν_space::Tuple{Float64, Float64}=(1.0e-5, 0.99)
+							ν_space::Tuple{Float64, Float64}=(1.0e-3, 0.3)
 							#γ_space::Tuple{Float64, Float64}=(1.0e-3, 0.99)
-							(ν_opt, γ_opt), _ = AnomalyDetection.bayes_validation(data.X_train_scaled, n_iter=40)#, ν_space=ν_space, γ_space=γ_space)
+							(ν_opt, γ_opt), _ = AnomalyDetection.bayes_validation(data.X_train_scaled, n_iter=50) #, γ_space=γ_space)
 						elseif hyperparameter_method == "grid"
 							(ν_opt, γ_opt), _ = AnomalyDetection.determine_ν_opt_γ_opt_hypersphere_grid_search(data.X_train_scaled)
 						end
@@ -800,7 +811,7 @@ function viz_f1_score_heatmap(σ_H₂O_max::Float64,
 					f1_avg += f1_score
 				end
 				
-				f1_score_grid[res-i+1, res-j+1] = f1_avg/n_avg
+				f1_score_grid[i, res-j+1] = f1_avg/n_avg
 				@warn "grid space ($(i), $(j)) finished, σ_H₂O=$(σ_H₂O), σ_m=$(σ_m), f1=$(f1_avg)"
 			end
 		end
@@ -811,11 +822,11 @@ function viz_f1_score_heatmap(σ_H₂O_max::Float64,
 	fig = Figure()
 	
 	ax = Axis(fig[1, 1],
-		  xticks=(1:length(σ_H₂Os), ["$(truncate(σ_H₂Os[i], 5))" for i=1:length(σ_H₂Os)]),
-		  yticks=(1:length(σ_ms), ["$(truncate(σ_ms[length(σ_ms)-i+1], 8))" for i=1:length(σ_ms)]),
+		  yticks=(1:length(σ_H₂Os), ["$(truncate(σ_H₂Os[i], 5))" for i=1:length(σ_H₂Os)]),
+		  xticks=(1:length(σ_ms), ["$(truncate(σ_ms[length(σ_ms)-i+1], 8))" for i=1:length(σ_ms)]),
 		  xticklabelrotation=45.0,
-		  ylabel="σ, m [g/g]",
-		  xlabel="σ, H₂O [relative humidity]"
+		  xlabel="σ, m [g/g]",
+		  ylabel="σ, H₂O [relative humidity]"
     )
 
 	hm = heatmap!(1:length(σ_H₂Os), 1:length(σ_ms), f1_score_grid,
