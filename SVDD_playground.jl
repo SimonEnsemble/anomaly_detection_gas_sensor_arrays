@@ -327,7 +327,8 @@ end
 
 # ╔═╡ 711ca7ee-3a07-46e6-8da4-9aa0f3e8bdca
 function viz_C2H4_CO2_H2O_density_compositions(training_data::DataFrame, 														   test_data::DataFrame,
-												σ_H₂O)
+												σ_H₂O;
+												distributions_flag=false)
 
 	#this is the figure that will hold the layout (single column of composition plots)
 	fig = Figure(resolution=(1200, 1600),figure_padding = 100)
@@ -362,59 +363,58 @@ function viz_C2H4_CO2_H2O_density_compositions(training_data::DataFrame, 							
 				gas_distr = SyntheticDataGen.setup_gas_comp_distn(σ_H₂O, label)
 												
 				if gas[i] == "H₂O"
-
-					distr = gas_distr.f_H₂O
-					x_min, x_max = quantile.(distr, [0.01, 0.99])
-					xs = range(x_min, x_max, 1000)
-					ys = [pdf(distr, xs[i]) for i=1:length(xs)]
-					
-					lines!(axs[j][i], xs, ys, label=label, color=SyntheticDataGen.label_to_color[label])
-
-					#=
-					hist!(axs[j][i], 
-						  data_g[:, "p H₂O [bar]"] / SyntheticDataGen.p_H₂O_vapor,
-						  label=label,
-						  color=(SyntheticDataGen.label_to_color[label], 0.5))
-					=#
+					if distributions_flag
+						distr = gas_distr.f_H₂O
+						x_min, x_max = quantile.(distr, [0.01, 0.99])
+						xs = range(x_min, x_max, 1000)
+						ys = [pdf(distr, xs[i]) for i=1:length(xs)]
+						
+						lines!(axs[j][i], xs, ys, label=label, color=SyntheticDataGen.label_to_color[label])
+					else	
+						hist!(axs[j][i], 
+							  data_g[:, "p H₂O [bar]"] / SyntheticDataGen.p_H₂O_vapor,
+							  label=label,
+							  color=(SyntheticDataGen.label_to_color[label], 0.5))
+					end
 
 					
 				elseif gas[i] == "CO₂"
-
-					distr = gas_distr.f_CO₂
-					x_min, x_max = quantile.(distr, [0.01, 0.99])
-					xs = range(x_min, x_max, 1000)
-					ys = [pdf(distr, xs[i]) for i=1:length(xs)]
-					
-					lines!(axs[j][i], xs, ys, label=label, color=SyntheticDataGen.label_to_color[label])
-					
-					#=
-					hist!(axs[j][i],
-						  data_g[:, "p " * gas[i] * " [bar]"] * 1e6,
-						  label=label,	
-						  color=(SyntheticDataGen.label_to_color[label], 0.5))
-					=#
+					if distributions_flag
+						distr = gas_distr.f_CO₂
+						x_min, x_max = quantile.(distr, [0.01, 0.99])
+						xs = range(x_min, x_max, 1000)
+						ys = [pdf(distr, xs[i]) for i=1:length(xs)]
+						
+						lines!(axs[j][i], xs, ys, label=label, color=SyntheticDataGen.label_to_color[label])
+					else
+						hist!(axs[j][i],
+							  data_g[:, "p " * gas[i] * " [bar]"] * 1e6,
+							  label=label,	
+							  color=(SyntheticDataGen.label_to_color[label], 0.5))
+					end
 
 				elseif gas[i] == "C₂H₄"
-
-					distr = gas_distr.f_C₂H₄
-					x_min, x_max = quantile.(distr, [0.01, 0.99])
-					xs = range(x_min, x_max, 1000)
-					ys = [pdf(distr, xs[i]) for i=1:length(xs)]
-					
-					lines!(axs[j][i], xs, ys, label=label, color=SyntheticDataGen.label_to_color[label])
-					
-					#=
-					hist!(axs[j][i],
-						  data_g[:, "p " * gas[i] * " [bar]"] * 1e6,
-						  label=AnomalyDetectionPlots.reduced_labels[label],	
-						  color=(SyntheticDataGen.label_to_color[label], 0.5))
-					=#
+					if distributions_flag
+						distr = gas_distr.f_C₂H₄
+						x_min, x_max = quantile.(distr, [0.01, 0.99])
+						xs = range(x_min, x_max, 1000)
+						ys = [pdf(distr, xs[i]) for i=1:length(xs)]
+						
+						lines!(axs[j][i], xs, ys, label=label, color=SyntheticDataGen.label_to_color[label])
+					else
+						hist!(axs[j][i],
+							  data_g[:, "p " * gas[i] * " [bar]"] * 1e6,
+							  label=AnomalyDetectionPlots.reduced_labels[label],	
+							  color=(SyntheticDataGen.label_to_color[label], 0.5))
+				  	end
 				end
 			end
 		end
 	end
 
-	#axs[2][2].xticks = ([5e3, 1e4, 1.5e4, 2e4], ["5000", "10000", "15000", "20000"])
+	if !distributions_flag
+		axs[2][2].xticks = ([5e3, 1e4, 1.5e4, 2e4], ["5000", "10000", "15000", "20000"])
+	end
 	
 	#hidedecorations!.(axs, grid=false)
 	
@@ -443,7 +443,8 @@ typeof(:abc)
 
 # ╔═╡ 8289311f-59cd-4713-b893-f487f945a2d7
 viz_C2H4_CO2_H2O_density_compositions(test_data_set.data_train, 														  test_data_set.data_test,
-									  σ_H₂O)
+									  σ_H₂O,
+distributions_flag=true)
 
 # ╔═╡ c16f1892-f588-4dda-b869-9a12fe814fe9
 test_data_set.data_test
