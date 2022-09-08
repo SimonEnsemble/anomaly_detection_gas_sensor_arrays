@@ -546,7 +546,7 @@ if gen_data_flag
 
 				#optimize hyperparameters and determine f1score
 				if validation_method == "hypersphere"
-					(ν_opt, γ_opt), X_sphere, bayes_plot_data = AnomalyDetection.bayes_validation(plot_data_storage[i, j, k]["data"].X_train_scaled, n_iter=40, plot_data_flag=true)
+					(ν_opt, γ_opt), X_sphere, bayes_plot_data = AnomalyDetection.bayes_validation(plot_data_storage[i, j, k]["data"].X_train_scaled, n_iter=50, plot_data_flag=true)
 					plot_data_storage[i, j, k]["X_sphere"] = X_sphere
 					plot_data_storage[i, j, k]["bayes_plot_data"] = bayes_plot_data
 					plot_data_storage[i, j, k]["ν_opt, γ_opt"] = (ν_opt, γ_opt)

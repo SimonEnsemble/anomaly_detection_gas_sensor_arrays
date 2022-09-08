@@ -158,21 +158,11 @@ begin
 											   res=5, 
 											   validation_method="hypersphere", 
    											   hyperparameter_method="bayesian", 
-											   λ=0.8, 
+											   λ=0.5, 
 											   n_avg=100,
 											   gen_data_flag=true)
 end
 
-
-# ╔═╡ 5d516f0f-1c0e-44ba-9049-f16df8304555
-begin
-foob = zeros(2, 3)
-foob[1, 2] = 5
-	foob
-end
-
-# ╔═╡ 93dfb516-5221-4445-a58f-d7d753f549c4
-reverse([1, 2, 3])
 
 # ╔═╡ 51b0ebd4-1dec-4b35-bb15-cd3df906aca3
 md"!!! example \"\" 
@@ -1811,8 +1801,6 @@ version = "3.5.0+0"
 # ╠═1d29b57f-bfaa-4afc-b1f6-5d35ea395eee
 # ╠═1de459f8-c674-425c-a7d9-310030bfc5d6
 # ╠═00d90c63-6f3e-4906-ad35-ba999439e253
-# ╠═5d516f0f-1c0e-44ba-9049-f16df8304555
-# ╠═93dfb516-5221-4445-a58f-d7d753f549c4
 # ╟─51b0ebd4-1dec-4b35-bb15-cd3df906aca3
 # ╠═6ceab194-4861-4be1-901c-6713db5a4204
 # ╠═9a9262d4-02ff-4d82-bb7b-8584e8b79022
