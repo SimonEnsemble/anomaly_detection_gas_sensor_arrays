@@ -174,9 +174,6 @@ end
 # ╔═╡ 93dfb516-5221-4445-a58f-d7d753f549c4
 reverse([1, 2, 3])
 
-# ╔═╡ c9279b98-dbf1-4968-9fb0-632d15b3885e
-@load "f1_score_plot.jld2" f1_score_grid
-
 # ╔═╡ 51b0ebd4-1dec-4b35-bb15-cd3df906aca3
 md"!!! example \"\" 
 	Unsupervised hyperparameter validation method 2:
@@ -1816,7 +1813,6 @@ version = "3.5.0+0"
 # ╠═00d90c63-6f3e-4906-ad35-ba999439e253
 # ╠═5d516f0f-1c0e-44ba-9049-f16df8304555
 # ╠═93dfb516-5221-4445-a58f-d7d753f549c4
-# ╠═c9279b98-dbf1-4968-9fb0-632d15b3885e
 # ╟─51b0ebd4-1dec-4b35-bb15-cd3df906aca3
 # ╠═6ceab194-4861-4be1-901c-6713db5a4204
 # ╠═9a9262d4-02ff-4d82-bb7b-8584e8b79022

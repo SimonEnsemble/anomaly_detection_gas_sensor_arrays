@@ -170,7 +170,7 @@ returns optimal ν and γ using bayesian optimization (BayesSearchCV) method fro
 """
 function bayes_validation(X_train_scaled::Matrix{Float64}; 
 						  n_iter::Int=35,
-						  num_outliers::Int=500,
+						  num_outliers::Int=5000,
 						  λ::Float64=0.5,
 						  ν_space::Tuple{Float64, Float64}=(1/size(X_train_scaled, 1), 0.3),
 						  γ_space::Tuple{Float64, Float64}=(1.0e-3, 1.0),

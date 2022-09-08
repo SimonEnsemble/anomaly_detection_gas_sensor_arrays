@@ -325,6 +325,9 @@ function viz_C2H4_CO2_H2O_density_compositions(data::DataFrame)
 	return fig
 end
 
+# ╔═╡ 966ee31d-35fc-44ab-8e10-ef1bca24397a
+maximum([1, 2, 3])
+
 # ╔═╡ 711ca7ee-3a07-46e6-8da4-9aa0f3e8bdca
 function viz_C2H4_CO2_H2O_density_compositions(training_data::DataFrame, 														   test_data::DataFrame,
 												σ_H₂O;
@@ -341,7 +344,23 @@ function viz_C2H4_CO2_H2O_density_compositions(training_data::DataFrame, 							
 	gas = AnomalyDetection.gases
 
 	#create a vector of axis'
-	axs = [[Axis(fig[1, j][i, 1], ylabel="# compositions", title=gas[i]) for i in 1:length(gas)] for j=1:2]
+	if distributions_flag
+		axs = [[Axis(fig[1, j][i, 1], ylabel="% compositions", title=gas[i]) for i in 1:length(gas)] for j=1:2]
+	else
+		axs = [[Axis(fig[1, j][i, 1], ylabel="# compositions", title=gas[i]) for i in 1:length(gas)] for j=1:2]
+	end
+
+	#linestyle vector
+	linestyles = [[0.0, 1.0/5.0, 1.0, 1.0+1.0/5.0], 
+				  [1.0/5.0, 2.0/5.0, 1.0+1.0/5.0, 1.0+2.0/5.0], 
+				  [2.0/5.0, 3.0/5.0, 1.0+2.0/5.0, 1.0+3.0/5.0], 
+				  [4.0/5.0, 1.0, 1.0+3.0/5.0, 1.0+4.0/5.0],
+				  [1.0, 1.0 + 1.0/5.0, 1.0+4.0/5.0, 2.0]]
+	linestyle_dict = Dict()
+	for (i, label) in enumerate(SyntheticDataGen.viable_labels)
+		linestyle_dict[label] = linestyles[i]
+	end
+		
 
 	for i=1:length(gas)
 		for j=1:2
@@ -365,9 +384,10 @@ function viz_C2H4_CO2_H2O_density_compositions(training_data::DataFrame, 							
 				if gas[i] == "H₂O"
 					if distributions_flag
 						distr = gas_distr.f_H₂O
-						x_min, x_max = quantile.(distr, [0.01, 0.99])
+						x_min, x_max = quantile.(distr, [0.001, 0.999])
 						xs = range(x_min, x_max, 1000)
-						ys = [pdf(distr, xs[i]) for i=1:length(xs)]
+						y_max = maximum([pdf(distr, xs[i]) for i=1:length(xs)])
+						ys = [pdf(distr, xs[i])/y_max for i=1:length(xs)]
 						
 						lines!(axs[j][i], xs, ys, label=label, color=SyntheticDataGen.label_to_color[label])
 					else	
@@ -381,11 +401,26 @@ function viz_C2H4_CO2_H2O_density_compositions(training_data::DataFrame, 							
 				elseif gas[i] == "CO₂"
 					if distributions_flag
 						distr = gas_distr.f_CO₂
-						x_min, x_max = quantile.(distr, [0.01, 0.99])
+						x_min, x_max = quantile.(distr, [0.001, 0.999])
 						xs = range(x_min, x_max, 1000)
-						ys = [pdf(distr, xs[i]) for i=1:length(xs)]
-						
-						lines!(axs[j][i], xs, ys, label=label, color=SyntheticDataGen.label_to_color[label])
+						y_max = maximum([pdf(distr, xs[i]) for i=1:length(xs)])
+						ys = [pdf(distr, xs[i])/y_max for i=1:length(xs)]
+
+						#distribution plot
+						lines!(axs[j][i], xs, ys, label=label, color=SyntheticDataGen.label_to_color[label],
+						linestyle=linestyle_dict[label])
+
+						#line to zero for uniform distr
+						lines!(axs[j][i], 
+							   [x_min, x_min], 
+							   [pdf(distr, x_min)/y_max, 0],
+							   color=SyntheticDataGen.label_to_color[label],
+								linestyle=linestyle_dict[label])
+						lines!(axs[j][i], 
+							   [x_max, x_max], 
+							   [pdf(distr, x_max)/y_max, 0],
+							   color=SyntheticDataGen.label_to_color[label],
+						linestyle=linestyle_dict[label])
 					else
 						hist!(axs[j][i],
 							  data_g[:, "p " * gas[i] * " [bar]"] * 1e6,
@@ -396,11 +431,24 @@ function viz_C2H4_CO2_H2O_density_compositions(training_data::DataFrame, 							
 				elseif gas[i] == "C₂H₄"
 					if distributions_flag
 						distr = gas_distr.f_C₂H₄
-						x_min, x_max = quantile.(distr, [0.01, 0.99])
+						x_min, x_max = quantile.(distr, [0.001, 0.999])
 						xs = range(x_min, x_max, 1000)
-						ys = [pdf(distr, xs[i]) for i=1:length(xs)]
+						y_max = maximum([pdf(distr, xs[i]) for i=1:length(xs)])
+						ys = [pdf(distr, xs[i])/y_max for i=1:length(xs)]
 						
 						lines!(axs[j][i], xs, ys, label=label, color=SyntheticDataGen.label_to_color[label])
+
+						#line to zero for uniform distr
+						lines!(axs[j][i], 
+							   [x_min, x_min], 
+							   [pdf(distr, x_min)/y_max, 0],
+							   color=SyntheticDataGen.label_to_color[label],
+								linestyle=linestyle_dict[label])
+						lines!(axs[j][i], 
+							   [x_max, x_max], 
+							   [pdf(distr, x_max)/y_max, 0],
+							   color=SyntheticDataGen.label_to_color[label],
+						linestyle=linestyle_dict[label])
 					else
 						hist!(axs[j][i],
 							  data_g[:, "p " * gas[i] * " [bar]"] * 1e6,
@@ -424,8 +472,13 @@ function viz_C2H4_CO2_H2O_density_compositions(training_data::DataFrame, 							
 				linkyaxes!(axs[1][i], axs[2][i])
 	end
 
-	axislegend(axs[1][1], position=:rt)
-	axislegend(axs[2][1], position=:rt)
+	if distributions_flag
+		axislegend(axs[1][1], position=:rt)
+		axislegend(axs[2][1], position=:rb)
+	else
+		axislegend(axs[1][1], position=:rt)
+		axislegend(axs[2][1], position=:rt)
+	end
 	
 	return fig
 end
@@ -2023,6 +2076,7 @@ version = "3.5.0+0"
 # ╠═37987a23-cee5-448e-abc3-2947770dcd38
 # ╠═3cd4f7cb-4bd0-48e6-b659-2c3612b5f577
 # ╠═6f0f68c6-e280-49e5-8f12-66541837bc07
+# ╠═966ee31d-35fc-44ab-8e10-ef1bca24397a
 # ╠═711ca7ee-3a07-46e6-8da4-9aa0f3e8bdca
 # ╠═fd5b2fda-f1e3-45e7-84fc-fc183b03ca08
 # ╠═6d7eb007-86bf-476a-a130-3c48196a2cfe
