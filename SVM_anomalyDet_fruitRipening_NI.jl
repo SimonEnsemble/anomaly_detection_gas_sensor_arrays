@@ -74,10 +74,10 @@ begin
 							 num_anomaly_test_points,
 							 validation_method="hypersphere",
 							 num_runs=100,
-							 gen_data_flag=true,
-							 tune_bounds_flag=false,
-							 bound_tuning_low_variance=(0.01, 0.01, 0.01, 0.01),
-						     bound_tuning_high_variance=(0.0, 0.0, 0.0, 0.0)
+							 gen_data_flag=false,
+							 tune_bounds_flag=true,
+							 bound_tuning_low_variance=(0.0002, -0.0002, -0.0002, -0.0005),
+						     bound_tuning_high_variance=(0.0001, 0.0003, 0.0, 0.0)
 	)
 
 
@@ -160,7 +160,7 @@ begin
    											   hyperparameter_method="bayesian", 
 											   λ=0.5, 
 											   n_avg=100,
-											   gen_data_flag=true)
+											   gen_data_flag=false)
 end
 
 

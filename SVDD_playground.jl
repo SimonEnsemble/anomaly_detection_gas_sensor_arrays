@@ -351,11 +351,18 @@ function viz_C2H4_CO2_H2O_density_compositions(training_data::DataFrame, 							
 	end
 
 	#linestyle vector
-	linestyles = [[0.0, 1.0/5.0, 1.0, 1.0+1.0/5.0], 
-				  [1.0/5.0, 2.0/5.0, 1.0+1.0/5.0, 1.0+2.0/5.0], 
-				  [2.0/5.0, 3.0/5.0, 1.0+2.0/5.0, 1.0+3.0/5.0], 
-				  [4.0/5.0, 1.0, 1.0+3.0/5.0, 1.0+4.0/5.0],
-				  [1.0, 1.0 + 1.0/5.0, 1.0+4.0/5.0, 2.0]]
+	#=linestyles = [[0.0, 1.0/5.0, 2.0, 2.0+1.0/5.0], 
+				  [1.0/5.0, 2.0/5.0, 2.0+1.0/5.0, 2.0+2.0/5.0], 
+				  [2.0/5.0, 3.0/5.0, 2.0+2.0/5.0, 2.0+3.0/5.0], 
+				  [3.0/5.0, 4.0/5.0, 2.0+3.0/5.0, 2.0+4.0/5.0],
+				  [4.0/5.0, 1.0, 2.0+4.0/5.0, 3.0]]=#
+	
+	
+	linestyles = [[0.0, 4.0/10.0, 2.0, 2.0+4.0/10.0], 
+				  [4.0/10.0, 8.0/10.0, 2.0+4.0/10.0, 2.0+8.0/10.0], 
+				  [8.0/10.0, 12.0/10.0, 2.0+8.0/10.0, 2.0+12.0/10.0], 
+				  [12.0/10.0, 16.0/10.0, 2.0+12.0/10.0, 2.0+16.0/10.0],
+				  [16.0/10.0, 2.0, 2.0+16.0/10.0, 4.0]]
 	linestyle_dict = Dict()
 	for (i, label) in enumerate(SyntheticDataGen.viable_labels)
 		linestyle_dict[label] = linestyles[i]
@@ -385,11 +392,12 @@ function viz_C2H4_CO2_H2O_density_compositions(training_data::DataFrame, 							
 					if distributions_flag
 						distr = gas_distr.f_H₂O
 						x_min, x_max = quantile.(distr, [0.001, 0.999])
-						xs = range(x_min, x_max, 1000)
+						xs = range(x_min, x_max, 100)
 						y_max = maximum([pdf(distr, xs[i]) for i=1:length(xs)])
 						ys = [pdf(distr, xs[i])/y_max for i=1:length(xs)]
 						
-						lines!(axs[j][i], xs, ys, label=label, color=SyntheticDataGen.label_to_color[label])
+						lines!(axs[j][i], xs, ys, label=label, color=SyntheticDataGen.label_to_color[label],
+						linestyle=linestyle_dict[label])
 					else	
 						hist!(axs[j][i], 
 							  data_g[:, "p H₂O [bar]"] / SyntheticDataGen.p_H₂O_vapor,
@@ -402,7 +410,7 @@ function viz_C2H4_CO2_H2O_density_compositions(training_data::DataFrame, 							
 					if distributions_flag
 						distr = gas_distr.f_CO₂
 						x_min, x_max = quantile.(distr, [0.001, 0.999])
-						xs = range(x_min, x_max, 1000)
+						xs = range(x_min, x_max, 100)
 						y_max = maximum([pdf(distr, xs[i]) for i=1:length(xs)])
 						ys = [pdf(distr, xs[i])/y_max for i=1:length(xs)]
 
@@ -432,11 +440,12 @@ function viz_C2H4_CO2_H2O_density_compositions(training_data::DataFrame, 							
 					if distributions_flag
 						distr = gas_distr.f_C₂H₄
 						x_min, x_max = quantile.(distr, [0.001, 0.999])
-						xs = range(x_min, x_max, 1000)
+						xs = range(x_min, x_max, 100)
 						y_max = maximum([pdf(distr, xs[i]) for i=1:length(xs)])
 						ys = [pdf(distr, xs[i])/y_max for i=1:length(xs)]
 						
-						lines!(axs[j][i], xs, ys, label=label, color=SyntheticDataGen.label_to_color[label])
+						lines!(axs[j][i], xs, ys, label=label, color=SyntheticDataGen.label_to_color[label], 
+						linestyle=linestyle_dict[label])
 
 						#line to zero for uniform distr
 						lines!(axs[j][i], 
@@ -497,7 +506,7 @@ typeof(:abc)
 # ╔═╡ 8289311f-59cd-4713-b893-f487f945a2d7
 viz_C2H4_CO2_H2O_density_compositions(test_data_set.data_train, 														  test_data_set.data_test,
 									  σ_H₂O,
-distributions_flag=true)
+distributions_flag=false)
 
 # ╔═╡ c16f1892-f588-4dda-b869-9a12fe814fe9
 test_data_set.data_test

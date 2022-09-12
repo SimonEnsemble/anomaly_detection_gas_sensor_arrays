@@ -613,7 +613,7 @@ if gen_data_flag
 	end
 else
 	#plot_data_storage = JLD.load("sensor_error_&_H2O_variance_plot.jld", "plot_data_storage")
-	@load "sensor_error_&_H2O_variance_plot.jld2" plot_data_storage
+	@load "sensor_error_&_H2O_variance_plot.jld" plot_data_storage
 
 	#due to an issue with jld2 storing the SVM py object as null, I have to retrain the SVM
 	for (i, σ_H₂O) in enumerate(σ_H₂Os)
@@ -630,24 +630,19 @@ end
 
 if tune_bounds_flag
 	zif71_lims_low_σ = plot_data_storage[2, 1, trunc(Int, num_runs/2)]["zif71_lims"]
-	zif71_tune_low_σ = (bound_tuning_low_variance[1] * zif71_lims_low_σ[1], bound_tuning_low_variance[2] * zif71_lims_low_σ[2])
 	zif8_lims_low_σ = plot_data_storage[2, 1, trunc(Int, num_runs/2)]["zif8_lims"]
-	zif8_tune_low_σ = (bound_tuning_low_variance[3] * zif8_lims_low_σ[1], bound_tuning_low_variance[4] * zif8_lims_low_σ[2])
-
 	zif71_lims_high_σ = plot_data_storage[1, 1, trunc(Int, num_runs/2)]["zif71_lims"]
-	zif71_tune_high_σ = (bound_tuning_high_variance[1] * zif71_lims_high_σ[1], bound_tuning_high_variance[2] * zif71_lims_high_σ[2])
 	zif8_lims_high_σ = plot_data_storage[1, 1, trunc(Int, num_runs/2)]["zif8_lims"]
-	zif8_tune_high_σ = (bound_tuning_high_variance[3] * zif8_lims_high_σ[1], bound_tuning_high_variance[4] * zif8_lims_high_σ[2])
 
 #fine tuning boundaries
 	for (i, σ_H₂O) in enumerate(σ_H₂Os)
 		for (j, σ_m) in enumerate(σ_ms)
 			if (i > 1)
-			plot_data_storage[i, j, trunc(Int, num_runs/2)]["zif71_lims"] = [zif71_lims_low_σ[1] + zif71_tune_low_σ[1],  zif71_lims_low_σ[2] + zif71_tune_low_σ[2]]
-			plot_data_storage[i, j, trunc(Int, num_runs/2)]["zif8_lims"]  = [zif8_lims_low_σ[1] + zif8_tune_low_σ[1],  zif8_lims_low_σ[2] + zif8_tune_low_σ[2]]
+			plot_data_storage[i, j, trunc(Int, num_runs/2)]["zif71_lims"] = [zif71_lims_low_σ[1] + bound_tuning_low_variance[1],  zif71_lims_low_σ[2] + bound_tuning_low_variance[2]]
+			plot_data_storage[i, j, trunc(Int, num_runs/2)]["zif8_lims"]  = [zif8_lims_low_σ[1] + bound_tuning_low_variance[3],  zif8_lims_low_σ[2] + bound_tuning_low_variance[4]]
 			else
-			plot_data_storage[i, j, trunc(Int, num_runs/2)]["zif71_lims"] = [zif71_lims_high_σ[1] + zif71_tune_high_σ[1], zif71_lims_high_σ[2] + zif71_tune_high_σ[2]]
-			plot_data_storage[i, j, trunc(Int, num_runs/2)]["zif8_lims"]  = [zif8_lims_high_σ[1] + zif8_tune_high_σ[1], zif8_lims_high_σ[2] + zif8_tune_high_σ[2]]
+			plot_data_storage[i, j, trunc(Int, num_runs/2)]["zif71_lims"] = [zif71_lims_high_σ[1] + bound_tuning_high_variance[1], zif71_lims_high_σ[2] + bound_tuning_high_variance[2]]
+			plot_data_storage[i, j, trunc(Int, num_runs/2)]["zif8_lims"]  = [zif8_lims_high_σ[1] + bound_tuning_high_variance[3], zif8_lims_high_σ[2] + bound_tuning_high_variance[4]]
 			end
 		end
 	end
@@ -659,8 +654,8 @@ end
 
 #identify median data set as the third dim index num_runs/2
 			median_data = plot_data_storage[i, j, trunc(Int, num_runs/2)]
-			median_data["zif71_lims"] = [truncate(median_data["zif71_lims"][1], 3), truncate(median_data["zif71_lims"][2], 3)]
-			median_data["zif8_lims"] = [truncate(median_data["zif8_lims"][1], 3), truncate(median_data["zif8_lims"][2], 3)]
+			median_data["zif71_lims"] = [truncate(median_data["zif71_lims"][1], 4), truncate(median_data["zif71_lims"][2], 4)]
+			median_data["zif8_lims"] = [truncate(median_data["zif8_lims"][1], 4), truncate(median_data["zif8_lims"][2], 4)]
 
 #draw a background box colored according to f1score
 			fig[i, j]        = Box(fig)#, color = (ColorSchemes.RdYlGn_4[median_data["f1_score"]], 0.7)) #incl to color by f1
