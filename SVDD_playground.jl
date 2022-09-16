@@ -493,6 +493,9 @@ function viz_C2H4_CO2_H2O_density_compositions_old(training_data::DataFrame, 			
 	return fig
 end
 
+# ╔═╡ a3ccab5f-643b-44d5-9b70-009e36d92f08
+viz_C2H4_CO2_H2O_density_compositions_old
+
 # ╔═╡ 711ca7ee-3a07-46e6-8da4-9aa0f3e8bdca
 function viz_C2H4_CO2_H2O_density_distributions(σ_H₂O)
 	gasses = AnomalyDetection.gases
@@ -507,14 +510,14 @@ function viz_C2H4_CO2_H2O_density_distributions(σ_H₂O)
 	for (i, label) in enumerate(labels)
 		for (j, gas) in enumerate(gasses)
 			if j==1 && i==length(labels)
-				axes[i, j] = Axis(fig[i, j], yticklabelsvisible = false, ylabel="density", xlabel="ppm")
+				axes[i, j] = Axis(fig[i, j], yticklabelsvisible = false, ylabel="density", xlabel="ppm", xlabelsize=30, ylabelsize=30)
 			elseif j==1
-				axes[i, j] = Axis(fig[i, j], yticklabelsvisible = false, ylabel="density", xticklabelsvisible = false)
+				axes[i, j] = Axis(fig[i, j], yticklabelsvisible = false, ylabel="density", xticklabelsvisible = false, ylabelsize=30)
 			elseif i==length(labels)
 				if gas=="H₂O" 
-					axes[i, j] = Axis(fig[i, j], yticklabelsvisible = false, xlabel="RH")
+					axes[i, j] = Axis(fig[i, j], yticklabelsvisible = false, xlabel="RH", xlabelsize=30)
 				else
-					axes[i, j] = Axis(fig[i, j], yticklabelsvisible = false, xlabel="ppm")
+					axes[i, j] = Axis(fig[i, j], yticklabelsvisible = false, xlabel="ppm", xlabelsize=30)
 				end
 			else
 				axes[i, j] = Axis(fig[i, j], yticklabelsvisible = false, xticklabelsvisible = false)
@@ -563,9 +566,9 @@ function viz_C2H4_CO2_H2O_density_distributions(σ_H₂O)
 			#distribution plot
 			density!(axes[i, j], 
 				   gas == "H₂O" ? [rand(distr)/SyntheticDataGen.p_H₂O_vapor for i=1:50000000] : [rand(distr)*1e6 for i=1:20000000], 
-				   color=(SyntheticDataGen.label_to_color[label], 0.4),
+				   color=(SyntheticDataGen.label_to_color[label], 0.20),
 				   strokearound=true,
-				   strokewidth=3,
+				   strokewidth=5,
 				   strokecolor=SyntheticDataGen.label_to_color[label])
 
 			
@@ -587,18 +590,14 @@ function viz_C2H4_CO2_H2O_density_distributions(σ_H₂O)
 	
 	colgap!(fig.layout, Relative(0.1))
 
-	for i=1:length(labels)-1
-		for j=1:length(gasses)
-			if gasses[j] != "C₂H₄"
-				linkyaxes!(axes[i, j], axes[i+1, j])
-			end
-				linkxaxes!(axes[i, j], axes[i+1, j])
+	linkyaxes!(axes[1, 1], axes[2, 1], axes[3, 1], axes[5, 1])
+	
+	for j = 1:length(gasses)
+		linkxaxes!(axes[1, j], axes[2, j], axes[3, j], axes[4, j], axes[5, j])
+		if gasses[j] != "C₂H₄"
+			linkyaxes!(axes[1, j], axes[2, j], axes[3, j], axes[4, j], axes[5, j])
 		end
 	end
-
-	linkyaxes!(axes[1, 1], axes[2, 1])
-	linkyaxes!(axes[3, 1], axes[5, 1])
-	linkxaxes!(axes[1, 1], axes[2, 1])
 
 
 	save("data_distributions.pdf", fig)
@@ -629,7 +628,7 @@ end
 typeof(:abc)
 
 # ╔═╡ 8289311f-59cd-4713-b893-f487f945a2d7
-viz_C2H4_CO2_H2O_density_compositions(test_data_set.data_train, 														  test_data_set.data_test,
+viz_C2H4_CO2_H2O_density_compositions_old(test_data_set.data_train, 														  test_data_set.data_test,
 									  σ_H₂O,
 distributions_flag=true)
 
@@ -2137,6 +2136,7 @@ version = "3.5.0+0"
 # ╠═3cd4f7cb-4bd0-48e6-b659-2c3612b5f577
 # ╠═6f0f68c6-e280-49e5-8f12-66541837bc07
 # ╠═966ee31d-35fc-44ab-8e10-ef1bca24397a
+# ╠═a3ccab5f-643b-44d5-9b70-009e36d92f08
 # ╠═eda27122-2ba0-4337-ad98-cd7ba972ba55
 # ╠═711ca7ee-3a07-46e6-8da4-9aa0f3e8bdca
 # ╠═927045b2-3395-43b6-b11b-cbe9622d8f4b
