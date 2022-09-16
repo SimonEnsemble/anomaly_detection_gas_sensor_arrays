@@ -497,12 +497,12 @@ function viz_sensorδ_waterσ_grid(σ_H₂Os::Vector{Float64},
 
 
 #establish axes and figs for 9x9 grid
-	fig  = Figure(resolution = (2400, 1200))
+	fig  = Figure(resolution = (2400, 1400))
 	axes = [Axis(fig[i, j]) for i in 1:3, j in 1:3]
 	figs = [fig[i, j] for i in 1:3, j in 1:3]
 
 #top sensor error labels σ_m
-	for (label, layout) in zip(["σ, m =$(σ_ms[1])","σ, m =$(σ_ms[2])", "σ, m  = $(σ_ms[3])"], figs[1, 1:3])
+	for (label, layout) in zip(["σ, m =$(σ_ms[1]) [g/g]","σ, m =$(σ_ms[2]) [g/g]", "σ, m  = $(σ_ms[3]) [g/g]"], figs[1, 1:3])
 		Label(layout[1, 1, Top()], 
 			 label,
 			 textsize = 40,
@@ -511,7 +511,7 @@ function viz_sensorδ_waterσ_grid(σ_H₂Os::Vector{Float64},
 	end
 
 #left water variance labels σ_H₂O
-	for (label, layout) in zip(["σ, H₂O =$(σ_H₂Os[1])","σ, H₂O =$(σ_H₂Os[2])", "σ, H₂O =$(σ_H₂Os[3])"], figs[1:3, 1])
+	for (label, layout) in zip(["σ, H₂O =$(σ_H₂Os[1]) [RH]","σ, H₂O =$(σ_H₂Os[2]) [RH]", "σ, H₂O =$(σ_H₂Os[3]) [RH]"], figs[1:3, 1])
 		Label(layout[1, 1, Left()], 
 			 label,
 			 textsize = 40,

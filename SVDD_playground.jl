@@ -5,7 +5,7 @@ using Markdown
 using InteractiveUtils
 
 # ╔═╡ db06b5c1-514f-4857-aa56-6bb9ceb0afea
-using CairoMakie,CSV, DataFrames, ColorSchemes, Optim, Distributions, PlutoUI, ScikitLearn, Colors, Random, PlutoUI, JLD, JLD2, LinearAlgebra, PyCall, LaTeXStrings, ScikitLearn, GLMakie, Revise, Makie, PyCallJLD
+using CairoMakie,CSV, DataFrames, ColorSchemes, Optim, Distributions, PlutoUI, ScikitLearn, Colors, Random, PlutoUI, JLD, JLD2, LinearAlgebra, PyCall, LaTeXStrings, ScikitLearn, Revise, Makie, PyCallJLD
 
 # ╔═╡ f0eaba8c-1ef1-44d8-8432-a23ad403daf0
 SyntheticDataGen = include("src/SyntheticDataGen.jl")
@@ -328,8 +328,8 @@ end
 # ╔═╡ 966ee31d-35fc-44ab-8e10-ef1bca24397a
 maximum([1, 2, 3])
 
-# ╔═╡ 711ca7ee-3a07-46e6-8da4-9aa0f3e8bdca
-function viz_C2H4_CO2_H2O_density_compositions(training_data::DataFrame, 														   test_data::DataFrame,
+# ╔═╡ eda27122-2ba0-4337-ad98-cd7ba972ba55
+function viz_C2H4_CO2_H2O_density_compositions_old(training_data::DataFrame, 														   test_data::DataFrame,
 												σ_H₂O;
 												distributions_flag=false)
 
@@ -387,14 +387,15 @@ function viz_C2H4_CO2_H2O_density_compositions(training_data::DataFrame, 							
 				
 				#generate a distribution
 				gas_distr = SyntheticDataGen.setup_gas_comp_distn(σ_H₂O, label)
-												
+
+				#rewrite in a loop, use dic
 				if gas[i] == "H₂O"
 					if distributions_flag
 						distr = gas_distr.f_H₂O
 						x_min, x_max = quantile.(distr, [0.001, 0.999])
 						xs = range(x_min, x_max, 100)
 						y_max = maximum([pdf(distr, xs[i]) for i=1:length(xs)])
-						ys = [pdf(distr, xs[i])/y_max for i=1:length(xs)]
+						ys = [pdf(distr, xs[i]) for i=1:length(xs)]
 						
 						lines!(axs[j][i], xs, ys, label=label, color=SyntheticDataGen.label_to_color[label],
 						linestyle=linestyle_dict[label])
@@ -412,7 +413,7 @@ function viz_C2H4_CO2_H2O_density_compositions(training_data::DataFrame, 							
 						x_min, x_max = quantile.(distr, [0.001, 0.999])
 						xs = range(x_min, x_max, 100)
 						y_max = maximum([pdf(distr, xs[i]) for i=1:length(xs)])
-						ys = [pdf(distr, xs[i])/y_max for i=1:length(xs)]
+						ys = [pdf(distr, xs[i]) for i=1:length(xs)]
 
 						#distribution plot
 						lines!(axs[j][i], xs, ys, label=label, color=SyntheticDataGen.label_to_color[label],
@@ -426,7 +427,7 @@ function viz_C2H4_CO2_H2O_density_compositions(training_data::DataFrame, 							
 								linestyle=linestyle_dict[label])
 						lines!(axs[j][i], 
 							   [x_max, x_max], 
-							   [pdf(distr, x_max)/y_max, 0],
+							   [pdf(distr, x_max), 0],
 							   color=SyntheticDataGen.label_to_color[label],
 						linestyle=linestyle_dict[label])
 					else
@@ -442,7 +443,7 @@ function viz_C2H4_CO2_H2O_density_compositions(training_data::DataFrame, 							
 						x_min, x_max = quantile.(distr, [0.001, 0.999])
 						xs = range(x_min, x_max, 100)
 						y_max = maximum([pdf(distr, xs[i]) for i=1:length(xs)])
-						ys = [pdf(distr, xs[i])/y_max for i=1:length(xs)]
+						ys = [pdf(distr, xs[i]) for i=1:length(xs)]
 						
 						lines!(axs[j][i], xs, ys, label=label, color=SyntheticDataGen.label_to_color[label], 
 						linestyle=linestyle_dict[label])
@@ -492,6 +493,130 @@ function viz_C2H4_CO2_H2O_density_compositions(training_data::DataFrame, 							
 	return fig
 end
 
+# ╔═╡ 711ca7ee-3a07-46e6-8da4-9aa0f3e8bdca
+function viz_C2H4_CO2_H2O_density_distributions(σ_H₂O)
+	gasses = AnomalyDetection.gases
+	labels = SyntheticDataGen.viable_labels
+
+#establish axes and figs for the grid
+	fig  = Figure(resolution = (2600, 2000))
+
+	axes = zeros(length(labels), length(gasses))
+	axes = convert(Array{Any, 2}, axes)
+
+	for (i, label) in enumerate(labels)
+		for (j, gas) in enumerate(gasses)
+			if j==1 && i==length(labels)
+				axes[i, j] = Axis(fig[i, j], yticklabelsvisible = false, ylabel="density", xlabel="ppm")
+			elseif j==1
+				axes[i, j] = Axis(fig[i, j], yticklabelsvisible = false, ylabel="density", xticklabelsvisible = false)
+			elseif i==length(labels)
+				if gas=="H₂O" 
+					axes[i, j] = Axis(fig[i, j], yticklabelsvisible = false, xlabel="RH")
+				else
+					axes[i, j] = Axis(fig[i, j], yticklabelsvisible = false, xlabel="ppm")
+				end
+			else
+				axes[i, j] = Axis(fig[i, j], yticklabelsvisible = false, xticklabelsvisible = false)
+			end
+				
+		end
+	end
+	figs = [fig[i, j] for i in 1:length(labels), j in 1:length(gasses)]
+
+#top gas labels
+	for (label, layout) in zip(gasses, figs[1, 1:length(gasses)])
+		Label(layout[1, 1, Top()], 
+			 label,
+			 textsize = 100,
+			 padding = (0, 0, 25, 0),
+			 halign = :center)
+	end
+
+#left normal/anomaly type labels
+	for (label, layout) in zip(labels, figs[1:length(labels), 1])
+		Label(layout[1, 1, Left()], 
+			 label,
+			 textsize = 50,
+			 padding = (0, 120, 0, 0),
+			 valign = :center,
+			 rotation = pi/2)
+	end
+		
+
+	for (i, label) in enumerate(labels)
+		for (j, gas) in enumerate(gasses)
+			#generate a distribution
+			gas_distr = SyntheticDataGen.setup_gas_comp_distn(σ_H₂O, label)
+			if gas == "H₂O" 
+				distr = gas_distr.f_H₂O
+			else
+				gas == "CO₂" ? distr = gas_distr.f_CO₂ : distr = gas_distr.f_C₂H₄
+			end
+
+			#=
+			p_min, p_max = quantile.(distr, [0.001, 0.999])
+			ps = range(p_min, p_max, 100)
+			densities = [pdf(distr, ps[i]) for i=1:length(ps)]
+			=#
+
+			#distribution plot
+			density!(axes[i, j], 
+				   gas == "H₂O" ? [rand(distr)/SyntheticDataGen.p_H₂O_vapor for i=1:50000000] : [rand(distr)*1e6 for i=1:20000000], 
+				   color=(SyntheticDataGen.label_to_color[label], 0.4),
+				   strokearound=true,
+				   strokewidth=3,
+				   strokecolor=SyntheticDataGen.label_to_color[label])
+
+			
+
+			#line to zero for uniform distr
+			#=
+			lines!(axes[i, j], 
+				   [ps[1], ps[1]], 
+				   [pdf(distr, ps[1]), 0],
+				   color=SyntheticDataGen.label_to_color[label])
+			lines!(axes[i, j], 
+				   [ps[end], ps[end]], 
+				   [pdf(distr, ps[end]), 0],
+				   color=SyntheticDataGen.label_to_color[label])
+			=#
+			
+		end
+	end
+	
+	colgap!(fig.layout, Relative(0.1))
+
+	for i=1:length(labels)-1
+		for j=1:length(gasses)
+			if gasses[j] != "C₂H₄"
+				linkyaxes!(axes[i, j], axes[i+1, j])
+			end
+				linkxaxes!(axes[i, j], axes[i+1, j])
+		end
+	end
+
+	linkyaxes!(axes[1, 1], axes[2, 1])
+	linkyaxes!(axes[3, 1], axes[5, 1])
+	linkxaxes!(axes[1, 1], axes[2, 1])
+
+
+	save("data_distributions.pdf", fig)
+	return fig
+end
+
+# ╔═╡ 927045b2-3395-43b6-b11b-cbe9622d8f4b
+viz_C2H4_CO2_H2O_density_distributions(σ_H₂O)
+
+# ╔═╡ b24f6f5a-f543-4109-8d8f-35d1cc0be4e5
+begin
+blebs = [i*j for i in 1:3, j in 1:4]
+	blebs[1, 2]
+end
+
+# ╔═╡ fd0982ae-4fe0-4222-b451-e824a88a2a9a
+typeof(zeros(3))
+
 # ╔═╡ fd5b2fda-f1e3-45e7-84fc-fc183b03ca08
 begin
 	gas_distr = SyntheticDataGen.setup_gas_comp_distn(σ_H₂O, "normal")
@@ -506,7 +631,7 @@ typeof(:abc)
 # ╔═╡ 8289311f-59cd-4713-b893-f487f945a2d7
 viz_C2H4_CO2_H2O_density_compositions(test_data_set.data_train, 														  test_data_set.data_test,
 									  σ_H₂O,
-distributions_flag=false)
+distributions_flag=true)
 
 # ╔═╡ c16f1892-f588-4dda-b869-9a12fe814fe9
 test_data_set.data_test
@@ -532,7 +657,6 @@ ColorSchemes = "35d6a980-a343-548e-a6ea-1d62b119f2f4"
 Colors = "5ae59095-9a9b-59fe-a467-6f913c188581"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
-GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
 JLD = "4138dd39-2aa7-5051-a626-17a0bb65d9c8"
 JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
@@ -553,7 +677,6 @@ ColorSchemes = "~3.18.0"
 Colors = "~0.12.8"
 DataFrames = "~1.3.4"
 Distributions = "~0.25.62"
-GLMakie = "~0.6.3"
 JLD = "~0.12.5"
 JLD2 = "~0.4.22"
 LaTeXStrings = "~1.3.0"
@@ -963,24 +1086,6 @@ version = "1.0.10+0"
 deps = ["Random"]
 uuid = "9fa8497b-333b-5362-9e8d-4d0656e87820"
 
-[[deps.GLFW]]
-deps = ["GLFW_jll"]
-git-tree-sha1 = "35dbc482f0967d8dceaa7ce007d16f9064072166"
-uuid = "f7f18e0c-5ee9-5ccd-a5bf-e8befd85ed98"
-version = "3.4.1"
-
-[[deps.GLFW_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Libglvnd_jll", "Pkg", "Xorg_libXcursor_jll", "Xorg_libXi_jll", "Xorg_libXinerama_jll", "Xorg_libXrandr_jll"]
-git-tree-sha1 = "d972031d28c8c8d9d7b41a536ad7bb0c2579caca"
-uuid = "0656b61e-2033-5cc2-a64a-77c0f6c09b89"
-version = "3.3.8+0"
-
-[[deps.GLMakie]]
-deps = ["ColorTypes", "Colors", "FileIO", "FixedPointNumbers", "FreeTypeAbstraction", "GLFW", "GeometryBasics", "LinearAlgebra", "Makie", "Markdown", "MeshIO", "ModernGL", "Observables", "Printf", "Serialization", "ShaderAbstractions", "StaticArrays"]
-git-tree-sha1 = "0aef73476219aed21f6032d34bc6eba81dd372a9"
-uuid = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
-version = "0.6.3"
-
 [[deps.GeoInterface]]
 deps = ["Extents"]
 git-tree-sha1 = "fb28b5dc239d0174d7297310ef7b84a11804dfab"
@@ -1263,12 +1368,6 @@ git-tree-sha1 = "64613c82a59c120435c067c2b809fc61cf5166ae"
 uuid = "d4300ac3-e22c-5743-9152-c294e39db1e4"
 version = "1.8.7+0"
 
-[[deps.Libglvnd_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg", "Xorg_libX11_jll", "Xorg_libXext_jll"]
-git-tree-sha1 = "7739f837d6447403596a75d19ed01fd08d6f56bf"
-uuid = "7e76a0d4-f3c7-5321-8279-8d96eeed0f29"
-version = "1.3.0+3"
-
 [[deps.Libgpg_error_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "c333716e46366857753e273ce6a69ee0945a6db9"
@@ -1372,12 +1471,6 @@ version = "0.4.1"
 deps = ["Artifacts", "Libdl"]
 uuid = "c8ffd9c3-330d-5841-b78e-0817d7145fa1"
 
-[[deps.MeshIO]]
-deps = ["ColorTypes", "FileIO", "GeometryBasics", "Printf"]
-git-tree-sha1 = "8be09d84a2d597c7c0c34d7d604c039c9763e48c"
-uuid = "7269a6da-0436-5bbc-96c2-40638cbb6118"
-version = "0.4.10"
-
 [[deps.Missings]]
 deps = ["DataAPI"]
 git-tree-sha1 = "bf210ce90b6c9eed32d25dbcae1ebc565df2687f"
@@ -1386,12 +1479,6 @@ version = "1.0.2"
 
 [[deps.Mmap]]
 uuid = "a63ad114-7e13-5084-954f-fe012c677804"
-
-[[deps.ModernGL]]
-deps = ["Libdl"]
-git-tree-sha1 = "344f8896e55541e30d5ccffcbf747c98ad57ca47"
-uuid = "66fc600b-dfda-50eb-8b99-91cfa97b1301"
-version = "1.1.4"
 
 [[deps.MosaicViews]]
 deps = ["MappedArrays", "OffsetArrays", "PaddedViews", "StackViews"]
@@ -1717,12 +1804,6 @@ version = "1.3.13"
 [[deps.Serialization]]
 uuid = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
 
-[[deps.ShaderAbstractions]]
-deps = ["ColorTypes", "FixedPointNumbers", "GeometryBasics", "LinearAlgebra", "Observables", "StaticArrays", "StructArrays", "Tables"]
-git-tree-sha1 = "6b5bba824b515ec026064d1e7f5d61432e954b71"
-uuid = "65257c39-d410-5151-9873-9b3e5be5013e"
-version = "0.2.9"
-
 [[deps.SharedArrays]]
 deps = ["Distributed", "Mmap", "Random", "Serialization"]
 uuid = "1a1011a3-84de-559e-8e89-a11a2f7dc383"
@@ -1914,12 +1995,6 @@ git-tree-sha1 = "4e490d5c960c314f33885790ed410ff3a94ce67e"
 uuid = "0c0b7dd1-d40b-584c-a123-a41640f87eec"
 version = "1.0.9+4"
 
-[[deps.Xorg_libXcursor_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg", "Xorg_libXfixes_jll", "Xorg_libXrender_jll"]
-git-tree-sha1 = "12e0eb3bc634fa2080c1c37fccf56f7c22989afd"
-uuid = "935fb764-8cf2-53bf-bb30-45bb1f8bf724"
-version = "1.2.0+4"
-
 [[deps.Xorg_libXdmcp_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "4fe47bd2247248125c428978740e18a681372dd4"
@@ -1931,30 +2006,6 @@ deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg", "Xorg_libX11_jll"]
 git-tree-sha1 = "b7c0aa8c376b31e4852b360222848637f481f8c3"
 uuid = "1082639a-0dae-5f34-9b06-72781eeb8cb3"
 version = "1.3.4+4"
-
-[[deps.Xorg_libXfixes_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg", "Xorg_libX11_jll"]
-git-tree-sha1 = "0e0dc7431e7a0587559f9294aeec269471c991a4"
-uuid = "d091e8ba-531a-589c-9de9-94069b037ed8"
-version = "5.0.3+4"
-
-[[deps.Xorg_libXi_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg", "Xorg_libXext_jll", "Xorg_libXfixes_jll"]
-git-tree-sha1 = "89b52bc2160aadc84d707093930ef0bffa641246"
-uuid = "a51aa0fd-4e3c-5386-b890-e753decda492"
-version = "1.7.10+4"
-
-[[deps.Xorg_libXinerama_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg", "Xorg_libXext_jll"]
-git-tree-sha1 = "26be8b1c342929259317d8b9f7b53bf2bb73b123"
-uuid = "d1454406-59df-5ea1-beac-c340f2130bc3"
-version = "1.1.4+4"
-
-[[deps.Xorg_libXrandr_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg", "Xorg_libXext_jll", "Xorg_libXrender_jll"]
-git-tree-sha1 = "34cea83cb726fb58f325887bf0612c6b3fb17631"
-uuid = "ec84b674-ba8e-5d96-8ba1-2a689ba10484"
-version = "1.5.2+4"
 
 [[deps.Xorg_libXrender_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg", "Xorg_libX11_jll"]
@@ -2086,7 +2137,11 @@ version = "3.5.0+0"
 # ╠═3cd4f7cb-4bd0-48e6-b659-2c3612b5f577
 # ╠═6f0f68c6-e280-49e5-8f12-66541837bc07
 # ╠═966ee31d-35fc-44ab-8e10-ef1bca24397a
+# ╠═eda27122-2ba0-4337-ad98-cd7ba972ba55
 # ╠═711ca7ee-3a07-46e6-8da4-9aa0f3e8bdca
+# ╠═927045b2-3395-43b6-b11b-cbe9622d8f4b
+# ╠═b24f6f5a-f543-4109-8d8f-35d1cc0be4e5
+# ╠═fd0982ae-4fe0-4222-b451-e824a88a2a9a
 # ╠═fd5b2fda-f1e3-45e7-84fc-fc183b03ca08
 # ╠═6d7eb007-86bf-476a-a130-3c48196a2cfe
 # ╠═8289311f-59cd-4713-b893-f487f945a2d7
