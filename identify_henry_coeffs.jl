@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.9
+# v0.19.11
 
 using Markdown
 using InteractiveUtils
@@ -323,7 +323,14 @@ p₁ = p₀ + Δp
 H * p₁
 
 # ╔═╡ 68148010-05e0-45e9-86dd-4ae324ddb438
+H*p_null
 
+# ╔═╡ 65207538-8f44-4ba8-94f6-e6440831139b
+H
+
+
+# ╔═╡ 465e4bd3-f761-467c-8440-315eefda4f87
+p_null
 
 # ╔═╡ 74e6609d-0ed8-4e52-b307-b68f8be9a8d5
 md"## Gas selectivity of each MOF"
@@ -1733,6 +1740,8 @@ version = "3.5.0+0"
 # ╠═6b7e4c1c-74fe-49f0-84e6-7f0023eb4cad
 # ╠═1ab4e12a-cc8a-45d3-9991-7f03d32d416a
 # ╠═68148010-05e0-45e9-86dd-4ae324ddb438
+# ╠═65207538-8f44-4ba8-94f6-e6440831139b
+# ╠═465e4bd3-f761-467c-8440-315eefda4f87
 # ╟─74e6609d-0ed8-4e52-b307-b68f8be9a8d5
 # ╠═814741cc-7b99-469d-8705-32a3ff02e46e
 # ╠═77344a53-dc8a-426a-b941-1b81638f1a38

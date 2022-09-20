@@ -119,6 +119,14 @@ AnomalyDetectionPlots.viz_cm(mid_data["svm"], mid_data["data"].data_test, mid_da
 # ╔═╡ 12a6f9d0-f3db-4973-8c53-3a2953d78b5d
 AnomalyDetectionPlots.viz_decision_boundary(mid_data["svm"], mid_data["data"].scaler, mid_data["data"].data_train)
 
+# ╔═╡ 7e45b82b-3c38-4734-9b58-fe0008747e66
+#sensor response data
+AnomalyDetectionPlots.viz_decision_boundary(mid_data["svm"], mid_data["data"].scaler, mid_data["data"].data_train, incl_contour=false)
+
+# ╔═╡ dc4eedb5-758d-40f9-ba7b-c7ab71f5ec3b
+#sensor response data test
+AnomalyDetectionPlots.viz_decision_boundary(mid_data["svm"], mid_data["data"].scaler, mid_data["data"].data_test, incl_contour=false)
+
 # ╔═╡ 8c426257-f4a5-4015-b39f-eab5e84d91ee
 # check the f1 score to compare to other validation method(s)
 f1_hypersphere = AnomalyDetection.performance_metric(mid_data["data"].y_test, mid_data["svm"].predict(mid_data["data"].X_test_scaled))
@@ -1797,6 +1805,8 @@ version = "3.5.0+0"
 # ╠═6e278c3e-45a3-4aa8-b904-e3dfa73615d5
 # ╠═ee8029cf-c6a6-439f-b190-cb297e0ddb70
 # ╠═12a6f9d0-f3db-4973-8c53-3a2953d78b5d
+# ╠═7e45b82b-3c38-4734-9b58-fe0008747e66
+# ╠═dc4eedb5-758d-40f9-ba7b-c7ab71f5ec3b
 # ╠═8c426257-f4a5-4015-b39f-eab5e84d91ee
 # ╠═1d29b57f-bfaa-4afc-b1f6-5d35ea395eee
 # ╠═1de459f8-c674-425c-a7d9-310030bfc5d6

@@ -5,7 +5,7 @@ using Markdown
 using InteractiveUtils
 
 # ╔═╡ db06b5c1-514f-4857-aa56-6bb9ceb0afea
-using CairoMakie,CSV, DataFrames, ColorSchemes, Optim, Distributions, PlutoUI, ScikitLearn, Colors, Random, PlutoUI, JLD, JLD2, LinearAlgebra, PyCall, LaTeXStrings, ScikitLearn, Revise, Makie, PyCallJLD
+using CairoMakie,CSV, DataFrames, ColorSchemes, Optim, Distributions, PlutoUI, ScikitLearn, Colors, Random, PlutoUI, JLD, JLD2, LinearAlgebra, PyCall, LaTeXStrings, ScikitLearn, Revise, Makie, PyCallJLD, Makie.GeometryBasics
 
 # ╔═╡ f0eaba8c-1ef1-44d8-8432-a23ad403daf0
 SyntheticDataGen = include("src/SyntheticDataGen.jl")
@@ -557,33 +557,36 @@ function viz_C2H4_CO2_H2O_density_distributions(σ_H₂O)
 				gas == "CO₂" ? distr = gas_distr.f_CO₂ : distr = gas_distr.f_C₂H₄
 			end
 
-			#=
+
 			p_min, p_max = quantile.(distr, [0.001, 0.999])
-			ps = range(p_min, p_max, 100)
+			ps = range(p_min, p_max, 1000)
 			densities = [pdf(distr, ps[i]) for i=1:length(ps)]
-			=#
 
 			#distribution plot
-			density!(axes[i, j], 
-				   gas == "H₂O" ? [rand(distr)/SyntheticDataGen.p_H₂O_vapor for i=1:50000000] : [rand(distr)*1e6 for i=1:20000000], 
+   			points = [(ps, density) for (ps, density) in zip(ps, densities)]
+			push!(points, (ps[end], p_max), (ps[1], p_min))
+			plot_shading = Polygon(Point2f[points[i] for i=1:length(points)])
+			poly!(axes[i, j], 
+				   plot_shading, 
 				   color=(SyntheticDataGen.label_to_color[label], 0.20),
-				   strokearound=true,
 				   strokewidth=5,
 				   strokecolor=SyntheticDataGen.label_to_color[label])
 
 			
 
 			#line to zero for uniform distr
-			#=
 			lines!(axes[i, j], 
 				   [ps[1], ps[1]], 
 				   [pdf(distr, ps[1]), 0],
-				   color=SyntheticDataGen.label_to_color[label])
+				   color=SyntheticDataGen.label_to_color[label],				   	 
+         		   strokewidth=5,
+				   strokecolor=SyntheticDataGen.label_to_color[label])
 			lines!(axes[i, j], 
 				   [ps[end], ps[end]], 
 				   [pdf(distr, ps[end]), 0],
-				   color=SyntheticDataGen.label_to_color[label])
-			=#
+				   color=SyntheticDataGen.label_to_color[label],				   
+  				   strokewidth=5,
+				   strokecolor=SyntheticDataGen.label_to_color[label])
 			
 		end
 	end
