@@ -132,6 +132,7 @@ function viz_bayes_values_by_point(plot_data::Vector{Tuple{Float64, Float64, Flo
 		γ_opt = γs[ideal_index]
 		scatter!([ν_opt], [γ_opt], marker=:x, markersize=25, color=:red)
 		text!("($(AnomalyDetectionPlots.truncate(ν_opt, 2)), $(AnomalyDetectionPlots.truncate(γ_opt, 2)))",position = (ν_opt, 1.1*γ_opt), align=(:left, :baseline))
+		save("bayes_plot.pdf", fig)
 	end
 
     return fig
