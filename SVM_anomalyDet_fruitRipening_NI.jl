@@ -86,6 +86,57 @@ end
 # ╔═╡ 1e30612e-7bcd-47dc-a1fb-1e127aad4a55
 plot_data_storage = JLD.load("sensor_error_&_H2O_variance_plot.jld", "plot_data_storage")
 
+# ╔═╡ 4bf6c4cd-3cc3-4d1b-b241-a8562418a58c
+function viz_cm(svm, data_test::DataFrame, scaler)
+	all_labels = SyntheticDataGen.viable_labels
+	n_labels = length(all_labels)
+
+	cm = AnomalyDetectionPlots.generate_cm(svm, data_test, scaler, all_labels)
+	fig = Figure()
+	ax = Axis(fig[1, 1],
+		  xticks=([1, 2], ["anomaly", "normal"]),
+		  yticks=([i for i=1:n_labels], [AnomalyDetectionPlots.reduced_labels[all_labels[i]] for i=1:n_labels]),
+		  xticklabelrotation=25.5,
+		  ylabel="truth",
+		  xlabel="prediction"
+    )
+
+	@assert SyntheticDataGen.viable_labels[1] == "normal"
+	# anomalies
+	heatmap!(1:1, 2:n_labels, reshape(cm[1, 2:end], (1, 4)),
+			      colormap=ColorSchemes.algae, colorrange=(0, 5))
+	heatmap!(2:2, 2:n_labels, reshape(cm[2, 2:end], (1, 4)),
+			      colormap=ColorSchemes.amp, colorrange=(0, 5))
+	# normal data
+	heatmap!(1:1, 1:1, [cm[1, 1]],
+			      colormap=ColorSchemes.amp, colorrange=(0, 100))
+	heatmap!(2:2, 1:1, [cm[2, 1]],
+			      colormap=ColorSchemes.algae, colorrange=(0, 100))
+    for i = 1:2
+        for j = 1:length(all_labels)
+            text!("$(cm[i, j])",
+                  position=(i, j), align=(:center, :center), 
+                  color=cm[i, j] > sum(cm[:, j]) / 2 ? :white : :black)
+        end
+    end
+    return ax, fig
+end
+
+# ╔═╡ fee4dbc2-ee4d-490b-808f-dff287d5be72
+zeros(2, length(SyntheticDataGen.viable_labels))
+
+# ╔═╡ e4b3bb33-85d6-4eb3-88b7-b972003af7c8
+viz_cm(mid_data["svm"], mid_data["data"].data_test, mid_data["data"].scaler)
+
+# ╔═╡ 79fc0fa1-d9cf-44ff-a477-1044024e7f62
+collect(2:length(SyntheticDataGen.viable_labels))
+
+# ╔═╡ 57fb520d-6890-492e-a002-e36cc45ebae8
+mid_data["data"].data_test
+
+# ╔═╡ 2a74217f-86d1-46cb-aa9c-2580c922f625
+
+
 # ╔═╡ 9873c6d8-84ba-47e5-adcb-4d0f30829227
 md"!!! example \"\" 
 	Unsupervised hyperparameter validation method 1:
@@ -114,13 +165,13 @@ md"## Step 3) Train one class support vector machine and evaluate performance.
 AnomalyDetectionPlots.viz_decision_boundary(mid_data["svm"], mid_data["data"].scaler, mid_data["data"].data_test)
 
 # ╔═╡ ee8029cf-c6a6-439f-b190-cb297e0ddb70
-AnomalyDetectionPlots.viz_cm(mid_data["svm"], mid_data["data"].data_test, mid_data["data"].scaler)
+ AnomalyDetectionPlots.viz_cm(mid_data["svm"], mid_data["data"].data_test, mid_data["data"].scaler)
 
 # ╔═╡ 12a6f9d0-f3db-4973-8c53-3a2953d78b5d
 AnomalyDetectionPlots.viz_decision_boundary(mid_data["svm"], mid_data["data"].scaler, mid_data["data"].data_train)
 
 # ╔═╡ 7e45b82b-3c38-4734-9b58-fe0008747e66
-#sensor response data
+#sensor response data train
 AnomalyDetectionPlots.viz_decision_boundary(mid_data["svm"], mid_data["data"].scaler, mid_data["data"].data_train, incl_contour=false)
 
 # ╔═╡ dc4eedb5-758d-40f9-ba7b-c7ab71f5ec3b
@@ -1796,6 +1847,12 @@ version = "3.5.0+0"
 # ╟─ebf79f0c-8399-42bf-b790-d4934906ede0
 # ╠═4b1759a7-eba1-4de5-8d6a-38106f3301c9
 # ╠═1e30612e-7bcd-47dc-a1fb-1e127aad4a55
+# ╠═4bf6c4cd-3cc3-4d1b-b241-a8562418a58c
+# ╠═fee4dbc2-ee4d-490b-808f-dff287d5be72
+# ╠═e4b3bb33-85d6-4eb3-88b7-b972003af7c8
+# ╠═79fc0fa1-d9cf-44ff-a477-1044024e7f62
+# ╠═57fb520d-6890-492e-a002-e36cc45ebae8
+# ╠═2a74217f-86d1-46cb-aa9c-2580c922f625
 # ╟─9873c6d8-84ba-47e5-adcb-4d0f30829227
 # ╟─77382f3e-98b6-4aef-b946-8375018c3c3e
 # ╠═48d8afeb-2df0-44d1-9eaa-f28184813ab4

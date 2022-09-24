@@ -509,18 +509,43 @@ function viz_C2H4_CO2_H2O_density_distributions(σ_H₂O)
 
 	for (i, label) in enumerate(labels)
 		for (j, gas) in enumerate(gasses)
+			
+			gas == "CO₂" ? num_ticks = 4 : num_ticks = 6
+			
 			if j==1 && i==length(labels)
-				axes[i, j] = Axis(fig[i, j], yticklabelsvisible = false, ylabel="density", xlabel="ppm", xlabelsize=30, ylabelsize=30)
+				axes[i, j] = Axis(fig[i, j], 
+								  yticklabelsvisible = false, 
+								  ylabel="density", 
+								  xlabel="ppm", 
+								  xlabelsize=42, 
+								  ylabelsize=42,
+							      xticklabelsize=30,
+								  xticks=WilkinsonTicks(num_ticks))
 			elseif j==1
-				axes[i, j] = Axis(fig[i, j], yticklabelsvisible = false, ylabel="density", xticklabelsvisible = false, ylabelsize=30)
+				axes[i, j] = Axis(fig[i, j], 
+								  yticklabelsvisible = false, 
+								  ylabel="density", 
+								  xticklabelsvisible = false, 
+								  ylabelsize=42)
 			elseif i==length(labels)
 				if gas=="H₂O" 
-					axes[i, j] = Axis(fig[i, j], yticklabelsvisible = false, xlabel="RH", xlabelsize=30)
+					axes[i, j] = Axis(fig[i, j], 
+									  yticklabelsvisible = false, 
+									  xlabel="RH", 
+								      xlabelsize=42,
+									  xticklabelsize=30)
 				else
-					axes[i, j] = Axis(fig[i, j], yticklabelsvisible = false, xlabel="ppm", xlabelsize=30)
+					axes[i, j] = Axis(fig[i, j], 
+									  yticklabelsvisible = false, 
+									  xlabel="ppm", 
+									  xlabelsize=42,
+								      xticklabelsize=30,
+								      xticks=WilkinsonTicks(num_ticks))
 				end
 			else
-				axes[i, j] = Axis(fig[i, j], yticklabelsvisible = false, xticklabelsvisible = false)
+				axes[i, j] = Axis(fig[i, j], 
+								  yticklabelsvisible = false, 
+								  xticklabelsvisible = false)
 			end
 				
 		end
@@ -539,7 +564,7 @@ function viz_C2H4_CO2_H2O_density_distributions(σ_H₂O)
 #left normal/anomaly type labels
 	for (label, layout) in zip(labels, figs[1:length(labels), 1])
 		Label(layout[1, 1, Left()], 
-			 label,
+			 AnomalyDetectionPlots.reduced_labels[label],
 			 textsize = 50,
 			 padding = (0, 120, 0, 0),
 			 valign = :center,
@@ -557,37 +582,68 @@ function viz_C2H4_CO2_H2O_density_distributions(σ_H₂O)
 				gas == "CO₂" ? distr = gas_distr.f_CO₂ : distr = gas_distr.f_C₂H₄
 			end
 
-
+			#create distribution densities and corresponding pressures
 			p_min, p_max = quantile.(distr, [0.001, 0.999])
 			ps = range(p_min, p_max, 1000)
 			densities = [pdf(distr, ps[i]) for i=1:length(ps)]
+			gas=="H₂O" ? ps = ps/SyntheticDataGen.p_H₂O_vapor : ps = ps * 1e6
 
-			#distribution plot
-   			points = [(ps, density) for (ps, density) in zip(ps, densities)]
-			push!(points, (ps[end], p_max), (ps[1], p_min))
-			plot_shading = Polygon(Point2f[points[i] for i=1:length(points)])
-			poly!(axes[i, j], 
-				   plot_shading, 
-				   color=(SyntheticDataGen.label_to_color[label], 0.20),
-				   strokewidth=5,
-				   strokecolor=SyntheticDataGen.label_to_color[label])
-
-			
-
-			#line to zero for uniform distr
+			#distribution plot using band for shading
+			band!(axes[i, j], 
+				  ps, 
+				  [0 for i=1:length(ps)], 
+				  densities, 
+				  color=(SyntheticDataGen.label_to_color[label], 0.20))
 			lines!(axes[i, j], 
-				   [ps[1], ps[1]], 
-				   [pdf(distr, ps[1]), 0],
+				   ps, 
+				   densities,
 				   color=SyntheticDataGen.label_to_color[label],				   	 
          		   strokewidth=5,
 				   strokecolor=SyntheticDataGen.label_to_color[label])
+			
+			#line to zero for uniform distr
+			lines!(axes[i, j], 
+				   [ps[1], ps[1]], 
+				   [densities[1], 0],
+				   color=SyntheticDataGen.label_to_color[label],				   	 
+         		   linewidth=2.5,
+				   strokecolor=SyntheticDataGen.label_to_color[label])
 			lines!(axes[i, j], 
 				   [ps[end], ps[end]], 
-				   [pdf(distr, ps[end]), 0],
+				   [densities[end], 0],
 				   color=SyntheticDataGen.label_to_color[label],				   
-  				   strokewidth=5,
+  				   linewidth=2.5,
 				   strokecolor=SyntheticDataGen.label_to_color[label])
-			
+
+			println(maximum(densities))
+			#gray axis
+			if gas == "H₂O"
+				lines!(axes[i, j], 
+					   [0.8, 0.8, 0.9], 
+					   [1258, 0, 0],
+					   color=:grey,				   	 
+	         		   linewidth=0.5)
+			elseif gas == "CO₂"
+				lines!(axes[i, j], 
+					   [0, 0, 2.0*10^4], 
+					   [220, 0, 0],
+					   color=:grey,				   	 
+	         		   linewidth=0.5)
+			elseif gas == "C₂H₄"
+				#=if label == "C₂H₄ off"
+				lines!(axes[i, j], 
+					   [0, 0, 2.0*10^3], 
+					   [maximum(densities), 0, 0],
+					   color=:grey,				   	 
+	         		   linewidth=0.5)
+				else=#
+				lines!(axes[i, j], 
+					   [0, 0, 2.0*10^3], 
+					   [20000, 0, 0],
+					   color=:grey,				   	 
+	         		   linewidth=0.5)
+				#end
+			end
 		end
 	end
 	

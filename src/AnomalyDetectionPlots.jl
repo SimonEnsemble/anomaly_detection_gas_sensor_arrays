@@ -124,7 +124,6 @@ function viz_bayes_values_by_point(plot_data::Vector{Tuple{Float64, Float64, Flo
 	ν_init = νs[1]
 	γ_init = γs[1]
 	scatter!([ν_init], [γ_init], marker=:x, markersize=25, color=:green)
-	text!("initial",position = (ν_init, 1.1*γ_init), align=(:left, :baseline))
 
 	#indicate optimal nu and gamma
 	if points == length(Λs)
@@ -305,13 +304,36 @@ function viz_cm(svm, data_test::DataFrame, scaler)
 		  xlabel="prediction"
     )
 
+	viz_cm!(ax, svm, data_test, scaler, gen_cm_flag=false, cm=cm)
+
+    fig
+end
+
+function viz_cm!(ax, 
+				 svm, 
+				 data_test::DataFrame, 
+				 scaler; 
+				 gen_cm_flag=true, 
+				 cm=zeros(2, length(SyntheticDataGen.viable_labels)))
+
+	all_labels = SyntheticDataGen.viable_labels
+	n_labels = length(all_labels)
+
+	if gen_cm_flag
+		cm = AnomalyDetectionPlots.generate_cm(svm, data_test, scaler, all_labels)
+	end
+
 	@assert SyntheticDataGen.viable_labels[1] == "normal"
 	# anomalies
-	heatmap!(1:2, 2:n_labels, cm[:, 2:end],
-			      colormap=ColorSchemes.amp, colorrange=(0, maximum(cm[:, 2:end])))
+	heatmap!(1:1, 2:n_labels, reshape(cm[1, 2:end], (1, 4)),
+			      colormap=ColorSchemes.algae, colorrange=(0, 5))
+	heatmap!(2:2, 2:n_labels, reshape(cm[2, 2:end], (1, 4)),
+			      colormap=ColorSchemes.amp, colorrange=(0, 5))
 	# normal data
-	heatmap!(1:2, 1:1, reshape(cm[:, 1], (2, 1)),
-			      colormap=ColorSchemes.algae, colorrange=(0, maximum(cm[:, 1])))
+	heatmap!(1:1, 1:1, [cm[1, 1]],
+			      colormap=ColorSchemes.amp, colorrange=(0, 100))
+	heatmap!(2:2, 1:1, [cm[2, 1]],
+			      colormap=ColorSchemes.algae, colorrange=(0, 100))
     for i = 1:2
         for j = 1:length(all_labels)
             text!("$(cm[i, j])",
@@ -319,7 +341,6 @@ function viz_cm(svm, data_test::DataFrame, scaler)
                   color=cm[i, j] > sum(cm[:, j]) / 2 ? :white : :black)
         end
     end
-    fig
 end
 
 """
@@ -706,30 +727,12 @@ end
 					 xlabel="prediction",
 					 alignmode = Outside(10))
 
-			@assert SyntheticDataGen.viable_labels[1] == "normal"
-
-#Plot cm colors anomalies
-			heatmap!(1:2, 
-					2:n_labels, 
-					cm[:, 2:end], 
-					colormap=ColorSchemes.amp, 
-					colorrange=(0, maximum(cm[:, 2:end])))
-
-#Plot cm colors normal data
-			heatmap!(1:2, 
-					1:1, 
-					reshape(cm[:, 1], (2, 1)), 
-					colormap=ColorSchemes.algae, 
-					colorrange=(0, maximum(cm[:, 1])))
-
-			for k = 1:2
-				for l = 1:length(all_labels)
-					text!("$(cm[k, l])",
-						 position=(k, l), 
-						 align=(:center, :center), 
-						 color=cm[k, l] > sum(cm[:, l]) / 2 ? :white : :black)
-				end
-			end
+			viz_cm!(ax, 
+					median_data["svm"], 
+					median_data["data"].data_test, 
+					median_data["data"].scaler, 
+					gen_cm_flag=false, 
+					cm=cm)
 		end
 	end
 

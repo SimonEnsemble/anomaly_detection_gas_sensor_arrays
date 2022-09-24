@@ -82,7 +82,7 @@ begin
 		                       "CO2"  => 44.01, 
 		                       "H2O" => 18.01528)
 	
-	mofs = ["ZIF-71", "ZIF-8"]
+	mofs = ["ZIF-8","ZIF-71"]
 	
 	isotherm_filename(mof::String, gas::String) = joinpath("data", mof, gas * ".csv")
 end
@@ -175,7 +175,7 @@ end
 
 # ╔═╡ 00306860-568b-4204-ab35-8e150e32a105
 # example
-isotherm_data("ZIF-8", "CO2")
+isotherm_data("ZIF-71", "C2H4")
 
 # ╔═╡ da65b272-d989-44cb-9253-4987ee65da9a
 md"!!! example \"\"
