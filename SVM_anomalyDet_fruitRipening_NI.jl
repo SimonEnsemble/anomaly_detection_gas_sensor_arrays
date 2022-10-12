@@ -161,26 +161,151 @@ AnomalyDetectionPlots.viz_bayes_values_by_point(mid_data["bayes_plot_data"], len
 md"## Step 3) Train one class support vector machine and evaluate performance.
 "
 
+# ╔═╡ 47f211e4-c692-417d-87aa-e1e38feeeaa8
+
+
+# ╔═╡ df59c145-aac1-453b-9069-4fb46a736dc5
+mid_data["data"].X_test[:, 1]
+
+# ╔═╡ ace71137-0d3d-4def-b162-7db3572020d9
+mid_data["data"].X_train[:, 1]
+
+# ╔═╡ 01d16ec6-0714-4ff7-9881-25b14fb8dadf
+vcat(mid_data["data"].X_test[:, 1], mid_data["data"].X_train[:, 1])
+
+# ╔═╡ 86ba61e6-0633-431f-93a1-b53a8de9dd46
+begin
+	total_zif71_data = vcat(mid_data["data"].X_test[:, 1], mid_data["data"].X_train[:, 1])
+	total_zif8_data = vcat(mid_data["data"].X_test[:, 2], mid_data["data"].X_train[:, 2])
+	xlims = (0.98 * minimum(total_zif71_data), 1.02 * maximum(total_zif71_data))
+    ylims= (0.98 * minimum(total_zif8_data), 1.02 * maximum(total_zif8_data))
+	
+end
+
+# ╔═╡ a51af5a0-d12c-49ab-ab88-0e2ff2647eaf
+typeof(mid_data)
+
 # ╔═╡ 6e278c3e-45a3-4aa8-b904-e3dfa73615d5
-AnomalyDetectionPlots.viz_decision_boundary(mid_data["svm"], mid_data["data"].scaler, mid_data["data"].data_test)
+AnomalyDetectionPlots.viz_decision_boundary(mid_data["svm"], mid_data["data"].scaler, mid_data["data"].data_test, xlims=xlims, ylims=ylims)
+
+# ╔═╡ 7acfecf5-12be-45d1-8e45-dccf23d004df
+typeof(mid_data)
 
 # ╔═╡ ee8029cf-c6a6-439f-b190-cb297e0ddb70
  AnomalyDetectionPlots.viz_cm(mid_data["svm"], mid_data["data"].data_test, mid_data["data"].scaler)
 
 # ╔═╡ 12a6f9d0-f3db-4973-8c53-3a2953d78b5d
-AnomalyDetectionPlots.viz_decision_boundary(mid_data["svm"], mid_data["data"].scaler, mid_data["data"].data_train)
+AnomalyDetectionPlots.viz_decision_boundary(mid_data["svm"], mid_data["data"].scaler, mid_data["data"].data_test, default_lims=false, xlims=xlims, ylims=ylims)
 
 # ╔═╡ 7e45b82b-3c38-4734-9b58-fe0008747e66
 #sensor response data train
-AnomalyDetectionPlots.viz_decision_boundary(mid_data["svm"], mid_data["data"].scaler, mid_data["data"].data_train, incl_contour=false)
+AnomalyDetectionPlots.viz_decision_boundary(mid_data["svm"], mid_data["data"].scaler, mid_data["data"].data_train, default_lims=false, incl_contour=false,xlims=xlims, ylims=ylims)
 
 # ╔═╡ dc4eedb5-758d-40f9-ba7b-c7ab71f5ec3b
 #sensor response data test
-AnomalyDetectionPlots.viz_decision_boundary(mid_data["svm"], mid_data["data"].scaler, mid_data["data"].data_test, incl_contour=false)
+AnomalyDetectionPlots.viz_decision_boundary(mid_data["svm"], mid_data["data"].scaler, mid_data["data"].data_test, default_lims=false, incl_contour=false, xlims=xlims, ylims=ylims)
+
+# ╔═╡ 0a0ced5f-20cf-4d86-ad60-48a471c9779e
+AnomalyDetectionPlots.mofs[2]
+
+# ╔═╡ c8d0ac32-0ef5-42f9-bae9-d61e990c7500
+mid_data["zif71_lims"]
+
+# ╔═╡ 7142527c-a6a6-4539-ab09-e86117ed8a69
+xlims
+
+# ╔═╡ 58d15fce-2690-46cf-b441-f9e88cf04887
+function viz_ν_γ_effects(data::Dict{String, Any},
+						 ν_opt::Float64,
+						 γ_opt::Float64)
+	scale_factor = 4
+	zif71_lims = (0.99 * minimum(data["data"].data_train[:, "m ZIF-71 [g/g]"]),
+				  1.01 * maximum(data["data"].data_train[:, "m ZIF-71 [g/g]"]))
+ 	zif8_lims  = (0.99 * minimum(data["data"].data_train[:, "m ZIF-8 [g/g]"]),
+				  1.01 * maximum(data["data"].data_train[:, "m ZIF-8 [g/g]"]))
+
+	
+
+
+	γs = [γ_opt/scale_factor, γ_opt, scale_factor*γ_opt]
+	νs = [ν_opt/scale_factor, ν_opt, scale_factor*ν_opt]
+	x_ticks = [AnomalyDetectionPlots.truncate(zif71_lims[1], 4), AnomalyDetectionPlots.truncate(zif71_lims[2], 4)]
+	y_ticks = [AnomalyDetectionPlots.truncate(zif8_lims[1], 4), AnomalyDetectionPlots.truncate(zif8_lims[2], 4)]
+
+#establish axes and figs for 3x3 grid
+	fig  = Figure(resolution = (1400, 1400))
+	axes = [Axis(fig[i, j], 
+			xlabel = "m, " * AnomalyDetectionPlots.mofs[1] * " [g/g]",
+			ylabel = "m, " * AnomalyDetectionPlots.mofs[2] * " [g/g]",
+		xlabelsize = 25,
+		ylabelsize = 25,
+			xticks = x_ticks,
+			yticks = y_ticks,
+		xlabelpadding = -15,
+		ylabelpadding = -40,
+		    aspect = DataAspect()) 
+		   for i in 1:length(νs), j in 1:length(γs)]
+	
+	figs = [fig[i, j] for i in 1:length(νs), j in 1:length(γs)]
+
+#top labels
+	for (label, layout) in zip(["νₒₚₜ / $(scale_factor)", "νₒₚₜ", "$(scale_factor) × νₒₚₜ"], figs[1, 1:length(νs)])
+		Label(layout[1, 1, Top()], 
+			 label,
+			 textsize = 40,
+			 padding = (0, 0, 25, 0),
+			 halign = :center)
+	end
+
+#left labels
+	for (label, layout) in zip(["$(scale_factor) × γₒₚₜ","γₒₚₜ", "γₒₚₜ / $(scale_factor)"], figs[1:length(γs), 1])
+		Label(layout[1, 1, Left()], 
+			 label,
+			 textsize = 40,
+			 padding = (0, 50, 0, 0),
+			 valign = :center,
+			 rotation = pi/2)
+	end
+
+	for (i, γ) in enumerate(γs)
+		for (j, ν) in enumerate(νs)
+			xlims!(axes[i, j], x_ticks)
+			ylims!(axes[i, j], y_ticks)
+
+			svm = AnomalyDetection.train_anomaly_detector(data["data"].X_train_scaled, ν, γ)
+			scaler = StandardScaler().fit(data["data"].X_train)
+			AnomalyDetectionPlots.viz_decision_boundary!(axes[i, j], 
+								  svm, 
+								  scaler, 
+								  data["data"].data_train, 
+								  zif71_lims, 
+								  zif8_lims, 
+								  incl_legend=false)
+			AnomalyDetectionPlots.viz_limit_box!(axes[i, j], x_ticks, y_ticks, 4, dashed=false)
+		end
+	end
+
+#Save finished 3x3 plot
+	save("ν_γ_plot.pdf", fig)
+
+	return fig
+end
+
+# ╔═╡ 8ae6f503-2cfa-4bbf-afd8-7c8affc3697b
+viz_ν_γ_effects(mid_data, mid_data["ν_opt, γ_opt"][1], mid_data["ν_opt, γ_opt"][2])
+
+# ╔═╡ fa956447-a603-47bf-828d-7fadc8be09c6
+high_σm_data = plot_data_storage[2, 3, 50]
+
+# ╔═╡ ee91e0a9-605f-4d8c-8727-d6523e9a72c4
+viz_ν_γ_effects(high_σm_data, high_σm_data["ν_opt, γ_opt"][1], high_σm_data["ν_opt, γ_opt"][2])
 
 # ╔═╡ 8c426257-f4a5-4015-b39f-eab5e84d91ee
 # check the f1 score to compare to other validation method(s)
 f1_hypersphere = AnomalyDetection.performance_metric(mid_data["data"].y_test, mid_data["svm"].predict(mid_data["data"].X_test_scaled))
+
+# ╔═╡ a2467d27-0664-43d3-8f22-46b0d2ad4a77
+mid_data["data"].data_train
 
 # ╔═╡ 1d29b57f-bfaa-4afc-b1f6-5d35ea395eee
 begin
@@ -703,10 +828,10 @@ uuid = "c87230d0-a227-11e9-1b43-d7ebe4e7570a"
 version = "0.4.1"
 
 [[deps.FFMPEG_jll]]
-deps = ["Artifacts", "Bzip2_jll", "FreeType2_jll", "FriBidi_jll", "JLLWrappers", "LAME_jll", "Libdl", "Ogg_jll", "OpenSSL_jll", "Opus_jll", "Pkg", "Zlib_jll", "libaom_jll", "libass_jll", "libfdk_aac_jll", "libvorbis_jll", "x264_jll", "x265_jll"]
-git-tree-sha1 = "ccd479984c7838684b3ac204b716c89955c76623"
+deps = ["Artifacts", "Bzip2_jll", "FreeType2_jll", "FriBidi_jll", "JLLWrappers", "LAME_jll", "Libdl", "Ogg_jll", "OpenSSL_jll", "Opus_jll", "PCRE2_jll", "Pkg", "Zlib_jll", "libaom_jll", "libass_jll", "libfdk_aac_jll", "libvorbis_jll", "x264_jll", "x265_jll"]
+git-tree-sha1 = "74faea50c1d007c85837327f6775bea60b5492dd"
 uuid = "b22a6f82-2f65-5046-a5b2-351ab43fb4e5"
-version = "4.4.2+0"
+version = "4.4.2+2"
 
 [[deps.FFTW]]
 deps = ["AbstractFFTs", "FFTW_jll", "LinearAlgebra", "MKL_jll", "Preferences", "Reexport"]
@@ -854,9 +979,9 @@ version = "0.15.7"
 
 [[deps.HDF5_jll]]
 deps = ["Artifacts", "JLLWrappers", "LibCURL_jll", "Libdl", "OpenSSL_jll", "Pkg", "Zlib_jll"]
-git-tree-sha1 = "c003b31e2e818bc512b0ff99d7dce03b0c1359f5"
+git-tree-sha1 = "4cc2bb72df6ff40b055295fdef6d92955f9dede8"
 uuid = "0234f1f7-429e-5d53-9886-15a909be8d59"
-version = "1.12.2+1"
+version = "1.12.2+2"
 
 [[deps.HarfBuzz_jll]]
 deps = ["Artifacts", "Cairo_jll", "Fontconfig_jll", "FreeType2_jll", "Glib_jll", "Graphite2_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Pkg"]
@@ -1288,6 +1413,10 @@ version = "1.3.2+0"
 git-tree-sha1 = "85f8e6578bf1f9ee0d11e7bb1b1456435479d47c"
 uuid = "bac558e1-5e72-5ebc-8fee-abe8a469f55d"
 version = "1.4.1"
+
+[[deps.PCRE2_jll]]
+deps = ["Artifacts", "Libdl"]
+uuid = "efcefdf7-47ab-520b-bdef-62a2eaa19f15"
 
 [[deps.PCRE_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1859,12 +1988,27 @@ version = "3.5.0+0"
 # ╟─7af3b1f6-2c57-40c4-a841-961dd039090a
 # ╠═7990ef58-1e45-44d0-8add-ba410a48dc98
 # ╟─97a7e102-1a87-4364-9835-c7ed370f573c
+# ╠═47f211e4-c692-417d-87aa-e1e38feeeaa8
+# ╠═df59c145-aac1-453b-9069-4fb46a736dc5
+# ╠═ace71137-0d3d-4def-b162-7db3572020d9
+# ╠═01d16ec6-0714-4ff7-9881-25b14fb8dadf
+# ╠═86ba61e6-0633-431f-93a1-b53a8de9dd46
+# ╠═a51af5a0-d12c-49ab-ab88-0e2ff2647eaf
 # ╠═6e278c3e-45a3-4aa8-b904-e3dfa73615d5
+# ╠═7acfecf5-12be-45d1-8e45-dccf23d004df
 # ╠═ee8029cf-c6a6-439f-b190-cb297e0ddb70
 # ╠═12a6f9d0-f3db-4973-8c53-3a2953d78b5d
 # ╠═7e45b82b-3c38-4734-9b58-fe0008747e66
 # ╠═dc4eedb5-758d-40f9-ba7b-c7ab71f5ec3b
+# ╠═0a0ced5f-20cf-4d86-ad60-48a471c9779e
+# ╠═c8d0ac32-0ef5-42f9-bae9-d61e990c7500
+# ╠═7142527c-a6a6-4539-ab09-e86117ed8a69
+# ╠═58d15fce-2690-46cf-b441-f9e88cf04887
+# ╠═8ae6f503-2cfa-4bbf-afd8-7c8affc3697b
+# ╠═fa956447-a603-47bf-828d-7fadc8be09c6
+# ╠═ee91e0a9-605f-4d8c-8727-d6523e9a72c4
 # ╠═8c426257-f4a5-4015-b39f-eab5e84d91ee
+# ╠═a2467d27-0664-43d3-8f22-46b0d2ad4a77
 # ╠═1d29b57f-bfaa-4afc-b1f6-5d35ea395eee
 # ╠═1de459f8-c674-425c-a7d9-310030bfc5d6
 # ╠═00d90c63-6f3e-4906-ad35-ba999439e253

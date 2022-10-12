@@ -3,7 +3,6 @@ module SyntheticDataGen
 using Distributions, DataFrames, JLD2, ColorSchemes, CairoMakie, Revise
 
 export GasCompDistribution, setup_gas_comp_distn, gen_gas_comps, sensor_response!, gen_data
-
 #=
     DEFINE DISTRIBUTIONS OF GAS COMPOSITIONS IN THE FRUIT RIPENING ROOM
     under normal and anomalous circumstances.
@@ -27,6 +26,13 @@ label_to_color = Dict(zip(
 	["normal", "CO₂ buildup", "C₂H₄ buildup", "C₂H₄ off", "CO₂ & C₂H₄ buildup", "low humidity"],
 	ColorSchemes.Dark2_6)
     )
+reduced_labels = Dict("normal" => "normal", 
+                    "CO₂ buildup" => "CO₂ ↑", 
+                    "C₂H₄ buildup" => "C₂H₄ ↑", 
+                    "C₂H₄ off" => "C₂H₄ off", 
+                    "CO₂ & C₂H₄ buildup" => "CO₂ & C₂H₄ ↑", 
+                    "low humidity" => "H₂O ↓",
+                    "anomalous" => "anomaly")
 
 function setup_gas_comp_distn(σ_H₂O::Float64, label::String)
     if ! (label in viable_labels)
@@ -181,6 +187,158 @@ function viz_H2O_compositions(data::DataFrame)
 	end
     ylims!(0.0, nothing)
     fig
+end
+
+function viz_C2H4_CO2_H2O_density_distributions(σ_H₂O)
+	gasses = SyntheticDataGen.gases
+	labels = SyntheticDataGen.viable_labels
+
+    #establish axes and figs for the grid
+	fig  = Figure(resolution = (2600, 2000))
+
+	axes = zeros(length(labels), length(gasses))
+	axes = convert(Array{Any, 2}, axes)
+
+	for (i, label) in enumerate(labels)
+		for (j, gas) in enumerate(gasses)
+			gas == "CO₂" ? num_ticks = 4 : num_ticks = 6
+			
+			if j==1 && i==length(labels)
+				axes[i, j] = Axis(fig[i, j], 
+								  yticklabelsvisible = false, 
+								  ylabel="density", 
+								  xlabel="ppm", 
+								  xlabelsize=42, 
+								  ylabelsize=42,
+							      xticklabelsize=30,
+								  xticks=WilkinsonTicks(num_ticks))
+			elseif j==1
+				axes[i, j] = Axis(fig[i, j], 
+								  yticklabelsvisible = false, 
+								  ylabel="density", 
+								  xticklabelsvisible = false, 
+								  ylabelsize=42)
+			elseif i==length(labels)
+				if gas=="H₂O" 
+					axes[i, j] = Axis(fig[i, j], 
+									  yticklabelsvisible = false, 
+									  xlabel="RH", 
+								      xlabelsize=42,
+									  xticklabelsize=30)
+				else
+					axes[i, j] = Axis(fig[i, j], 
+									  yticklabelsvisible = false, 
+									  xlabel="ppm", 
+									  xlabelsize=42,
+								      xticklabelsize=30,
+								      xticks=WilkinsonTicks(num_ticks))
+				end
+			else
+				axes[i, j] = Axis(fig[i, j], 
+								  yticklabelsvisible = false, 
+								  xticklabelsvisible = false)
+			end
+		end
+	end
+	figs = [fig[i, j] for i in 1:length(labels), j in 1:length(gasses)]
+
+    #top gas labels
+	for (label, layout) in zip(gasses, figs[1, 1:length(gasses)])
+		Label(layout[1, 1, Top()], 
+			 label,
+			 textsize = 100,
+			 padding = (0, 0, 25, 0),
+			 halign = :center)
+	end
+
+    #left normal/anomaly type labels
+	for (label, layout) in zip(labels, figs[1:length(labels), 1])
+		Label(layout[1, 1, Left()], 
+			 SyntheticDataGen.reduced_labels[label],
+			 textsize = 50,
+			 padding = (0, 120, 0, 0),
+			 valign = :center,
+			 rotation = pi/2)
+	end
+		
+	for (i, label) in enumerate(labels)
+		for (j, gas) in enumerate(gasses)
+			#generate a distribution
+			gas_distr = SyntheticDataGen.setup_gas_comp_distn(σ_H₂O, label)
+			if gas == "H₂O" 
+				distr = gas_distr.f_H₂O
+			else
+				gas == "CO₂" ? distr = gas_distr.f_CO₂ : distr = gas_distr.f_C₂H₄
+			end
+
+			#create distribution densities and corresponding pressures
+			p_min, p_max = quantile.(distr, [0.001, 0.999])
+			ps = range(p_min, p_max, 1000)
+			densities = [pdf(distr, ps[i]) for i=1:length(ps)]
+			gas=="H₂O" ? ps = ps/SyntheticDataGen.p_H₂O_vapor : ps = ps * 1e6
+
+			#distribution plot using band for shading
+			band!(axes[i, j], 
+				  ps, 
+				  [0 for i=1:length(ps)], 
+				  densities, 
+				  color=(SyntheticDataGen.label_to_color[label], 0.20))
+			lines!(axes[i, j], 
+				   ps, 
+				   densities,
+				   color=SyntheticDataGen.label_to_color[label],				   	 
+         		   strokewidth=5,
+				   strokecolor=SyntheticDataGen.label_to_color[label])
+			
+			#line to zero for uniform distr
+			lines!(axes[i, j], 
+				   [ps[1], ps[1]], 
+				   [densities[1], 0],
+				   color=SyntheticDataGen.label_to_color[label],				   	 
+         		   linewidth=2.5,
+				   strokecolor=SyntheticDataGen.label_to_color[label])
+			lines!(axes[i, j], 
+				   [ps[end], ps[end]], 
+				   [densities[end], 0],
+				   color=SyntheticDataGen.label_to_color[label],				   
+  				   linewidth=2.5,
+				   strokecolor=SyntheticDataGen.label_to_color[label])
+			#gray axis
+			if gas == "H₂O"
+				lines!(axes[i, j], 
+					   [0.8, 0.8, 0.9], 
+					   [1258, 0, 0],
+					   color=:grey,				   	 
+	         		   linewidth=0.5)
+			elseif gas == "CO₂"
+				lines!(axes[i, j], 
+					   [0, 0, 2.0*10^4], 
+					   [220, 0, 0],
+					   color=:grey,				   	 
+	         		   linewidth=0.5)
+			elseif gas == "C₂H₄"
+				lines!(axes[i, j], 
+					   [0, 0, 2.0*10^3], 
+					   [20000, 0, 0],
+					   color=:grey,				   	 
+	         		   linewidth=0.5)
+				#end
+			end
+		end
+	end
+	
+	colgap!(fig.layout, Relative(0.1))
+	linkyaxes!(axes[1, 1], axes[2, 1], axes[3, 1], axes[5, 1])
+	
+	for j = 1:length(gasses)
+		linkxaxes!(axes[1, j], axes[2, j], axes[3, j], axes[4, j], axes[5, j])
+		if gasses[j] != "C₂H₄"
+			linkyaxes!(axes[1, j], axes[2, j], axes[3, j], axes[4, j], axes[5, j])
+		end
+	end
+
+	save("data_distributions.pdf", fig)
+	return fig
 end
 
 end

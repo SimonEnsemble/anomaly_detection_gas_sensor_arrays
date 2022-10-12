@@ -207,6 +207,81 @@ function viz_synthetic_anomaly_hypersphere(X_sphere::Matrix{Float64}, X_scaled::
 end
 
 """
+visualizes effect on SVM by increasing/decreasing ν and γ
+"""
+function viz_ν_γ_effects(data::Dict{String, Any},
+						ν_opt::Float64,
+						γ_opt::Float64)
+	scale_factor = 4
+	zif71_lims   = (0.99 * minimum(data["data"].data_train[:, "m ZIF-71 [g/g]"]),
+				    1.01 * maximum(data["data"].data_train[:, "m ZIF-71 [g/g]"]))
+	zif8_lims    = (0.99 * minimum(data["data"].data_train[:, "m ZIF-8 [g/g]"]),
+				    1.01 * maximum(data["data"].data_train[:, "m ZIF-8 [g/g]"]))
+	γs 			 = [γ_opt/scale_factor, γ_opt, scale_factor*γ_opt]
+	νs 			 = [ν_opt/scale_factor, ν_opt, scale_factor*ν_opt]
+	x_ticks 	 = [AnomalyDetectionPlots.truncate(zif71_lims[1], 4), AnomalyDetectionPlots.truncate(zif71_lims[2], 4)]
+	y_ticks 	 = [AnomalyDetectionPlots.truncate(zif8_lims[1], 4), AnomalyDetectionPlots.truncate(zif8_lims[2], 4)]
+
+	#establish axes and figs for 3x3 grid
+	fig  = Figure(resolution = (1400, 1400))
+	figs = [fig[i, j] for i in 1:length(νs), j in 1:length(γs)]
+	axes = [Axis(fig[i, j], 
+				 xlabel = "m, " * AnomalyDetectionPlots.mofs[1] * " [g/g]",
+				 ylabel = "m, " * AnomalyDetectionPlots.mofs[2] * " [g/g]",
+				 xlabelsize = 25,
+				 ylabelsize = 25,
+				 xticks = x_ticks,
+				 yticks = y_ticks,
+				 xlabelpadding = -15,
+				 ylabelpadding = -40,
+				 aspect = DataAspect()) 
+			for i in 1:length(νs), j in 1:length(γs)]
+
+	#top labels
+	for (label, layout) in zip(["νₒₚₜ / $(scale_factor)", "νₒₚₜ", "$(scale_factor) × νₒₚₜ"], figs[1, 1:length(νs)])
+		Label(layout[1, 1, Top()], 
+		  	  label,
+			  textsize = 40,
+			  padding = (0, 0, 25, 0),
+			  halign = :center)
+	end
+
+	#left labels
+	for (label, layout) in zip(["$(scale_factor) × γₒₚₜ","γₒₚₜ", "γₒₚₜ / $(scale_factor)"], figs[1:length(γs), 1])
+		Label(layout[1, 1, Left()], 
+			  label,
+			  textsize = 40,
+			  padding = (0, 50, 0, 0),
+			  valign = :center,
+			  rotation = pi/2)
+	end
+
+	#build plots for grid spaces
+	for (i, γ) in enumerate(γs)
+		for (j, ν) in enumerate(νs)
+			xlims!(axes[i, j], x_ticks)
+			ylims!(axes[i, j], y_ticks)
+
+			svm    = AnomalyDetection.train_anomaly_detector(data["data"].X_train_scaled, ν, γ)
+			scaler = StandardScaler().fit(data["data"].X_train)
+			AnomalyDetectionPlots.viz_decision_boundary!(axes[i, j], 
+														svm, 
+														scaler, 
+														data["data"].data_train, 
+														zif71_lims, 
+														zif8_lims, 
+														incl_legend=false)
+			AnomalyDetectionPlots.viz_limit_box!(axes[i, j], x_ticks, y_ticks, 4, dashed=false)
+		end
+	end
+
+	#Save finished 3x3 plot
+	save("ν_γ_plot.pdf", fig)
+
+	return fig
+end
+
+"""
 ****************************************************
 gas composition space and sensor calibration visualizations
 ****************************************************
@@ -376,11 +451,22 @@ end
 """
 visualizes a one class SVM decision contour given a particular nu, gamma and resolution.
 """
-function viz_decision_boundary(svm, scaler, data_test::DataFrame; res::Int=700, incl_legend::Bool=true, incl_contour::Bool=true)
+function viz_decision_boundary(svm, 
+							   scaler, 
+							   data_test::DataFrame; 
+							   res::Int=700, 
+							   incl_legend::Bool=true, 
+							   incl_contour::Bool=true,
+							   default_lims=true,
+							   xlims::Tuple{Float64, Float64}= (0.01, 0.02),
+							   ylims::Tuple{Float64, Float64}= (0.01, 0.02))
 	X_test, _ = AnomalyDetection.data_to_Xy(data_test)
 
-	xlims = (0.98 * minimum(X_test[:, 1]), 1.02 * maximum(X_test[:, 1]))
-	ylims = (0.98 * minimum(X_test[:, 2]), 1.02 * maximum(X_test[:, 2]))
+	if default_lims
+		xlims = (0.98 * minimum(X_test[:, 1]), 1.02 * maximum(X_test[:, 1]))
+		ylims = (0.98 * minimum(X_test[:, 2]), 1.02 * maximum(X_test[:, 2]))
+	end
+
 
 	fig = Figure(resolution=(res, res))
 	
@@ -390,6 +476,11 @@ function viz_decision_boundary(svm, scaler, data_test::DataFrame; res::Int=700, 
 			   aspect = DataAspect())
 			   
 	viz_decision_boundary!(ax, svm, scaler, data_test, xlims, ylims,incl_legend=incl_legend, incl_contour=incl_contour)
+
+	if !default_lims
+		xlims!(ax, xlims)
+		ylims!(ax, ylims)
+	end
 
 	fig
 end
@@ -408,7 +499,8 @@ function viz_decision_boundary!(ax,
 
 	viz_responses!(ax, data_test, incl_legend=incl_legend)
 	if incl_contour
-		contour!(x₁s, 
+		contour!(ax,
+				x₁s, 
 				x₂s,
 				predictions, 
 				levels=[0.0], 
@@ -416,6 +508,7 @@ function viz_decision_boundary!(ax,
 				label="decision boundary"
 		) 
 	end
+
 end
 
 """
@@ -476,7 +569,8 @@ generates a box to visualize varying limits in data
 function viz_limit_box!(ax, 
 						xlims::Vector{Float64}, 
 						ylims::Vector{Float64}, 
-						w::Int)
+						w::Int;
+						dashed::Bool=true)
 
 	line_xs = [[xlims[1], xlims[1]],
 			   [xlims[1], xlims[2]],
@@ -486,8 +580,13 @@ function viz_limit_box!(ax,
 			   [ylims[2], ylims[2]],
 			   [ylims[2], ylims[1]],
 			   [ylims[1], ylims[1]]]	
-	for i=1:4		   		
-		lines!(ax, line_xs[i], line_ys[i], linestyle=:dash, linewidth=w, color=(:grey, 0.8))
+	for i=1:4		
+		if dashed
+			line_style = :dash  
+		else
+			line_style = :solid 
+		end		
+		lines!(ax, line_xs[i], line_ys[i], linestyle=line_style, linewidth=w, color=(:grey, 0.8))
 	end
 
 end
