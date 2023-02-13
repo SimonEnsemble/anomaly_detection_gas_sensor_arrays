@@ -208,29 +208,29 @@ function viz_C2H4_CO2_H2O_density_distributions(σ_H₂O)
 								  yticklabelsvisible = false, 
 								  ylabel="density", 
 								  xlabel="ppm", 
-								  xlabelsize=42, 
-								  ylabelsize=42,
-							      xticklabelsize=30,
+								  xlabelsize=62, 
+								  ylabelsize=62,
+							      xticklabelsize=40,
 								  xticks=WilkinsonTicks(num_ticks))
 			elseif j==1
 				axes[i, j] = Axis(fig[i, j], 
 								  yticklabelsvisible = false, 
 								  ylabel="density", 
 								  xticklabelsvisible = false, 
-								  ylabelsize=42)
+								  ylabelsize=62)
 			elseif i==length(labels)
 				if gas=="H₂O" 
 					axes[i, j] = Axis(fig[i, j], 
 									  yticklabelsvisible = false, 
 									  xlabel="RH", 
-								      xlabelsize=42,
-									  xticklabelsize=30)
+								      xlabelsize=62,
+									  xticklabelsize=40)
 				else
 					axes[i, j] = Axis(fig[i, j], 
 									  yticklabelsvisible = false, 
 									  xlabel="ppm", 
-									  xlabelsize=42,
-								      xticklabelsize=30,
+									  xlabelsize=62,
+								      xticklabelsize=40,
 								      xticks=WilkinsonTicks(num_ticks))
 				end
 			else
@@ -246,7 +246,7 @@ function viz_C2H4_CO2_H2O_density_distributions(σ_H₂O)
 	for (label, layout) in zip(gasses, figs[1, 1:length(gasses)])
 		Label(layout[1, 1, Top()], 
 			 label,
-			 textsize = 100,
+			 fontsize = 120,
 			 padding = (0, 0, 25, 0),
 			 halign = :center)
 	end
@@ -255,10 +255,10 @@ function viz_C2H4_CO2_H2O_density_distributions(σ_H₂O)
 	for (label, layout) in zip(labels, figs[1:length(labels), 1])
 		Label(layout[1, 1, Left()], 
 			 SyntheticDataGen.reduced_labels[label],
-			 textsize = 50,
+			 fontsize = 80,
 			 padding = (0, 120, 0, 0),
 			 valign = :center,
-			 rotation = pi/2)
+			 rotation = 0.0)
 	end
 		
 	for (i, label) in enumerate(labels)
@@ -327,7 +327,7 @@ function viz_C2H4_CO2_H2O_density_distributions(σ_H₂O)
 		end
 	end
 	
-	colgap!(fig.layout, Relative(0.1))
+	colgap!(fig.layout, Relative(0.05))
 	linkyaxes!(axes[1, 1], axes[2, 1], axes[3, 1], axes[5, 1])
 	
 	for j = 1:length(gasses)

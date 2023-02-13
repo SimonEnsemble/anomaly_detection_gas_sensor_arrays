@@ -26,6 +26,22 @@ label_to_int = Dict(zip(anomaly_labels, [-1 for i = 1:length(anomaly_labels)]))
 label_to_int["normal"]    = 1
 label_to_int["anomalous"] = -1
 
+mutable struct DataSet
+	data_train::DataFrame
+	
+	X_train::Matrix{Float64}
+	X_train_scaled::Matrix{Float64}
+	y_train::Vector{Int64}
+
+	data_test::DataFrame
+
+	X_test::Matrix{Float64}
+	X_test_scaled::Matrix{Float64}
+	y_test::Vector{Int64}
+
+	scaler
+end
+
 """
 ****************************************************
 optimize ν, γ via density measure.
@@ -106,7 +122,7 @@ function viz_bayes_values_by_point(plot_data::Vector{Tuple{Float64, Float64, Flo
 
 	
     fig = Figure()
-    ax  = Axis(fig[1, 1], ylabel="γ", xlabel="ν", limits = (0, 1.25*xmax, -0.05, 1.25*ymax))
+    ax  = Axis(fig[1, 1], ylabel="γ", xlabel="ν", limits = (0, 1.08*xmax, -0.05, 1.08*ymax))
 
 	#unpack data
 	νs = [plot_data[i][1] for i=1:points]
@@ -117,20 +133,20 @@ function viz_bayes_values_by_point(plot_data::Vector{Tuple{Float64, Float64, Flo
 	colors = [ColorSchemes.thermal[Λs_norm[i]] for i=1:num_data]
 
 	#plot
-	sl = scatterlines!(νs, γs, color=(:grey, 0.3), markersize=12, markercolor=[colors[i] for i=1:points])
+	sl = scatterlines!(νs, γs, color=(:grey, 0.3), markersize=18, markercolor=[colors[i] for i=1:points])
 	Colorbar(fig[1, 2], limits = (maximum(Λs), minimum(Λs)), colormap= reverse(ColorSchemes.thermal), label="error function")
 
 	#indicate starting point
 	ν_init = νs[1]
 	γ_init = γs[1]
-	scatter!([ν_init], [γ_init], marker=:x, markersize=25, color=:green)
+	scatter!([ν_init], [γ_init], marker=:x, markersize=20, color=:green)
 
 	#indicate optimal nu and gamma
 	if points == length(Λs)
 		ideal_index = argmin(Λs)
 		ν_opt = νs[ideal_index]
 		γ_opt = γs[ideal_index]
-		scatter!([ν_opt], [γ_opt], marker=:x, markersize=25, color=:red)
+		scatter!([ν_opt], [γ_opt], marker=:x, markersize=20, color=:red)
 		text!("($(AnomalyDetectionPlots.truncate(ν_opt, 2)), $(AnomalyDetectionPlots.truncate(γ_opt, 2)))",position = (ν_opt, 1.1*γ_opt), align=(:left, :baseline))
 		save("bayes_plot.pdf", fig)
 	end
@@ -197,12 +213,14 @@ visualizes the distribution of outliers in a hypersphere around our data
 """
 function viz_synthetic_anomaly_hypersphere(X_sphere::Matrix{Float64}, X_scaled::Matrix{Float64})
 	fig = Figure()
-	ax = Axis(fig[1,1], aspect=DataAspect(), xlabel="m₁ scaled", ylabel="m₂ scaled")
+	ax = Axis(fig[1,1], aspect=DataAspect(), xlabel=rich("m", CairoMakie.subscript("ZIF-71"), " scaled"), ylabel=rich("m", CairoMakie.subscript("ZIF-8"), " scaled"))
 
-	scatter!(X_sphere[:, 1], X_sphere[:, 2], markersize = 10, color=:red, marker=:x, label="synthetic data")
-	scatter!(X_scaled[:, 1], X_scaled[:, 2], markersize = 5, color = :darkgreen, label="normal")
+	scatter!(X_sphere[:, 1], X_sphere[:, 2],markersize = 4, color=:red, marker=:x, label="synthetic data")
+	scatter!(X_scaled[:, 1], X_scaled[:, 2],strokewidth=2, markersize = 8,color=(:white, 0.0), strokecolor=:darkgreen, label="normal")
+
 	xlims!(minimum(X_sphere[:, 1]) - 0.5, maximum(X_scaled[:, 1]) + 3)
 	axislegend(position=:rb)
+	save("synthetic_hypersphere.pdf", fig)
 	return fig
 end
 
@@ -241,7 +259,7 @@ function viz_ν_γ_effects(data::Dict{String, Any},
 	for (label, layout) in zip(["νₒₚₜ / $(scale_factor)", "νₒₚₜ", "$(scale_factor) × νₒₚₜ"], figs[1, 1:length(νs)])
 		Label(layout[1, 1, Top()], 
 		  	  label,
-			  textsize = 40,
+			  fontsize = 40,
 			  padding = (0, 0, 25, 0),
 			  halign = :center)
 	end
@@ -250,7 +268,7 @@ function viz_ν_γ_effects(data::Dict{String, Any},
 	for (label, layout) in zip(["$(scale_factor) × γₒₚₜ","γₒₚₜ", "γₒₚₜ / $(scale_factor)"], figs[1:length(γs), 1])
 		Label(layout[1, 1, Left()], 
 			  label,
-			  textsize = 40,
+			  fontsize = 40,
 			  padding = (0, 50, 0, 0),
 			  valign = :center,
 			  rotation = pi/2)
@@ -375,7 +393,7 @@ function viz_cm(svm, data_test::DataFrame, scaler)
 	ax = Axis(fig[1, 1],
 		  xticks=([1, 2], ["anomaly", "normal"]),
 		  yticks=([i for i=1:n_labels], [reduced_labels[all_labels[i]] for i=1:n_labels]),
-		  xticklabelrotation=25.5,
+		  #xticklabelrotation=25.5,
 		  ylabel="truth",
 		  xlabel="prediction"
     )
@@ -458,12 +476,15 @@ function viz_decision_boundary(svm,
 							   incl_legend::Bool=true, 
 							   incl_contour::Bool=true,
 							   default_lims=true,
+							   viz_σ::Bool=true,
 							   xlims::Tuple{Float64, Float64}= (0.01, 0.02),
-							   ylims::Tuple{Float64, Float64}= (0.01, 0.02))
+							   ylims::Tuple{Float64, Float64}= (0.01, 0.02),
+							   σ_m="1.0e-5",
+							   σ_h₂o="0.01")
 	X_test, _ = AnomalyDetection.data_to_Xy(data_test)
 
 	if default_lims
-		xlims = (0.98 * minimum(X_test[:, 1]), 1.02 * maximum(X_test[:, 1]))
+		xlims = (0.98 * minimum(X_test[:, 1]), 1.02 * maximum(X_test[:, 1])+0.0001)
 		ylims = (0.98 * minimum(X_test[:, 2]), 1.02 * maximum(X_test[:, 2]))
 	end
 
@@ -471,15 +492,34 @@ function viz_decision_boundary(svm,
 	fig = Figure(resolution=(res, res))
 	
 	ax = Axis(fig[1, 1], 
-			   xlabel = "m, " * mofs[1] * " [g/g]",
-			   ylabel = "m, " * mofs[2] * " [g/g]",
-			   aspect = DataAspect())
+			   xlabel = rich("m", CairoMakie.subscript("ZIF-71"), " [g gas/g ZIF]"),
+			   ylabel = rich("m", CairoMakie.subscript("ZIF-8"), " [g gas/g ZIF]"),
+			   aspect = DataAspect(),
+			   xlabelsize=31,
+			   xticklabelsize=25,
+			   ylabelsize=31,
+			   yticklabelsize=25,)
 			   
 	viz_decision_boundary!(ax, svm, scaler, data_test, xlims, ylims,incl_legend=incl_legend, incl_contour=incl_contour)
 
 	if !default_lims
 		xlims!(ax, xlims)
 		ylims!(ax, ylims)
+	end
+
+	if viz_σ
+		Label(fig[1, 1], rich("σ", CairoMakie.subscript("m"), " [g/g] = $(σ_m)"), 
+				tellwidth=false, 
+				tellheight=false, 
+				halign=0.09, 
+				valign=0.9,
+			  	fontsize=21)
+		Label(fig[1, 1], rich("σ", CairoMakie.subscript("H2O"), " [RH] = $(σ_h₂o)"), 
+				tellwidth=false, 
+				tellheight=false, 
+				halign=0.09, 
+				valign=0.85,
+				fontsize=21)
 	end
 
 	fig
@@ -549,7 +589,7 @@ function viz_responses!(ax, data::DataFrame; incl_legend::Bool=true)
     end
 
 	if incl_legend
-    	axislegend(ax, position=:rb)
+    	axislegend(ax, position=:rb, labelsize=19)
 	end
 end
 
@@ -623,19 +663,19 @@ function viz_sensorδ_waterσ_grid(σ_H₂Os::Vector{Float64},
 	figs = [fig[i, j] for i in 1:3, j in 1:3]
 
 #top sensor error labels σ_m
-	for (label, layout) in zip(["σ, m =$(σ_ms[1]) [g/g]","σ, m =$(σ_ms[2]) [g/g]", "σ, m  = $(σ_ms[3]) [g/g]"], figs[1, 1:3])
+	for (i, layout) in zip(1:3, figs[1, 1:3])
 		Label(layout[1, 1, Top()], 
-			 label,
-			 textsize = 40,
+			rich("σ", CairoMakie.subscript("m"), " = $(σ_ms[i]) [g/g]"),
+			 fontsize = 40,
 			 padding = (0, -385, 25, 0),
 			 halign = :center)
 	end
 
 #left water variance labels σ_H₂O
-	for (label, layout) in zip(["σ, H₂O =$(σ_H₂Os[1]) [RH]","σ, H₂O =$(σ_H₂Os[2]) [RH]", "σ, H₂O =$(σ_H₂Os[3]) [RH]"], figs[1:3, 1])
+	for (i, layout) in zip(1:3, figs[1:3, 1])
 		Label(layout[1, 1, Left()], 
-			 label,
-			 textsize = 40,
+			 rich("σ", CairoMakie.subscript("H2O"), " = $(σ_H₂Os[i]) [RH]"),
+			 fontsize = 40,
 			 padding = (0, 25, 0, 0),
 			 valign = :center,
 			 rotation = pi/2)
@@ -650,7 +690,7 @@ if gen_data_flag
 	zif8_lims_low_σ  = [Inf, 0]
 
 	@assert num_runs%2 == 0
-	plot_data_storage = zeros(length(σ_H₂Os), length(σ_H₂Os), num_runs)
+	plot_data_storage = zeros(length(σ_H₂Os), length(σ_H₂Os), num_runs)f
 	plot_data_storage = convert(Array{Any, 3}, plot_data_storage)
 
 	for (i, σ_H₂O) in enumerate(σ_H₂Os)
@@ -789,7 +829,7 @@ end
 					  xlabel    = "m, " * mofs[1] * " [g/g]",
 					  ylabel    = "m, " * mofs[2] * " [g/g]",
 					  xticks    = median_data["zif71_lims"],
-					  yticks    = median_data["zif8_lims"],
+					  #yticks    = ([median_data["zif8_lims"][1]+0.0001, median_data["zif8_lims"][2]-0.0001], ["$(median_data["zif8_lims"][1])", "$(median_data["zif8_lims"][2])"]),
 					  aspect    = DataAspect(),
 					  alignmode = Outside(10))
 
@@ -823,7 +863,7 @@ end
 			ax = Axis(fig[i, j][1, 2],
 					 xticks=([1, 2], ["anomaly", "normal"]),
 					 yticks=([i for i=1:n_labels], [reduced_labels[all_labels[i]] for i=1:n_labels]),
-					 xticklabelrotation=25.5,
+					 #xticklabelrotation=25.5,
 					 xlabel="prediction",
 					 alignmode = Outside(10))
 
@@ -923,8 +963,8 @@ function viz_f1_score_heatmap(σ_H₂O_max::Float64,
 		  yticks=(1:length(σ_H₂Os), ["$(truncate(σ_H₂Os[i], 5))" for i=1:length(σ_H₂Os)]),
 		  xticks=(1:length(σ_ms), ["$(truncate(σ_ms[length(σ_ms)-i+1], 8))" for i=1:length(σ_ms)]),
 		  xticklabelrotation=45.0,
-		  xlabel="σ, m [g/g]",
-		  ylabel="σ, H₂O [relative humidity]"
+		  xlabel=rich("σ", CairoMakie.subscript("m"), " [g gas/g ZIF]"),
+		  ylabel=rich("σ", CairoMakie.subscript("H2O"), " [relative humidity]")
     )
 
 	hm = heatmap!(1:length(σ_H₂Os), 1:length(σ_ms), f1_score_grid,
