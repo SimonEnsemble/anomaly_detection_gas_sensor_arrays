@@ -200,6 +200,16 @@ begin
 end
 
 
+# ╔═╡ 6a46c6e8-2dfe-4745-b867-9192265b5d0d
+md"## Learning curve
+"
+
+# ╔═╡ 627ed8d6-ac50-48e8-aa90-c75232c1bd64
+
+
+# ╔═╡ 73ac404a-f408-472f-aa72-8b8d393c6c9f
+
+
 # ╔═╡ 82ae9099-37cc-4402-9963-62cc064849ad
 md"# Alternative method: Knee
 "
@@ -252,7 +262,7 @@ f1_hypersphere
 
 # ╔═╡ 3aab547c-8b00-48da-aa8e-3d51e804c5df
 md"!!! example \"\" 
-	f1 score testing"
+	f1 score testing for fun"
 
 # ╔═╡ a1843a87-a8d3-40ab-9959-3e14d520a4d1
 function f1(true_pstv, false_pstv, false_ngtv)
@@ -1956,6 +1966,9 @@ version = "3.5.0+0"
 # ╠═a2467d27-0664-43d3-8f22-46b0d2ad4a77
 # ╟─af557f0c-9cb1-41ba-bcff-c1c95b08c560
 # ╠═00d90c63-6f3e-4906-ad35-ba999439e253
+# ╟─6a46c6e8-2dfe-4745-b867-9192265b5d0d
+# ╠═627ed8d6-ac50-48e8-aa90-c75232c1bd64
+# ╠═73ac404a-f408-472f-aa72-8b8d393c6c9f
 # ╟─82ae9099-37cc-4402-9963-62cc064849ad
 # ╟─51b0ebd4-1dec-4b35-bb15-cd3df906aca3
 # ╠═6ceab194-4861-4be1-901c-6713db5a4204
