@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.22
+# v0.19.25
 
 using Markdown
 using InteractiveUtils
@@ -119,6 +119,9 @@ function fit_Henry(data::DataFrame)
 	res = optimize(minimize_me, [H_guess], Newton())
 	return res.minimizer[1]
 end
+
+# ╔═╡ 11a5603f-d321-4560-86cb-6b8a647201b0
+gases
 
 # ╔═╡ ec3b683d-a867-4a2d-9b40-57781927f32a
 md"!!! example \"\"
@@ -258,9 +261,6 @@ viz_adsorption_data(mofs[2])
 # ╔═╡ feb54bc2-c4ba-4a24-9e63-3852c6833cd2
 mofs[1]
 
-# ╔═╡ 67676360-fec9-45a7-8c9f-90a7f5aa0818
-rich("m", subscript("whatever"))
-
 # ╔═╡ f7c34c83-a982-4280-a453-ace369a72f69
 md"!!! example \"\"
 	visualize and compare henry coefficient values.
@@ -268,13 +268,14 @@ md"!!! example \"\"
 
 # ╔═╡ eaed2f07-f631-4502-ade3-93fa57b1d978
 function viz_henry_barplot()
-	h_values = [henry_data[mofs[i]][gas_to_pretty_name[gases[j]]]["henry coef [g/(g-bar)]"] 
-				for i=1:length(mofs) for j=1:length(gases)]
-	
+	mof_order = [1, 2, 1, 2, 1, 2]
+	gas_order = [1, 2, 3, 1, 2, 3]
+	h_values = [henry_data[mofs[mof_order[i]]][gas_to_pretty_name[gases[gas_order[i]]]]["henry coef [g/(g-bar)]"] for i in 1:length(gases) * length(mofs)]
+
 	fig = Figure()
 	ax = Axis(fig[1,1], 
 		      xticks=(1:3, [gas_to_pretty_name[gas] for gas in gases]), 
-		      ylabel="Henry coefficient [g gas/(g ZIF-bar)]"
+		      ylabel="Henry coefficient \n[g gas/(g ZIF-bar)]"
 	)
 
 	mof_color = ColorSchemes.tableau_colorblind
@@ -300,6 +301,25 @@ function viz_henry_barplot()
 	save("henry_coeff_bar_plot.pdf", fig)
 	fig
 end
+
+# ╔═╡ c0689176-e587-4900-9630-5792b446acdf
+[henry_data[mof][gas_to_pretty_name[gas]]["henry coef [g/(g-bar)]"] 
+				for mof in mofs for gas in gases]
+
+# ╔═╡ e1abc767-441d-4493-b018-9538abeb7243
+henry_data["ZIF-8"]
+
+# ╔═╡ a43899e0-2bcf-4cf2-99db-cc002f0ff0c6
+henry_data["ZIF-71"]
+
+# ╔═╡ 986bddd9-b0e4-4a8d-ac4d-ef27cee32113
+gases
+
+# ╔═╡ 1e572299-b98a-4b0c-8cf7-51c0fae73023
+mofs
+
+# ╔═╡ f3e969ea-1f53-4877-a510-df2ed116a060
+
 
 # ╔═╡ 97f1099f-0417-4688-93f8-16a14cbe40c3
 viz_henry_barplot()
@@ -378,7 +398,68 @@ end
 typeof(henry_data["ZIF-8"]["H₂O"])
 
 # ╔═╡ c94f8408-7fa9-45db-9508-d8a6d196704b
-henry_data["ZIF-8"]["H₂O"]
+henry_data["ZIF-8"]["H₂O"]["henry coef [g/(g-bar)]"]
+
+# ╔═╡ e7effb31-f36d-4751-ac79-6cb30640f5b9
+gases
+
+# ╔═╡ 0b9999f0-c43e-4502-921c-928c28316e21
+henry_data
+
+# ╔═╡ 09df069b-a1ef-459f-adc5-768d9acb4fd7
+function viz_selectivity(henry_data)
+	gases = ["C₂H₄", "CO₂", "H₂O"]
+	mofs = ["ZIF-71", "ZIF-8"]
+
+	pair_nums = [(1, 2), (3, 1), (3, 2)]
+	gas_pairs = [gases[pair_nums[i][1]] * "/" * gases[pair_nums[i][2]] for i=1:length(pair_nums)]
+
+	s = Dict()
+	for mof in mofs
+		s[mof] = Dict()
+		for (i, pair) in enumerate(gas_pairs)
+			s[mof][pair] = henry_data[mof][gases[pair_nums[i][1]]]["henry coef [g/(g-bar)]"] / henry_data[mof][gases[pair_nums[i][2]]]["henry coef [g/(g-bar)]"]
+		end
+		#s[pair[1] * "/" * pair[2]] = [henry_data[mof][pair[1]]["henry coef [g/(g-bar)]"] / henry_data[mof][pair[2]]["henry coef [g/(g-bar)]"] for mof in mofs]
+	end
+
+	s_values = vcat(
+		[s[mofs[1]][gas_pair] for gas_pair in gas_pairs],
+	    [s[mofs[2]][gas_pair] for gas_pair in gas_pairs])
+	
+	tbl = (x = [1, 1, 1, 2, 2, 2],
+		   height = s_values,
+           dodge = [1, 2, 3, 1, 2, 3]
+       )
+	s_colors = [ColorSchemes.Spectral_4[i] for i=1:length(gases)]
+	colors = vcat(s_colors, s_colors)
+	elements = [PolyElement(polycolor = s_colors[i]) for i=1:length(gases)]
+
+	fig = Figure()
+	ax  = Axis(fig[1, 1], ylabel="selectivity",
+		# ylabel="ZIF",
+		xticks=(1:length(mofs), mofs)
+	)
+	ylims!(0, 1.1*maximum(s_values))
+
+	
+	
+	#vlines!(1.0, linestyle=:dash, color="gray")
+	barplot!(ax, tbl.x, tbl.height, dodge=tbl.dodge,
+		label_size=11, color=colors, bar_labels=:y, label_offset = 10, 		label_formatter=x -> "$(round(x, digits=1))")
+
+	hlines!(1.0, linestyle=:dash, color="gray", linewidth=1.5)
+
+	Legend(fig[1,2], elements, gas_pairs)
+	
+	#xlims!(0, 3.5)
+	save("selectivity_bar_plot.pdf", fig)
+	fig
+
+end
+
+# ╔═╡ 3f81ccc1-97b5-4b51-88ff-a4d782d9b4c8
+viz_selectivity(henry_data)
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -1904,6 +1985,7 @@ version = "3.5.0+0"
 # ╠═d657ed23-3eb4-49d0-a59c-811e8189c376
 # ╟─d5544844-21ed-4a8c-8715-45038b502453
 # ╠═26d5dfc6-ce64-4389-adec-c0c8ec8582d5
+# ╠═11a5603f-d321-4560-86cb-6b8a647201b0
 # ╟─ec3b683d-a867-4a2d-9b40-57781927f32a
 # ╠═ebe1cd5a-58a9-4ee7-904e-05261493ae92
 # ╠═00306860-568b-4204-ab35-8e150e32a105
@@ -1914,9 +1996,14 @@ version = "3.5.0+0"
 # ╠═f6890756-0753-4c49-bd89-bee2b71fe550
 # ╠═536b6ed6-e656-4cc6-a4f2-efd9eba197d0
 # ╠═feb54bc2-c4ba-4a24-9e63-3852c6833cd2
-# ╠═67676360-fec9-45a7-8c9f-90a7f5aa0818
 # ╟─f7c34c83-a982-4280-a453-ace369a72f69
 # ╠═eaed2f07-f631-4502-ade3-93fa57b1d978
+# ╠═c0689176-e587-4900-9630-5792b446acdf
+# ╠═e1abc767-441d-4493-b018-9538abeb7243
+# ╠═a43899e0-2bcf-4cf2-99db-cc002f0ff0c6
+# ╠═986bddd9-b0e4-4a8d-ac4d-ef27cee32113
+# ╠═1e572299-b98a-4b0c-8cf7-51c0fae73023
+# ╠═f3e969ea-1f53-4877-a510-df2ed116a060
 # ╠═97f1099f-0417-4688-93f8-16a14cbe40c3
 # ╟─d6920bb1-6bb5-4b18-88aa-17f8c78d8974
 # ╠═19c10c96-70f9-47a1-a2d8-9d8fb57c8d12
@@ -1936,5 +2023,9 @@ version = "3.5.0+0"
 # ╠═814741cc-7b99-469d-8705-32a3ff02e46e
 # ╠═77344a53-dc8a-426a-b941-1b81638f1a38
 # ╠═c94f8408-7fa9-45db-9508-d8a6d196704b
+# ╠═e7effb31-f36d-4751-ac79-6cb30640f5b9
+# ╠═0b9999f0-c43e-4502-921c-928c28316e21
+# ╠═09df069b-a1ef-459f-adc5-768d9acb4fd7
+# ╠═3f81ccc1-97b5-4b51-88ff-a4d782d9b4c8
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
