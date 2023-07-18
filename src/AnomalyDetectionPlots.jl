@@ -418,16 +418,19 @@ function viz_cm!(ax,
 	end
 
 	@assert SyntheticDataGen.viable_labels[1] == "normal"
+	good_colors = reverse(ColorSchemes.diverging_gwr_55_95_c38_n256[0:0.01:0.5])
+	bad_colors = ColorSchemes.diverging_gwr_55_95_c38_n256[0.5:0.01:1.0]
+
 	# anomalies
 	heatmap!(1:1, 2:n_labels, reshape(cm[1, 2:end], (1, 4)),
-			      colormap=ColorSchemes.algae, colorrange=(0, 5))
+			      colormap=good_colors, colorrange=(0, 5))
 	heatmap!(2:2, 2:n_labels, reshape(cm[2, 2:end], (1, 4)),
-			      colormap=ColorSchemes.amp, colorrange=(0, 5))
+			      colormap=bad_colors, colorrange=(0, 5))
 	# normal data
 	heatmap!(1:1, 1:1, [cm[1, 1]],
-			      colormap=ColorSchemes.amp, colorrange=(0, 100))
+			      colormap=bad_colors, colorrange=(0, 100))
 	heatmap!(2:2, 1:1, [cm[2, 1]],
-			      colormap=ColorSchemes.algae, colorrange=(0, 100))
+			      colormap=good_colors, colorrange=(0, 100))
     for i = 1:2
         for j = 1:length(all_labels)
             text!("$(cm[i, j])",
@@ -649,10 +652,10 @@ function viz_sensorδ_waterσ_grid(σ_H₂Os::Vector{Float64},
 								num_anomaly_test::Int64; 
 								validation_method::String="hypersphere",
 								num_runs::Int=100,
-								gen_data_flag=true,
-								tune_bounds_flag=true,
-								bound_tuning_low_variance=(-0.01, 0.01, -0.01, 0.01),
-								bound_tuning_high_variance=(-0.01, 0.01, -0.01, 0.01))
+								gen_data_flag::Bool=true,
+								tune_bounds_flag::Bool=true,
+								bound_tuning_low_variance::NTuple{4, Float64}=(-0.01, 0.01, -0.01, 0.01),
+								bound_tuning_high_variance::NTuple{4, Float64}=(-0.01, 0.01, -0.01, 0.01))
 
 	@assert validation_method=="hypersphere" || validation_method=="knee"
 
@@ -690,7 +693,7 @@ if gen_data_flag
 	zif8_lims_low_σ  = [Inf, 0]
 
 	@assert num_runs%2 == 0
-	plot_data_storage = zeros(length(σ_H₂Os), length(σ_H₂Os), num_runs)f
+	plot_data_storage = zeros(length(σ_H₂Os), length(σ_H₂Os), num_runs)
 	plot_data_storage = convert(Array{Any, 3}, plot_data_storage)
 
 	for (i, σ_H₂O) in enumerate(σ_H₂Os)

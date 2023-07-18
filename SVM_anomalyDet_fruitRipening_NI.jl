@@ -205,10 +205,59 @@ md"## Learning curve
 "
 
 # ╔═╡ 627ed8d6-ac50-48e8-aa90-c75232c1bd64
+begin
+	#number of normal data points for training and test data
+	num_normal_train_points_learning_curve = [10, 20, 50, 100, 150, 200, 300, 500]
 
+	#number of each type of anomaly in test data
+	# num_normal_test_points   = 100
+	# num_anomaly_test_points  = 5
 
-# ╔═╡ 73ac404a-f408-472f-aa72-8b8d393c6c9f
+	# grab mid variance values
+	σ_H₂O = σ_H₂O_vector[2]
+	σ_m = σ_m_vector[2]
 
+	function learning_curve(num_normal_train_points::Vector{Int64};
+							num_normal_test::Int64=num_normal_test_points,
+							num_anomaly_test::Int64=num_anomaly_test_points,
+							gen_data_flag::Bool=true,
+							num_runs::Int64=100,
+							σ_H₂O::Float64=σ_H₂O,
+							σ_m::Float64=σ_m)
+
+		#data_storage = zeros(length(num_normal_train_points), num_runs)
+		#data_storage = convert(Array{Any, 2}, data_storage)
+		data_storage = zeros(length(num_normal_train_points))
+		data_storage = convert(Array{Any}, data_storage)
+		num_anomaly_train = 0 #this should always stay 0
+
+		for (i, num_normal_train) in enumerate(num_normal_train_points)
+			Data = AnomalyDetection.setup_dataset(num_normal_train, 
+													num_anomaly_train, 
+													num_normal_test, 
+													num_anomaly_test, 
+													σ_H₂O, 
+													σ_m)
+
+			data_storage[i] = Data
+			
+		end
+
+		
+		return data_storage
+	end
+end
+
+# ╔═╡ 2b70c520-3573-4cfc-8916-8a751ae22c78
+typeof((-0.01, 0.01, -0.01, 0.01))
+
+# ╔═╡ 405cf65c-7e00-43a2-8919-36fd83d1fd77
+begin
+	local plot_data_storage = zeros(length(num_normal_train_points_learning_curve), 100)
+	local plot_data_storage = convert(Array{Any, 2}, plot_data_storage)
+
+	learning_curve(num_normal_train_points_learning_curve)
+end
 
 # ╔═╡ 82ae9099-37cc-4402-9963-62cc064849ad
 md"# Alternative method: Knee
@@ -1935,7 +1984,7 @@ version = "3.5.0+0"
 # ╠═6d5bc919-351d-4b66-a8a6-5e92a42d4fac
 # ╠═31f71438-ff2f-49f9-a801-3a6489eaf271
 # ╠═5d920ea0-f04d-475f-b05b-86e7b199d7e0
-# ╠═ebf79f0c-8399-42bf-b790-d4934906ede0
+# ╟─ebf79f0c-8399-42bf-b790-d4934906ede0
 # ╟─4348a594-aa99-45dd-af3f-f3b61a4e8142
 # ╟─e5eede17-08bd-4120-846e-36a3058c003e
 # ╟─853390f9-6519-4df3-aa24-7b337142dbe4
@@ -1968,7 +2017,8 @@ version = "3.5.0+0"
 # ╠═00d90c63-6f3e-4906-ad35-ba999439e253
 # ╟─6a46c6e8-2dfe-4745-b867-9192265b5d0d
 # ╠═627ed8d6-ac50-48e8-aa90-c75232c1bd64
-# ╠═73ac404a-f408-472f-aa72-8b8d393c6c9f
+# ╠═2b70c520-3573-4cfc-8916-8a751ae22c78
+# ╠═405cf65c-7e00-43a2-8919-36fd83d1fd77
 # ╟─82ae9099-37cc-4402-9963-62cc064849ad
 # ╟─51b0ebd4-1dec-4b35-bb15-cd3df906aca3
 # ╠═6ceab194-4861-4be1-901c-6713db5a4204
