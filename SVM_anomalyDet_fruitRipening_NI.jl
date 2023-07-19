@@ -220,7 +220,7 @@ begin
 							num_normal_test::Int64=num_normal_test_points,
 							num_anomaly_test::Int64=num_anomaly_test_points,
 							gen_data_flag::Bool=true,
-							num_runs::Int64=1,
+							num_runs::Int64=8,
 							σ_H₂O::Float64=σ_H₂O,
 							σ_m::Float64=σ_m)
 
@@ -262,29 +262,48 @@ end
 
 # ╔═╡ 3ecec8c2-acc8-408d-ba44-4fea08e3a8c6
 function viz_learning_curve(f1_scores::Vector{Float64}, 														num_normal_train_points::Vector{Int64};
-							connect_dots::Bool=false)
+							connect_dots::Bool=false,
+							vis_σ::Bool=true,
+							σ_H₂O::Float64=σ_H₂O,
+							σ_m::Float64=σ_m)
 	rounded_f1_scores = [AnomalyDetectionPlots.truncate(f1_score, 2) for f1_score in f1_scores]
 	
-    fig = Figure()
-    ax = Axis(fig[1, 1], ylabel="F1 score", xlabel="training data size", xticks=num_normal_train_points, yticks=rounded_f1_scores)
+    fig = Figure(resolution = (1000, 800))
+    ax = Axis(fig[1, 1], ylabel="F1 score", xlabel="training data size", xticks=0:50:maximum(num_normal_train_points), yticks=rounded_f1_scores)
 
 	if connect_dots
 		lines!(num_normal_train_points, rounded_f1_scores)
 	end
 
 	scatter!(num_normal_train_points, rounded_f1_scores, marker=:o, markersize=20, color=[ColorSchemes.RdYlGn_4[f1_score] for f1_score in f1_scores])
+
+	if vis_σ
+		Label(fig[1, 1], rich("σ", CairoMakie.subscript("m"), " [g/g] = $(σ_m)"), 
+				tellwidth=false, 
+				tellheight=false, 
+				halign=0.85, 
+				valign=0.15,
+			  	fontsize=21)
+		Label(fig[1, 1], rich("σ", CairoMakie.subscript("H2O"), " [RH] = $(σ_H₂O)"), 
+				tellwidth=false, 
+				tellheight=false, 
+				halign=0.85, 
+				valign=0.1,
+				fontsize=21)
+	end
+	
 	
 	save("learning_curve.pdf", fig)
 
 	fig
 end
 
-# ╔═╡ 490d6615-f06b-470c-af77-27f481d931ef
-ColorSchemes.RdYlGn_4[0.4]
-
 # ╔═╡ 405cf65c-7e00-43a2-8919-36fd83d1fd77
 begin
-	lc = learning_curve(num_normal_train_points_learning_curve)
+	# lc = learning_curve(num_normal_train_points_learning_curve)
+
+	# 8 runs, dps = [10, 20, 50, 100, 150, 200, 300, 400]
+	#lc = [0.440254, 0.48452, 0.587227, 0.69394, 0.683194, 0.762326, 0.738558, 0.759296]
 end
 
 # ╔═╡ 12df72c2-3228-472b-9e47-4610960ec608
@@ -2052,7 +2071,6 @@ version = "3.5.0+0"
 # ╟─6a46c6e8-2dfe-4745-b867-9192265b5d0d
 # ╠═627ed8d6-ac50-48e8-aa90-c75232c1bd64
 # ╠═3ecec8c2-acc8-408d-ba44-4fea08e3a8c6
-# ╠═490d6615-f06b-470c-af77-27f481d931ef
 # ╠═405cf65c-7e00-43a2-8919-36fd83d1fd77
 # ╠═12df72c2-3228-472b-9e47-4610960ec608
 # ╠═a384df98-f1ff-4660-abbd-b584e4b501a7
