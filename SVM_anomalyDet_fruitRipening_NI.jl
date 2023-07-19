@@ -208,7 +208,6 @@ md"## Learning curve
 begin
 	#number of normal data points for training and test data
 	num_normal_train_points_learning_curve = [10, 20, 50, 100, 150, 200, 300, 500]
-
 	#number of each type of anomaly in test data
 	# num_normal_test_points   = 100
 	# num_anomaly_test_points  = 5
@@ -221,43 +220,78 @@ begin
 							num_normal_test::Int64=num_normal_test_points,
 							num_anomaly_test::Int64=num_anomaly_test_points,
 							gen_data_flag::Bool=true,
-							num_runs::Int64=100,
+							num_runs::Int64=1,
 							σ_H₂O::Float64=σ_H₂O,
 							σ_m::Float64=σ_m)
 
 		#data_storage = zeros(length(num_normal_train_points), num_runs)
 		#data_storage = convert(Array{Any, 2}, data_storage)
 		data_storage = zeros(length(num_normal_train_points))
-		data_storage = convert(Array{Any}, data_storage)
 		num_anomaly_train = 0 #this should always stay 0
 
 		for (i, num_normal_train) in enumerate(num_normal_train_points)
-			Data = AnomalyDetection.setup_dataset(num_normal_train, 
-													num_anomaly_train, 
-													num_normal_test, 
-													num_anomaly_test, 
-													σ_H₂O, 
-													σ_m)
+			f1_score = 0.0
+			for j=1:num_runs
+				#GENERATE DATASET 
+				Data = AnomalyDetection.setup_dataset(num_normal_train, 
+														num_anomaly_train, 
+														num_normal_test, 
+														num_anomaly_test, 
+														σ_H₂O, 
+														σ_m)
 
-			data_storage[i] = Data
-			
+				#STEP 1 - VALIDATE
+				(ν_opt, γ_opt), _ = AnomalyDetection.bayes_validation(Data.X_train_scaled, n_iter=50, plot_data_flag=false)
+
+				#STEP 2 - TRAIN ANOMALY DETECTOR
+				svm = AnomalyDetection.train_anomaly_detector(Data.X_train_scaled, ν_opt, γ_opt)
+
+				#STEP 3 - DETERMINE F1-SCORE
+				f1_score += AnomalyDetection.performance_metric(Data.y_test,svm.predict(Data.X_test_scaled))
+			end
+			#calc average f1
+			f1_score = f1_score/num_runs
+
+			#store f1 for particular sized set of training data
+			data_storage[i] = f1_score
 		end
 
-		
 		return data_storage
 	end
 end
 
-# ╔═╡ 2b70c520-3573-4cfc-8916-8a751ae22c78
-typeof((-0.01, 0.01, -0.01, 0.01))
+# ╔═╡ 3ecec8c2-acc8-408d-ba44-4fea08e3a8c6
+function viz_learning_curve(f1_scores::Vector{Float64}, 														num_normal_train_points::Vector{Int64};
+							connect_dots::Bool=false)
+	rounded_f1_scores = [AnomalyDetectionPlots.truncate(f1_score, 2) for f1_score in f1_scores]
+	
+    fig = Figure()
+    ax = Axis(fig[1, 1], ylabel="F1 score", xlabel="training data size", xticks=num_normal_train_points, yticks=rounded_f1_scores)
+
+	if connect_dots
+		lines!(num_normal_train_points, rounded_f1_scores)
+	end
+
+	scatter!(num_normal_train_points, rounded_f1_scores, marker=:o, markersize=20, color=[ColorSchemes.RdYlGn_4[f1_score] for f1_score in f1_scores])
+	
+	save("learning_curve.pdf", fig)
+
+	fig
+end
+
+# ╔═╡ 490d6615-f06b-470c-af77-27f481d931ef
+ColorSchemes.RdYlGn_4[0.4]
 
 # ╔═╡ 405cf65c-7e00-43a2-8919-36fd83d1fd77
 begin
-	local plot_data_storage = zeros(length(num_normal_train_points_learning_curve), 100)
-	local plot_data_storage = convert(Array{Any, 2}, plot_data_storage)
-
-	learning_curve(num_normal_train_points_learning_curve)
+	lc = learning_curve(num_normal_train_points_learning_curve)
 end
+
+# ╔═╡ 12df72c2-3228-472b-9e47-4610960ec608
+viz_learning_curve(lc, num_normal_train_points_learning_curve)
+
+# ╔═╡ a384df98-f1ff-4660-abbd-b584e4b501a7
+28*10/(60)
 
 # ╔═╡ 82ae9099-37cc-4402-9963-62cc064849ad
 md"# Alternative method: Knee
@@ -2017,8 +2051,11 @@ version = "3.5.0+0"
 # ╠═00d90c63-6f3e-4906-ad35-ba999439e253
 # ╟─6a46c6e8-2dfe-4745-b867-9192265b5d0d
 # ╠═627ed8d6-ac50-48e8-aa90-c75232c1bd64
-# ╠═2b70c520-3573-4cfc-8916-8a751ae22c78
+# ╠═3ecec8c2-acc8-408d-ba44-4fea08e3a8c6
+# ╠═490d6615-f06b-470c-af77-27f481d931ef
 # ╠═405cf65c-7e00-43a2-8919-36fd83d1fd77
+# ╠═12df72c2-3228-472b-9e47-4610960ec608
+# ╠═a384df98-f1ff-4660-abbd-b584e4b501a7
 # ╟─82ae9099-37cc-4402-9963-62cc064849ad
 # ╟─51b0ebd4-1dec-4b35-bb15-cd3df906aca3
 # ╠═6ceab194-4861-4be1-901c-6713db5a4204
