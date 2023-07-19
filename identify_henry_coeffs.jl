@@ -5,7 +5,7 @@ using Markdown
 using InteractiveUtils
 
 # ╔═╡ d090131e-6602-4c03-860c-ad3cb6c7844a
-using CairoMakie,CSV, DataFrames, ColorSchemes, Distributions, Optim, PlutoUI, Colors, JLD2, LinearAlgebra, ScikitLearn, PyCall, LaTeXStrings, LinearAlgebra, Revise, Makie, PyCallJLD
+using CairoMakie,CSV, DataFrames, ColorSchemes, Distributions, Optim, PlutoUI, Colors, JLD2, LinearAlgebra, ScikitLearn, PyCall, LaTeXStrings, LinearAlgebra, Revise, Makie, PyCallJLD,  Makie.GeometryBasics
 
 # ╔═╡ 5019e8ac-040f-48fd-98e8-21ff7970aa23
 include("plot_theme.jl")
@@ -46,12 +46,6 @@ end
 
 # ╔═╡ 2bf50092-29f5-4ee1-bb46-30fd426d5aeb
 	svm = AnomalyDetection.train_anomaly_detector(data_set.X_train_scaled, ν_opt, γ_opt)
-
-# ╔═╡ d2c6dd0a-8546-4526-bec0-0730efdc4e3c
-AnomalyDetectionPlots.viz_decision_boundary(svm, data_set.scaler, data_set.data_train, incl_legend=true, incl_contour=false)
-
-# ╔═╡ dd31d450-5837-4003-ba47-7be914dabecf
-AnomalyDetectionPlots.viz_decision_boundary(svm, data_set.scaler, data_set.data_test, incl_contour=false)
 
 # ╔═╡ 0b3c5692-8406-4093-8a83-8dec605b3048
 SyntheticDataGen.viz_C2H4_CO2_composition(data_set.data_train)
@@ -1975,8 +1969,6 @@ version = "3.5.0+0"
 # ╠═40328dbb-2afd-40e7-8710-3d902bc7fdbb
 # ╠═f92940b3-0ab2-4923-b681-c6093c433c14
 # ╠═2bf50092-29f5-4ee1-bb46-30fd426d5aeb
-# ╠═d2c6dd0a-8546-4526-bec0-0730efdc4e3c
-# ╠═dd31d450-5837-4003-ba47-7be914dabecf
 # ╠═0b3c5692-8406-4093-8a83-8dec605b3048
 # ╠═0a909210-b9fe-4c03-9916-fbffd68e1449
 # ╠═5c4124ae-96e5-445a-8d88-2f12b6f3ea7d

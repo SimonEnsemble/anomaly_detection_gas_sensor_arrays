@@ -181,7 +181,8 @@ function viz_H2O_compositions(data::DataFrame)
     ax = Axis(fig[1, 1],
               xlabel="p, H₂O [relative humidity]",
               ylabel="# compositions")
-	for water_anomaly in [true, false]
+			  
+	for water_anomaly in [false]
 		ids = (data[:, "label"] .== "low humidity") .== water_anomaly
     	hist!(data[ids, "p H₂O [bar]"] / SyntheticDataGen.p_H₂O_vapor)
 	end
