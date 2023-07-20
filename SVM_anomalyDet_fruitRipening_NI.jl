@@ -220,17 +220,20 @@ begin
 							num_normal_test::Int64=num_normal_test_points,
 							num_anomaly_test::Int64=num_anomaly_test_points,
 							gen_data_flag::Bool=true,
-							num_runs::Int64=8,
+							num_runs::Int64=5,
 							σ_H₂O::Float64=σ_H₂O,
 							σ_m::Float64=σ_m)
 
 		#data_storage = zeros(length(num_normal_train_points), num_runs)
 		#data_storage = convert(Array{Any, 2}, data_storage)
 		data_storage = zeros(length(num_normal_train_points))
+		data_storage = convert(Array{Any}, data_storage)
 		num_anomaly_train = 0 #this should always stay 0
 
 		for (i, num_normal_train) in enumerate(num_normal_train_points)
-			f1_score = 0.0
+			
+			f1_scores = zeros(num_runs)
+			
 			for j=1:num_runs
 				#GENERATE DATASET 
 				Data = AnomalyDetection.setup_dataset(num_normal_train, 
@@ -247,49 +250,63 @@ begin
 				svm = AnomalyDetection.train_anomaly_detector(Data.X_train_scaled, ν_opt, γ_opt)
 
 				#STEP 3 - DETERMINE F1-SCORE
-				f1_score += AnomalyDetection.performance_metric(Data.y_test,svm.predict(Data.X_test_scaled))
+				f1_scores[j] = AnomalyDetection.performance_metric(Data.y_test,svm.predict(Data.X_test_scaled))
 			end
-			#calc average f1
-			f1_score = f1_score/num_runs
+			#calc mean f1
+			f1_scores_mean = mean(f1_scores)
+
+			#calc standard error
+			f1_scores_se = std(f1_scores) / sqrt(num_runs)
 
 			#store f1 for particular sized set of training data
-			data_storage[i] = f1_score
+			data_storage[i] = (f1_scores_mean, f1_scores_se)
 		end
 
 		return data_storage
 	end
 end
 
+# ╔═╡ 4b7518eb-780a-405d-937a-061ce79133d9
+std([10, 12.5, 123.1])
+
 # ╔═╡ 3ecec8c2-acc8-408d-ba44-4fea08e3a8c6
-function viz_learning_curve(f1_scores::Vector{Float64}, 														num_normal_train_points::Vector{Int64};
+function viz_learning_curve(simulation::Vector{Any}, 										num_normal_train_points::Vector{Int64};
 							connect_dots::Bool=false,
 							vis_σ::Bool=true,
 							σ_H₂O::Float64=σ_H₂O,
-							σ_m::Float64=σ_m)
-	rounded_f1_scores = [AnomalyDetectionPlots.truncate(f1_score, 2) for f1_score in f1_scores]
+							σ_m::Float64=σ_m,
+							show_error_bars::Bool=true)
+	f1_scores = [data[1] for data in simulation]
+	se_values = [data[2] for data in simulation]
 	
-    fig = Figure(resolution = (1000, 800))
-    ax = Axis(fig[1, 1], ylabel="F1 score", xlabel="training data size", xticks=0:50:maximum(num_normal_train_points), yticks=rounded_f1_scores)
+    fig = Figure(resolution = (800, 500))
+    ax = Axis(fig[1, 1], ylabel="mean F1 score", xlabel="training data size", xticks=0:50:maximum(num_normal_train_points), yticks=0:0.1:1.0)
+	ylims!(0.0, 1.0)
 
 	if connect_dots
-		lines!(num_normal_train_points, rounded_f1_scores)
+		lines!(num_normal_train_points, f1_scores)
 	end
 
-	scatter!(num_normal_train_points, rounded_f1_scores, marker=:o, markersize=20, color=[ColorSchemes.RdYlGn_4[f1_score] for f1_score in f1_scores])
+	scatter!(num_normal_train_points, f1_scores, marker=:o, markersize=20, color=:white, strokecolor=:teal, strokewidth=2)
+	#color=[ColorSchemes.RdYlGn_4[f1_score] for f1_score in f1_scores]
 
 	if vis_σ
 		Label(fig[1, 1], rich("σ", CairoMakie.subscript("m"), " [g/g] = $(σ_m)"), 
 				tellwidth=false, 
 				tellheight=false, 
-				halign=0.85, 
-				valign=0.15,
+				halign=0.882, 
+				valign=0.16,
 			  	fontsize=21)
-		Label(fig[1, 1], rich("σ", CairoMakie.subscript("H2O"), " [RH] = $(σ_H₂O)"), 
+		Label(fig[1, 1], rich("σ", CairoMakie.subscript("H₂O"), " [RH] = $(σ_H₂O)"), 
 				tellwidth=false, 
 				tellheight=false, 
 				halign=0.85, 
-				valign=0.1,
+				valign=0.09,
 				fontsize=21)
+	end
+
+	if show_error_bars
+		errorbars!(num_normal_train_points, f1_scores, se_values,linewidth=2, color=:teal, whiskerwidth=10)
 	end
 	
 	
@@ -300,10 +317,30 @@ end
 
 # ╔═╡ 405cf65c-7e00-43a2-8919-36fd83d1fd77
 begin
-	# lc = learning_curve(num_normal_train_points_learning_curve)
+	lc = learning_curve(num_normal_train_points_learning_curve)
 
 	# 8 runs, dps = [10, 20, 50, 100, 150, 200, 300, 400]
-	#lc = [0.440254, 0.48452, 0.587227, 0.69394, 0.683194, 0.762326, 0.738558, 0.759296]
+	#lc = [(0.440254, 0.02), (0.48452, 0.025), (0.587227, 0.013), (0.69394, 0.04), (0.683194, 0.12), (0.762326, 0.045), (0.738558, 0.02), (0.759296, 0.02)]
+end
+
+# ╔═╡ 4773308f-0a6e-4003-8d16-d0f05ea75c46
+typeof(lc)
+
+# ╔═╡ 00fc6c6e-af3e-431e-907d-ec191be48cf3
+begin
+	#=
+	1st run, 2 iterations
+	
+	f1_score se
+	0.465909 0.0340909
+	0.539218 0.014628
+	0.631667 0.0483333
+	0.647032 0.0347866
+	0.757206 0.120843
+	0.744186 0.0465116
+	0.771429 0.0285714
+	0.791463 0.108537
+	=#
 end
 
 # ╔═╡ 12df72c2-3228-472b-9e47-4610960ec608
@@ -2070,8 +2107,11 @@ version = "3.5.0+0"
 # ╠═00d90c63-6f3e-4906-ad35-ba999439e253
 # ╟─6a46c6e8-2dfe-4745-b867-9192265b5d0d
 # ╠═627ed8d6-ac50-48e8-aa90-c75232c1bd64
+# ╠═4b7518eb-780a-405d-937a-061ce79133d9
 # ╠═3ecec8c2-acc8-408d-ba44-4fea08e3a8c6
 # ╠═405cf65c-7e00-43a2-8919-36fd83d1fd77
+# ╠═4773308f-0a6e-4003-8d16-d0f05ea75c46
+# ╠═00fc6c6e-af3e-431e-907d-ec191be48cf3
 # ╠═12df72c2-3228-472b-9e47-4610960ec608
 # ╠═a384df98-f1ff-4660-abbd-b584e4b501a7
 # ╟─82ae9099-37cc-4402-9963-62cc064849ad
