@@ -294,7 +294,7 @@ function viz_learning_curve(simulation::Vector{Any}, 										num_normal_train_
 		Label(fig[1, 1], rich("σ", CairoMakie.subscript("m"), " [g/g] = $(σ_m)"), 
 				tellwidth=false, 
 				tellheight=false, 
-				halign=0.882, 
+				halign=0.884, 
 				valign=0.16,
 			  	fontsize=21)
 		Label(fig[1, 1], rich("σ", CairoMakie.subscript("H₂O"), " [RH] = $(σ_H₂O)"), 
