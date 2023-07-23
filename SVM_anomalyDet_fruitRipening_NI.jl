@@ -220,21 +220,18 @@ begin
 							num_normal_test::Int64=num_normal_test_points,
 							num_anomaly_test::Int64=num_anomaly_test_points,
 							gen_data_flag::Bool=true,
-							num_runs::Int64=5,
+							num_iter::Int64=5,
 							σ_H₂O::Float64=σ_H₂O,
 							σ_m::Float64=σ_m)
-
-		#data_storage = zeros(length(num_normal_train_points), num_runs)
-		#data_storage = convert(Array{Any, 2}, data_storage)
-		data_storage = zeros(length(num_normal_train_points))
-		data_storage = convert(Array{Any}, data_storage)
+		
+		data_storage = zeros(num_iter, length(num_normal_train_points))
 		num_anomaly_train = 0 #this should always stay 0
 
 		for (i, num_normal_train) in enumerate(num_normal_train_points)
 			
-			f1_scores = zeros(num_runs)
+			#f1_scores = zeros(num_iter)
 			
-			for j=1:num_runs
+			for j=1:num_iter
 				#GENERATE DATASET 
 				Data = AnomalyDetection.setup_dataset(num_normal_train, 
 														num_anomaly_train, 
@@ -250,34 +247,26 @@ begin
 				svm = AnomalyDetection.train_anomaly_detector(Data.X_train_scaled, ν_opt, γ_opt)
 
 				#STEP 3 - DETERMINE F1-SCORE
-				f1_scores[j] = AnomalyDetection.performance_metric(Data.y_test,svm.predict(Data.X_test_scaled))
+				data_storage[j, i] = AnomalyDetection.performance_metric(Data.y_test,svm.predict(Data.X_test_scaled))
 			end
-			#calc mean f1
-			f1_scores_mean = mean(f1_scores)
-
-			#calc standard error
-			f1_scores_se = std(f1_scores) / sqrt(num_runs)
-
-			#store f1 for particular sized set of training data
-			data_storage[i] = (f1_scores_mean, f1_scores_se)
 		end
 
 		return data_storage
 	end
 end
 
-# ╔═╡ 4b7518eb-780a-405d-937a-061ce79133d9
-std([10, 12.5, 123.1])
+# ╔═╡ efbb7d5a-4fc2-450a-a00a-2511d80ec7da
+#learning_curve(num_normal_train_points_learning_curve, num_iter=1)
 
 # ╔═╡ 3ecec8c2-acc8-408d-ba44-4fea08e3a8c6
-function viz_learning_curve(simulation::Vector{Any}, 										num_normal_train_points::Vector{Int64};
+function viz_learning_curve(scores::Vector{Any}, 															num_normal_train_points::Vector{Int64};
 							connect_dots::Bool=false,
 							vis_σ::Bool=true,
 							σ_H₂O::Float64=σ_H₂O,
 							σ_m::Float64=σ_m,
 							show_error_bars::Bool=true)
-	f1_scores = [data[1] for data in simulation]
-	se_values = [data[2] for data in simulation]
+	f1_scores = [data[1] for data in scores]
+	se_values = [data[2] for data in scores]
 	
     fig = Figure(resolution = (800, 500))
     ax = Axis(fig[1, 1], ylabel="mean F1 score", xlabel="training data size", xticks=0:50:maximum(num_normal_train_points), yticks=0:0.1:1.0)
@@ -306,7 +295,7 @@ function viz_learning_curve(simulation::Vector{Any}, 										num_normal_train_
 	end
 
 	if show_error_bars
-		errorbars!(num_normal_train_points, f1_scores, se_values,linewidth=2, color=:teal, whiskerwidth=10)
+		errorbars!(num_normal_train_points, f1_scores, se_values,linewidth=2, color=:teal, whiskerwidth=6)
 	end
 	
 	
@@ -315,33 +304,71 @@ function viz_learning_curve(simulation::Vector{Any}, 										num_normal_train_
 	fig
 end
 
+# ╔═╡ 45912a7d-76ec-4012-af11-017d0dfe2211
+function simulate(num_normal_train::Vector{Int64}; 
+				  run_start::Int64=14, 
+				  run_end::Int64=20, 
+				  iter_per_run::Int64=5)
+	for i=run_start:run_end
+		simulation = learning_curve(num_normal_train, num_iter=iter_per_run)
+		JLD2.jldsave("jld/learning_curve_sim_$(i)"*".jld2", i=simulation)  
+	end
+end
+
+# ╔═╡ 59d2888f-fd1a-4644-b80f-e6e65ee771bc
+#simulate(num_normal_train_points_learning_curve)
+
+# ╔═╡ d693cd5b-d50d-419b-86ab-e5bf11504675
+function catenate_data(;folder::String="jld/", rows_per_file::Int=5)
+
+	# gather all the files
+	files = [file for file in readdir(folder) if isfile(abspath(joinpath(folder, file)))]
+
+	# make sure directory isn't empty
+	@assert length(files) > 0 "no files found"
+
+	num_data = rows_per_file * length(files)
+	columns = size(JLD2.load_object(joinpath(folder, files[1])), 2)
+
+	# make empty matrix to hold data
+	data = zeros(num_data, columns)
+
+	for (i, file) in enumerate(files)
+		file_data = JLD2.load_object(joinpath(folder, file))
+		for j=1:rows_per_file
+			row = (i-1) * rows_per_file + j
+			data[row, :] = file_data[j, :]
+		end
+	end
+
+	return data
+end
+
+# ╔═╡ 7ca56cf4-6045-4e1f-bc36-90c0bea8d200
+the_data = catenate_data()
+
 # ╔═╡ 405cf65c-7e00-43a2-8919-36fd83d1fd77
-begin
-	lc = learning_curve(num_normal_train_points_learning_curve)
+function score_stats(data::Matrix{Float64})
 
-	# 8 runs, dps = [10, 20, 50, 100, 150, 200, 300, 400]
-	#lc = [(0.440254, 0.02), (0.48452, 0.025), (0.587227, 0.013), (0.69394, 0.04), (0.683194, 0.12), (0.762326, 0.045), (0.738558, 0.02), (0.759296, 0.02)]
-end
+	data_storage = zeros(size(data, 2))
+	data_storage = convert(Array{Any}, data_storage)
 
-# ╔═╡ 4773308f-0a6e-4003-8d16-d0f05ea75c46
-typeof(lc)
-
-# ╔═╡ 00fc6c6e-af3e-431e-907d-ec191be48cf3
-begin
-	#=
-	1st run, 2 iterations
+	for (i, col) in enumerate(eachcol(data))
+		#calc mean f1
+		f1_scores_mean = mean(col)
 	
-	f1_score se
-	0.465909 0.0340909
-	0.539218 0.014628
-	0.631667 0.0483333
-	0.647032 0.0347866
-	0.757206 0.120843
-	0.744186 0.0465116
-	0.771429 0.0285714
-	0.791463 0.108537
-	=#
+		#calc standard error
+		f1_scores_se = std(col) / sqrt(size(data, 1))
+	
+		#store f1 for particular sized set of training data
+		data_storage[i] = (f1_scores_mean, f1_scores_se)
+	end
+
+	return data_storage
 end
+
+# ╔═╡ 26d59d0a-2f1f-4bd6-b1e3-46c41c5db3da
+lc = score_stats(the_data)
 
 # ╔═╡ 12df72c2-3228-472b-9e47-4610960ec608
 viz_learning_curve(lc, num_normal_train_points_learning_curve)
@@ -2107,11 +2134,14 @@ version = "3.5.0+0"
 # ╠═00d90c63-6f3e-4906-ad35-ba999439e253
 # ╟─6a46c6e8-2dfe-4745-b867-9192265b5d0d
 # ╠═627ed8d6-ac50-48e8-aa90-c75232c1bd64
-# ╠═4b7518eb-780a-405d-937a-061ce79133d9
+# ╠═efbb7d5a-4fc2-450a-a00a-2511d80ec7da
 # ╠═3ecec8c2-acc8-408d-ba44-4fea08e3a8c6
+# ╠═45912a7d-76ec-4012-af11-017d0dfe2211
+# ╠═59d2888f-fd1a-4644-b80f-e6e65ee771bc
+# ╠═d693cd5b-d50d-419b-86ab-e5bf11504675
+# ╠═7ca56cf4-6045-4e1f-bc36-90c0bea8d200
 # ╠═405cf65c-7e00-43a2-8919-36fd83d1fd77
-# ╠═4773308f-0a6e-4003-8d16-d0f05ea75c46
-# ╠═00fc6c6e-af3e-431e-907d-ec191be48cf3
+# ╠═26d59d0a-2f1f-4bd6-b1e3-46c41c5db3da
 # ╠═12df72c2-3228-472b-9e47-4610960ec608
 # ╠═a384df98-f1ff-4660-abbd-b584e4b501a7
 # ╟─82ae9099-37cc-4402-9963-62cc064849ad
