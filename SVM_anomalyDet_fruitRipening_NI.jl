@@ -270,13 +270,14 @@ function viz_learning_curve(scores::Vector{Any}, 															num_normal_train
 	
     fig = Figure(resolution = (800, 500))
     ax = Axis(fig[1, 1], ylabel="mean F1 score", xlabel="training data size", xticks=0:50:maximum(num_normal_train_points), yticks=0:0.1:1.0)
+	xlims!(0.0, nothing)
 	ylims!(0.0, 1.0)
 
 	if connect_dots
 		lines!(num_normal_train_points, f1_scores)
 	end
 
-	scatter!(num_normal_train_points, f1_scores, marker=:o, markersize=20, color=:white, strokecolor=:teal, strokewidth=2)
+	scatter!(num_normal_train_points, f1_scores, marker=:o, markersize=20, color=:white, strokecolor=:black, strokewidth=2)
 	#color=[ColorSchemes.RdYlGn_4[f1_score] for f1_score in f1_scores]
 
 	if vis_σ
@@ -295,7 +296,7 @@ function viz_learning_curve(scores::Vector{Any}, 															num_normal_train
 	end
 
 	if show_error_bars
-		errorbars!(num_normal_train_points, f1_scores, se_values,linewidth=2, color=:teal, whiskerwidth=6)
+		errorbars!(num_normal_train_points, f1_scores, se_values,linewidth=2, color=:black, whiskerwidth=6)
 	end
 	
 	
@@ -418,13 +419,35 @@ f1_density = AnomalyDetection.performance_metric(mid_data["data"].y_test, svm.pr
 
 # ╔═╡ bbeec9a5-6260-4e8a-a444-a22a59898d22
 md"!!! example \"\" 
-	 Comparing F1 score between median different validation methods."
+	 Comparing F1 score between median different validation methods and calculating precision and recall."
 
 # ╔═╡ 11e286be-d3a9-4896-a90c-fdd05fc35073
 f1_density
 
 # ╔═╡ f8dab032-e446-4e6e-8022-39ad3dbb1042
 f1_hypersphere
+
+# ╔═╡ bfc27fe6-2f26-41b7-a614-2e0e354267bd
+ AnomalyDetectionPlots.viz_cm(mid_data["svm"], mid_data["data"].data_test, mid_data["data"].scaler)
+
+# ╔═╡ cef4a546-18b5-4c4d-a7c6-50caba148d35
+begin
+	correct_normal = 92 #not taken into account
+	false_positives = 8.0 #predicted anomaly, but actually normal
+	false_negatives = 0.0 + 5.0 + 1.0 + 0.0 #based on confusion matrix
+	true_positives = 5.0 + 0.0 + 4.0 + 5.0 #"  "
+
+	precision_sc = true_positives / (true_positives + false_positives)
+
+	recall_sc = true_positives / (true_positives + false_negatives)
+	
+end
+
+# ╔═╡ 3e8ca33e-e6e9-4a2f-b235-2221eb994ce3
+precision_sc
+
+# ╔═╡ e7cddd77-f1d0-44fd-87bb-e3af5b42558b
+recall_sc
 
 # ╔═╡ 3aab547c-8b00-48da-aa8e-3d51e804c5df
 md"!!! example \"\" 
@@ -2155,6 +2178,10 @@ version = "3.5.0+0"
 # ╟─bbeec9a5-6260-4e8a-a444-a22a59898d22
 # ╠═11e286be-d3a9-4896-a90c-fdd05fc35073
 # ╠═f8dab032-e446-4e6e-8022-39ad3dbb1042
+# ╠═bfc27fe6-2f26-41b7-a614-2e0e354267bd
+# ╠═cef4a546-18b5-4c4d-a7c6-50caba148d35
+# ╠═3e8ca33e-e6e9-4a2f-b235-2221eb994ce3
+# ╠═e7cddd77-f1d0-44fd-87bb-e3af5b42558b
 # ╟─3aab547c-8b00-48da-aa8e-3d51e804c5df
 # ╠═923c9837-82ab-4071-b716-faa3565fa327
 # ╠═a1843a87-a8d3-40ab-9959-3e14d520a4d1
