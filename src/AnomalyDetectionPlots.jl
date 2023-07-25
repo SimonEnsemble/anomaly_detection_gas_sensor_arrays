@@ -134,7 +134,7 @@ function viz_bayes_values_by_point(plot_data::Vector{Tuple{Float64, Float64, Flo
 
 	#plot
 	sl = scatterlines!(νs, γs, color=(:grey, 0.3), markersize=18, markercolor=[colors[i] for i=1:points])
-	Colorbar(fig[1, 2], limits = (maximum(Λs), minimum(Λs)), colormap= reverse(ColorSchemes.thermal), label="error function")
+	Colorbar(fig[1, 2], limits = (maximum(Λs), minimum(Λs)), colormap= reverse(ColorSchemes.thermal), label="Λ(ν, γ)")
 
 	#indicate starting point
 	ν_init = νs[1]
