@@ -105,8 +105,73 @@ md"!!! example \"\"
 md"# Step 1) Generate uniform hypersphere of synthetic data around normal training data.
 "
 
+# ╔═╡ 6f53b700-6eba-487b-b91b-085d6e4d38b9
+mid_data["data"]
+
+# ╔═╡ 066370d3-a11f-45c0-843c-38a1851ff3ff
+function viz_synthetic_anomaly_hypersphere(X_sphere::Matrix{Float64}, X_scaled::Matrix{Float64}, data; incl_contours::Bool=true, νs=(0.1, 0.01), γs=(0.2, 0.02))
+	fig = Figure()
+	ax = Axis(fig[1,1], aspect=DataAspect(), xlabel=rich("m", CairoMakie.subscript("ZIF-71"), " scaled"), ylabel=rich("m", CairoMakie.subscript("ZIF-8"), " scaled"))
+
+	scatter!(X_sphere[:, 1], X_sphere[:, 2],markersize = 4, color=:red, marker=:x, label="validation")
+	scatter!(X_scaled[:, 1], X_scaled[:, 2],strokewidth=2, markersize = 8,color=(:white, 0.0), strokecolor=:darkgreen, label="training data")
+
+	#x_axis_limits = (minimum(X_sphere[:, 1]) - 0.5, maximum(X_scaled[:, 1]) + 3)
+	xlims!(nothing, 7.0)
+
+	if incl_contours
+		svms = [AnomalyDetection.train_anomaly_detector(X_scaled, νs[i], γs[i]) for i=1:2]
+		resolution = 300
+		x₁s = x₂s = range(-3.5, 3.5, length=resolution)
+		predictions = (zeros(resolution, resolution), zeros(resolution, resolution))
+
+		cont_colors = (:purple, :blue)
+		
+		for i=1:2
+			#=AnomalyDetectionPlots.viz_decision_boundary!(ax, 
+														svms[i], 
+														data.scaler, 
+														data.data_train, 
+														(-4.0, 4.0), 
+														(-4.0, 4.0), 
+														incl_legend=false)=#
+			for j = 1:resolution
+				for k = 1:resolution
+					x = [x₁s[j] x₂s[k]]
+					predictions[i][j, k] = svms[i].predict(x)[1]
+				end
+			end
+
+			contour!(ax,
+				x₁s, 
+				x₂s,
+				predictions[i], 
+				levels=[0.0], 
+				color=cont_colors[i],
+				labelcolor=cont_colors[i],
+			   linewidth=2.0) 
+		end
+
+		green_data = MarkerElement(color=(:white, 0.0), marker='o', markersize=12, strokecolor=:darkgreen, strokewidth=0.8)
+		red_data = MarkerElement(color = :red, marker='x', markersize=8,
+          strokecolor = :red, strokewidth=1)
+		blue_contour = LineElement(color = cont_colors[2], linestyle = nothing)
+		purple_contour = LineElement(color = cont_colors[1], linestyle = nothing)
+
+		axislegend(ax, [green_data, red_data, blue_contour, purple_contour], ["training data", "validation data","ν=$(νs[1]), γ=$(γs[1])", "ν=$(νs[2]), γ=$(γs[2])"], position=:rb)
+	else
+		axislegend(ax, position=:rb)
+	end
+	
+	save("synthetic_hypersphere.pdf", fig)
+	return fig
+end
+
 # ╔═╡ 48d8afeb-2df0-44d1-9eaa-f28184813ab4
 AnomalyDetectionPlots.viz_synthetic_anomaly_hypersphere(mid_data["X_sphere"], mid_data["data"].X_train_scaled)
+
+# ╔═╡ 3117881e-08e5-435b-b088-be9973bec8aa
+viz_synthetic_anomaly_hypersphere(mid_data["X_sphere"], mid_data["data"].X_train_scaled, mid_data["data"])
 
 # ╔═╡ 7af3b1f6-2c57-40c4-a841-961dd039090a
 md"# Step 2) Minimize error function Λ using bayesian optimization.
@@ -268,8 +333,8 @@ function viz_learning_curve(scores::Vector{Any}, 															num_normal_train
 	f1_scores = [data[1] for data in scores]
 	se_values = [data[2] for data in scores]
 	
-    fig = Figure(resolution = (800, 500))
-    ax = Axis(fig[1, 1], ylabel="mean F1 score", xlabel="training data size", xticks=0:50:maximum(num_normal_train_points), yticks=0:0.1:1.0)
+    fig = Figure()
+    ax = Axis(fig[1, 1], ylabel="mean F1 score", xlabel="training data size", xticks=0:50:maximum(num_normal_train_points), yticks=0:0.1:1.0, xlabelsize=31, ylabelsize=31)
 	xlims!(0.0, nothing)
 	ylims!(0.0, 1.0)
 
@@ -277,7 +342,7 @@ function viz_learning_curve(scores::Vector{Any}, 															num_normal_train
 		lines!(num_normal_train_points, f1_scores)
 	end
 
-	scatter!(num_normal_train_points, f1_scores, marker=:o, markersize=20, color=:white, strokecolor=:black, strokewidth=2)
+	scatter!(num_normal_train_points, f1_scores, marker=:o, markersize=20, color=:white, strokecolor=:black, strokewidth=1.5)
 	#color=[ColorSchemes.RdYlGn_4[f1_score] for f1_score in f1_scores]
 
 	if vis_σ
@@ -285,18 +350,18 @@ function viz_learning_curve(scores::Vector{Any}, 															num_normal_train
 				tellwidth=false, 
 				tellheight=false, 
 				halign=0.884, 
-				valign=0.16,
-			  	fontsize=21)
+				valign=0.14,
+			  	fontsize=17)
 		Label(fig[1, 1], rich("σ", CairoMakie.subscript("H2O"), " [RH] = $(σ_H₂O)"), 
 				tellwidth=false, 
 				tellheight=false, 
-				halign=0.85, 
-				valign=0.09,
-				fontsize=21)
+				halign=0.83, 
+				valign=0.06,
+				fontsize=17)
 	end
 
 	if show_error_bars
-		errorbars!(num_normal_train_points, f1_scores, se_values,linewidth=2, color=:black, whiskerwidth=6)
+		errorbars!(num_normal_train_points, f1_scores, se_values,linewidth=1.5, color=:black, whiskerwidth=6)
 	end
 	
 	
@@ -2135,7 +2200,10 @@ version = "3.5.0+0"
 # ╠═1e30612e-7bcd-47dc-a1fb-1e127aad4a55
 # ╟─9873c6d8-84ba-47e5-adcb-4d0f30829227
 # ╟─77382f3e-98b6-4aef-b946-8375018c3c3e
+# ╠═6f53b700-6eba-487b-b91b-085d6e4d38b9
+# ╠═066370d3-a11f-45c0-843c-38a1851ff3ff
 # ╠═48d8afeb-2df0-44d1-9eaa-f28184813ab4
+# ╠═3117881e-08e5-435b-b088-be9973bec8aa
 # ╟─7af3b1f6-2c57-40c4-a841-961dd039090a
 # ╠═7990ef58-1e45-44d0-8add-ba410a48dc98
 # ╟─97a7e102-1a87-4364-9835-c7ed370f573c

@@ -101,7 +101,7 @@ function viz_bayes_values(plot_data::Vector{Tuple{Float64, Float64, Float64}})
 	Colorbar(fig[1, 2], 
 			limits = (maximum(Λs), minimum(Λs)), 
 			colormap= reverse(ColorSchemes.thermal), 
-			label="error function")
+			label="Λ(ν, γ)")
 
     return fig
 end
