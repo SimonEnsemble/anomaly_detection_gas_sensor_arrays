@@ -23,6 +23,14 @@ AnomalyDetection = include("src/AnomalyDetection.jl")
 md"# identifying C₂H₄, CO₂, and H₂O Henry Coefficients in ZIF-71 and ZIF-8
 "
 
+# ╔═╡ 7d0c453f-9396-498b-9dea-e6f9a6be5942
+TableOfContents()
+
+# ╔═╡ f7ee84e8-e7ac-4ff7-9d29-a54c2102353d
+md"""
+## Set up training and test data.
+"""
+
 # ╔═╡ 40328dbb-2afd-40e7-8710-3d902bc7fdbb
 begin
 	num_normal_train_points  = 100
@@ -41,23 +49,24 @@ begin
 											  σ_m)
 end
 
-# ╔═╡ f92940b3-0ab2-4923-b681-c6093c433c14
-	(ν_opt, γ_opt), X_sphere, bayes_plot_data = AnomalyDetection.bayes_validation(data_set.X_train_scaled, plot_data_flag=true, ν_space=(3/size(data_set.X_train_scaled, 1), 0.4), n_iter=50)
-
-# ╔═╡ 2bf50092-29f5-4ee1-bb46-30fd426d5aeb
-	svm = AnomalyDetection.train_anomaly_detector(data_set.X_train_scaled, ν_opt, γ_opt)
+# ╔═╡ e7d236ee-5e29-43ac-94fa-0db62c69c7cf
+md"""
+### Visualize composition space.
+"""
 
 # ╔═╡ 0b3c5692-8406-4093-8a83-8dec605b3048
 SyntheticDataGen.viz_C2H4_CO2_composition(data_set.data_train)
-
-# ╔═╡ 0a909210-b9fe-4c03-9916-fbffd68e1449
-data_set.data_train
 
 # ╔═╡ 5c4124ae-96e5-445a-8d88-2f12b6f3ea7d
 SyntheticDataGen.viz_C2H4_CO2_composition(data_set.data_test)
 
 # ╔═╡ 1c8c91b6-948a-40e2-8cb5-8c0aa804ae67
 SyntheticDataGen.viz_H2O_compositions(data_set.data_test)
+
+# ╔═╡ 526cb580-1168-4385-860a-658d7a5cb017
+md"""
+## Extract Henry coefficients.
+"""
 
 # ╔═╡ d5c471c3-26be-46c0-a174-d580d0ed7f7d
 md"!!! example \"\"
@@ -113,9 +122,6 @@ function fit_Henry(data::DataFrame)
 	res = optimize(minimize_me, [H_guess], Newton())
 	return res.minimizer[1]
 end
-
-# ╔═╡ 11a5603f-d321-4560-86cb-6b8a647201b0
-gases
 
 # ╔═╡ ec3b683d-a867-4a2d-9b40-57781927f32a
 md"!!! example \"\"
@@ -246,14 +252,16 @@ function viz_adsorption_data(mof::String; viz_henry::Bool=true, savefig::Bool=tr
 	fig
 end
 
+# ╔═╡ 4c6e016a-fb57-4212-96c5-0f8f29b3679b
+md"""
+## Linear fits.
+"""
+
 # ╔═╡ f6890756-0753-4c49-bd89-bee2b71fe550
 viz_adsorption_data(mofs[1])
 
 # ╔═╡ 536b6ed6-e656-4cc6-a4f2-efd9eba197d0
 viz_adsorption_data(mofs[2])
-
-# ╔═╡ feb54bc2-c4ba-4a24-9e63-3852c6833cd2
-mofs[1]
 
 # ╔═╡ f7c34c83-a982-4280-a453-ace369a72f69
 md"!!! example \"\"
@@ -300,20 +308,10 @@ end
 [henry_data[mof][gas_to_pretty_name[gas]]["henry coef [g/(g-bar)]"] 
 				for mof in mofs for gas in gases]
 
-# ╔═╡ e1abc767-441d-4493-b018-9538abeb7243
-henry_data["ZIF-8"]
-
-# ╔═╡ a43899e0-2bcf-4cf2-99db-cc002f0ff0c6
-henry_data["ZIF-71"]
-
-# ╔═╡ 986bddd9-b0e4-4a8d-ac4d-ef27cee32113
-gases
-
-# ╔═╡ 1e572299-b98a-4b0c-8cf7-51c0fae73023
-mofs
-
-# ╔═╡ f3e969ea-1f53-4877-a510-df2ed116a060
-
+# ╔═╡ 5a898f4d-08f3-4c9e-8518-917101c3a971
+md"""
+## Visualize & compare Henry coefficients.
+"""
 
 # ╔═╡ 97f1099f-0417-4688-93f8-16a14cbe40c3
 viz_henry_barplot()
@@ -403,7 +401,7 @@ henry_data
 # ╔═╡ 09df069b-a1ef-459f-adc5-768d9acb4fd7
 function viz_selectivity(henry_data)
 	gases = ["C₂H₄", "CO₂", "H₂O"]
-	mofs = ["ZIF-71", "ZIF-8"]
+	mofs = ["ZIF-8", "ZIF-71"]
 
 	pair_nums = [(1, 2), (3, 1), (3, 2)]
 	gas_pairs = [gases[pair_nums[i][1]] * "/" * gases[pair_nums[i][2]] for i=1:length(pair_nums)]
@@ -451,6 +449,11 @@ function viz_selectivity(henry_data)
 	fig
 
 end
+
+# ╔═╡ c3dd83be-628a-4283-8b47-06e3ef80576e
+md"""
+### Visualize selectivities.
+"""
 
 # ╔═╡ 3f81ccc1-97b5-4b51-88ff-a4d782d9b4c8
 viz_selectivity(henry_data)
@@ -1963,21 +1966,21 @@ version = "3.5.0+0"
 # ╟─1784c510-5465-11ec-0dd1-13e5a66e4ce6
 # ╠═d090131e-6602-4c03-860c-ad3cb6c7844a
 # ╠═5019e8ac-040f-48fd-98e8-21ff7970aa23
+# ╠═7d0c453f-9396-498b-9dea-e6f9a6be5942
 # ╠═6a4411ca-c755-471a-a89a-c2f088d08f6c
 # ╠═719afe92-7c53-4fee-8dd7-9f91714e3970
 # ╠═f70587a7-a2df-4bd2-bd87-f9c6aaadc661
+# ╟─f7ee84e8-e7ac-4ff7-9d29-a54c2102353d
 # ╠═40328dbb-2afd-40e7-8710-3d902bc7fdbb
-# ╠═f92940b3-0ab2-4923-b681-c6093c433c14
-# ╠═2bf50092-29f5-4ee1-bb46-30fd426d5aeb
+# ╟─e7d236ee-5e29-43ac-94fa-0db62c69c7cf
 # ╠═0b3c5692-8406-4093-8a83-8dec605b3048
-# ╠═0a909210-b9fe-4c03-9916-fbffd68e1449
 # ╠═5c4124ae-96e5-445a-8d88-2f12b6f3ea7d
 # ╠═1c8c91b6-948a-40e2-8cb5-8c0aa804ae67
+# ╟─526cb580-1168-4385-860a-658d7a5cb017
 # ╟─d5c471c3-26be-46c0-a174-d580d0ed7f7d
 # ╠═d657ed23-3eb4-49d0-a59c-811e8189c376
 # ╟─d5544844-21ed-4a8c-8715-45038b502453
 # ╠═26d5dfc6-ce64-4389-adec-c0c8ec8582d5
-# ╠═11a5603f-d321-4560-86cb-6b8a647201b0
 # ╟─ec3b683d-a867-4a2d-9b40-57781927f32a
 # ╠═ebe1cd5a-58a9-4ee7-904e-05261493ae92
 # ╠═00306860-568b-4204-ab35-8e150e32a105
@@ -1985,17 +1988,13 @@ version = "3.5.0+0"
 # ╠═3cacc179-a3cc-4d9c-8414-682848927c60
 # ╟─2eeb4131-29ff-47a2-914b-70ea40b0d861
 # ╠═c08184c1-54c1-4139-940f-25d2e6badf55
+# ╟─4c6e016a-fb57-4212-96c5-0f8f29b3679b
 # ╠═f6890756-0753-4c49-bd89-bee2b71fe550
 # ╠═536b6ed6-e656-4cc6-a4f2-efd9eba197d0
-# ╠═feb54bc2-c4ba-4a24-9e63-3852c6833cd2
 # ╟─f7c34c83-a982-4280-a453-ace369a72f69
 # ╠═eaed2f07-f631-4502-ade3-93fa57b1d978
 # ╠═c0689176-e587-4900-9630-5792b446acdf
-# ╠═e1abc767-441d-4493-b018-9538abeb7243
-# ╠═a43899e0-2bcf-4cf2-99db-cc002f0ff0c6
-# ╠═986bddd9-b0e4-4a8d-ac4d-ef27cee32113
-# ╠═1e572299-b98a-4b0c-8cf7-51c0fae73023
-# ╠═f3e969ea-1f53-4877-a510-df2ed116a060
+# ╟─5a898f4d-08f3-4c9e-8518-917101c3a971
 # ╠═97f1099f-0417-4688-93f8-16a14cbe40c3
 # ╟─d6920bb1-6bb5-4b18-88aa-17f8c78d8974
 # ╠═19c10c96-70f9-47a1-a2d8-9d8fb57c8d12
@@ -2018,6 +2017,7 @@ version = "3.5.0+0"
 # ╠═e7effb31-f36d-4751-ac79-6cb30640f5b9
 # ╠═0b9999f0-c43e-4502-921c-928c28316e21
 # ╠═09df069b-a1ef-459f-adc5-768d9acb4fd7
+# ╟─c3dd83be-628a-4283-8b47-06e3ef80576e
 # ╠═3f81ccc1-97b5-4b51-88ff-a4d782d9b4c8
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
