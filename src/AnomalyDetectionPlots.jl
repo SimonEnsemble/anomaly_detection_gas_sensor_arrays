@@ -211,15 +211,51 @@ end
 """
 visualizes the distribution of outliers in a hypersphere around our data
 """
-function viz_synthetic_anomaly_hypersphere(X_sphere::Matrix{Float64}, X_scaled::Matrix{Float64})
+function viz_synthetic_anomaly_hypersphere(X_sphere::Matrix{Float64}, X_scaled::Matrix{Float64}, data; incl_contours::Bool=true, νs=(0.1, 0.01), γs=(0.2, 0.02))
 	fig = Figure()
 	ax = Axis(fig[1,1], aspect=DataAspect(), xlabel=rich("m", CairoMakie.subscript("ZIF-71"), " scaled"), ylabel=rich("m", CairoMakie.subscript("ZIF-8"), " scaled"))
 
-	scatter!(X_sphere[:, 1], X_sphere[:, 2],markersize = 4, color=:red, marker=:x, label="synthetic data")
-	scatter!(X_scaled[:, 1], X_scaled[:, 2],strokewidth=2, markersize = 8,color=(:white, 0.0), strokecolor=:darkgreen, label="normal")
+	scatter!(X_sphere[:, 1], X_sphere[:, 2],markersize = 4, color=:red, marker=:x, label="validation")
+	scatter!(X_scaled[:, 1], X_scaled[:, 2],strokewidth=2, markersize = 8,color=(:white, 0.0), strokecolor=:darkgreen, label="training data")
+	xlims!(nothing, 7.0)
 
-	xlims!(minimum(X_sphere[:, 1]) - 0.5, maximum(X_scaled[:, 1]) + 3)
-	axislegend(position=:rb)
+	if incl_contours
+		svms = [AnomalyDetection.train_anomaly_detector(X_scaled, νs[i], γs[i]) for i=1:2]
+		resolution = 300
+		x₁s = x₂s = range(-3.5, 3.5, length=resolution)
+		predictions = (zeros(resolution, resolution), zeros(resolution, resolution))
+
+		cont_colors = (:purple, :blue)
+		
+		for i=1:2
+			for j = 1:resolution
+				for k = 1:resolution
+					x = [x₁s[j] x₂s[k]]
+					predictions[i][j, k] = svms[i].predict(x)[1]
+				end
+			end
+
+			contour!(ax,
+				x₁s, 
+				x₂s,
+				predictions[i], 
+				levels=[0.0], 
+				color=cont_colors[i],
+				labelcolor=cont_colors[i],
+			   linewidth=2.0) 
+		end
+
+		green_data = MarkerElement(color=(:white, 0.0), marker='o', markersize=12, strokecolor=:darkgreen, strokewidth=0.8)
+		red_data = MarkerElement(color = :red, marker='x', markersize=8,
+          strokecolor = :red, strokewidth=1)
+		blue_contour = LineElement(color = cont_colors[2], linestyle = nothing)
+		purple_contour = LineElement(color = cont_colors[1], linestyle = nothing)
+
+		axislegend(ax, [green_data, red_data, blue_contour, purple_contour], ["training data", "validation data","ν=$(νs[1]), γ=$(γs[1])", "ν=$(νs[2]), γ=$(γs[2])"], position=:rb)
+	else
+		axislegend(ax, position=:rb)
+	end
+	
 	save("synthetic_hypersphere.pdf", fig)
 	return fig
 end
@@ -635,6 +671,53 @@ function viz_limit_box!(ax,
 end
 
 """
+Visualises the learning curve.
+"""
+function viz_learning_curve(scores::Vector{Any},
+							num_normal_train_points::Vector{Int64};
+							connect_dots::Bool=false,
+							vis_σ::Bool=true,
+							σ_H₂O::Float64=0.01,
+							σ_m::Float64=1.0e-5,
+							show_error_bars::Bool=true)
+	f1_scores = [data[1] for data in scores]
+	se_values = [data[2] for data in scores]
+
+	fig = Figure()
+	ax = Axis(fig[1, 1], ylabel="mean F1 score", xlabel="training data size", xticks=0:50:maximum(num_normal_train_points), yticks=0:0.1:1.0, xlabelsize=31, ylabelsize=31)
+	xlims!(0.0, nothing)
+	ylims!(0.0, 1.0)
+
+	if connect_dots
+		lines!(num_normal_train_points, f1_scores)
+	end
+
+	scatter!(num_normal_train_points, f1_scores, marker=:o, markersize=20, color=:white, strokecolor=:black, strokewidth=1.5)
+
+	if vis_σ
+		Label(fig[1, 1], rich("σ", CairoMakie.subscript("m"), " [g/g] = $(σ_m)"), 
+				tellwidth=false, 
+				tellheight=false, 
+				halign=0.884, 
+				valign=0.14,
+				fontsize=17)
+		Label(fig[1, 1], rich("σ", CairoMakie.subscript("H2O"), " [RH] = $(σ_H₂O)"), 
+				tellwidth=false, 
+				tellheight=false, 
+				halign=0.83, 
+				valign=0.06,
+				fontsize=17)
+	end
+
+	if show_error_bars
+		errorbars!(num_normal_train_points, f1_scores, se_values,linewidth=1.5, color=:black, whiskerwidth=6)
+	end
+
+	save("learning_curve.pdf", fig)
+	fig
+end
+
+"""
 vizualizes effects of water variance and sensor error using validation:
 method 1: hypersphere
 method 2: knee
@@ -653,6 +736,7 @@ function viz_sensorδ_waterσ_grid(σ_H₂Os::Vector{Float64},
 								validation_method::String="hypersphere",
 								num_runs::Int=100,
 								gen_data_flag::Bool=true,
+								jld_file_location::String="",
 								tune_bounds_flag::Bool=true,
 								bound_tuning_low_variance::NTuple{4, Float64}=(-0.01, 0.01, -0.01, 0.01),
 								bound_tuning_high_variance::NTuple{4, Float64}=(-0.01, 0.01, -0.01, 0.01))
@@ -777,7 +861,7 @@ if gen_data_flag
 	end
 else
 	#plot_data_storage = JLD.load("sensor_error_&_H2O_variance_plot.jld", "plot_data_storage")
-	@load "sensor_error_&_H2O_variance_plot.jld" plot_data_storage
+	@load joinpath(jld_file_location, "sensor_error_&_H2O_variance_plot.jld") plot_data_storage
 
 	#due to an issue with jld2 storing the SVM py object as null, I have to retrain the SVM
 	for (i, σ_H₂O) in enumerate(σ_H₂Os)

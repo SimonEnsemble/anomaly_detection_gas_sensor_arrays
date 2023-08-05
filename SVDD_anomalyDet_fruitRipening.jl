@@ -20,7 +20,7 @@ AnomalyDetectionPlots = include("src/AnomalyDetectionPlots.jl")
 include("plot_theme.jl")
 
 # ╔═╡ 1784c510-5465-11ec-0dd1-13e5a66e4ce6
-md"# Anomaly Detection for Gas Sensor Arrays Using One-Class SVM in a Non-Injective System.
+md"# Anomaly Detection for Gas Sensor Arrays Using Support Vector Data Description (One class SVM) in a Non-Injective System.
 "
 
 # ╔═╡ 3ba4e1e5-3187-4811-be09-d990973abc77
@@ -60,13 +60,13 @@ md"## Generating data and visualizing the effects of sensor error and water vari
 md"### For new data: set gen\_data_flag to true.
 "
 
-# ╔═╡ 853390f9-6519-4df3-aa24-7b337142dbe4
-md"!!! warning \"\" 
-	WARNING: generating new data is very computationally expensive. "
-
 # ╔═╡ ebf79f0c-8399-42bf-b790-d4934906ede0
 md"!!! example \"\" 
 	Generate 100 3x3 plots of SVDD for low, medium, and high measurement error and H₂O composition variance values and return the plot that yields the median F1 score for each measurement error and H₂O variance set. Then use the data for the middle error and variance to perform a more detailed analysis. "
+
+# ╔═╡ 853390f9-6519-4df3-aa24-7b337142dbe4
+md"!!! warning \"\" 
+	WARNING: generating new data is very computationally expensive. "
 
 # ╔═╡ 075d4a2f-cf63-47b1-b309-14df97672a65
 gen_data_flag = false

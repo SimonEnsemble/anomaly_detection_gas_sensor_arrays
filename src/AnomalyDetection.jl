@@ -1,6 +1,6 @@
 module AnomalyDetection
 
-using ScikitLearn, DataFrames, CairoMakie, ColorSchemes, LinearAlgebra, Statistics, Random, PyCall, Revise
+using ScikitLearn, DataFrames, CairoMakie, ColorSchemes, LinearAlgebra, Statistics, Random, PyCall, Revise, JLD2
 SyntheticDataGen = include("SyntheticDataGen.jl")
 skopt = pyimport("skopt")
 #
@@ -390,6 +390,117 @@ and +1 for normal however the f1 score requires the opposite
 function performance_metric(y_true, y_pred)
     # anomalies (-1) are considered "positives" so need to switch sign.
     return f1_score(-y_true, -y_pred)
+end
+
+
+"""
+****************************************************
+learning curve
+****************************************************
+"""
+
+"""
+returns a matrix of f1 scores for a given vector of training set sizes.
+num_iter is the number rows in the matrix.
+"""
+function learning_curve(num_normal_train_points::Vector{Int64};
+						num_normal_test::Int64=100,
+						num_anomaly_test::Int64=5,
+						gen_data_flag::Bool=true,
+						num_iter::Int64=5,
+						σ_H₂O::Float64=0.01,
+						σ_m::Float64=1.0e-5)
+
+	data_storage = zeros(num_iter, length(num_normal_train_points))
+	num_anomaly_train = 0 #this should always stay 0
+
+	for (i, num_normal_train) in enumerate(num_normal_train_points)
+		for j=1:num_iter
+			#GENERATE DATASET 
+			Data = AnomalyDetection.setup_dataset(num_normal_train, 
+											num_anomaly_train, 
+											num_normal_test, 
+											num_anomaly_test, 
+											σ_H₂O, 
+											σ_m)
+
+			#STEP 1 - VALIDATE
+			(ν_opt, γ_opt), _ = AnomalyDetection.bayes_validation(Data.X_train_scaled, n_iter=50, plot_data_flag=false)
+
+			#STEP 2 - TRAIN ANOMALY DETECTOR
+			svm = AnomalyDetection.train_anomaly_detector(Data.X_train_scaled, ν_opt, γ_opt)
+
+			#STEP 3 - DETERMINE F1-SCORE
+			data_storage[j, i] = AnomalyDetection.performance_metric(Data.y_test,svm.predict(Data.X_test_scaled))
+		end
+	end
+	return data_storage
+end
+
+"""
+runs the learning curve function iteratively and saves matrices in JLD files.
+JLD files are stored in the jld parent folder.
+"""
+function simulate(num_normal_train::Vector{Int64}; 
+				run_start::Int64=1, 
+				run_end::Int64=20, 
+				iter_per_run::Int64=5,
+				σ_H₂O::Float64=0.01,
+				σ_m::Float64=1.0e-5)
+	for i=run_start:run_end
+		simulation = learning_curve(num_normal_train, num_iter=iter_per_run, σ_H₂O=σ_H₂O, σ_m=σ_m)
+		JLD2.jldsave("jld/learning_curve_sim_$(i)"*".jld2", i=simulation)  
+	end
+end
+
+"""
+gathers jld files from learning curve simulation and catenates them into a single matrix.
+"""
+function catenate_data(;folder::String="jld/", rows_per_file::Int=5)
+
+	# gather all the files
+	files = [file for file in readdir(folder) if isfile(abspath(joinpath(folder, file)))]
+
+	# make sure directory isn't empty
+	@assert length(files) > 0 "no files found"
+
+	num_data = rows_per_file * length(files)
+	columns = size(JLD2.load_object(joinpath(folder, files[1])), 2)
+
+	# make empty matrix to hold data
+	data = zeros(num_data, columns)
+
+	for (i, file) in enumerate(files)
+		file_data = JLD2.load_object(joinpath(folder, file))
+		for j=1:rows_per_file
+			row = (i-1) * rows_per_file + j
+			data[row, :] = file_data[j, :]
+		end
+	end
+
+	return data
+end
+
+"""
+gathers a vector of (mean, standard error) for each training set size from the learning curve simulation matrix.
+"""
+function score_stats(data::Matrix{Float64})
+
+	data_storage = zeros(size(data, 2))
+	data_storage = convert(Array{Any}, data_storage)
+
+	for (i, col) in enumerate(eachcol(data))
+		#calc mean f1
+		f1_scores_mean = mean(col)
+	
+		#calc standard error
+		f1_scores_se = std(col) / sqrt(size(data, 1))
+	
+		#store f1 for particular sized set of training data
+		data_storage[i] = (f1_scores_mean, f1_scores_se)
+	end
+
+	return data_storage
 end
 
 end
