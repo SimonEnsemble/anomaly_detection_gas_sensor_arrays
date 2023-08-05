@@ -39,9 +39,18 @@ begin
 	@sk_import svm : OneClassSVM
 end
 
-# ╔═╡ ebf79f0c-8399-42bf-b790-d4934906ede0
-md"!!! example \"\" 
-	Generate 100 3x3 plots of SVDD for low, medium, and high measurement error and H₂O composition variance values and return the plot that yields the median F1 score for each measurement error and H₂O variance set. Then use the data for the middle error and variance to perform a more detailed analysis. "
+# ╔═╡ 52ac8252-51a2-484c-9dac-bbdafa40de41
+md"### Loading previously stored data using JLD
+"
+
+# ╔═╡ 21589bf0-e7f0-4cf1-b082-e236cf6b3221
+begin
+	jld_file_folder = "example"
+	jld_file = joinpath(jld_file_folder, "sensor_error_&_H2O_variance_plot.jld")
+end
+
+# ╔═╡ 1e30612e-7bcd-47dc-a1fb-1e127aad4a55
+plot_data_storage = JLD.load(jld_file, "plot_data_storage")
 
 # ╔═╡ 4348a594-aa99-45dd-af3f-f3b61a4e8142
 md"## Generating data and visualizing the effects of sensor error and water variance.
@@ -54,6 +63,10 @@ md"### For new data: set gen\_data_flag to true.
 # ╔═╡ 853390f9-6519-4df3-aa24-7b337142dbe4
 md"!!! warning \"\" 
 	WARNING: generating new data is very computationally expensive. "
+
+# ╔═╡ ebf79f0c-8399-42bf-b790-d4934906ede0
+md"!!! example \"\" 
+	Generate 100 3x3 plots of SVDD for low, medium, and high measurement error and H₂O composition variance values and return the plot that yields the median F1 score for each measurement error and H₂O variance set. Then use the data for the middle error and variance to perform a more detailed analysis. "
 
 # ╔═╡ 075d4a2f-cf63-47b1-b309-14df97672a65
 gen_data_flag = false
@@ -78,19 +91,13 @@ begin
 							 validation_method="hypersphere",
 							 num_runs=100,
 							 gen_data_flag=gen_data_flag,
+							 jld_file_location=jld_file_folder,
 							 tune_bounds_flag=true,
 							 bound_tuning_low_variance=(0.0002, -0.0002, -0.0002, -0.0005),
 						     bound_tuning_high_variance=(0.0001, 0.0003, 0.0, 0.0)
 	)
 	plot
 end
-
-# ╔═╡ 52ac8252-51a2-484c-9dac-bbdafa40de41
-md"### Loading previously stored data using JLD
-"
-
-# ╔═╡ 1e30612e-7bcd-47dc-a1fb-1e127aad4a55
-plot_data_storage = JLD.load("sensor_error_&_H2O_variance_plot.jld", "plot_data_storage")
 
 # ╔═╡ 9873c6d8-84ba-47e5-adcb-4d0f30829227
 md"!!! example \"\" 
@@ -1976,14 +1983,15 @@ version = "3.5.0+0"
 # ╠═6d5bc919-351d-4b66-a8a6-5e92a42d4fac
 # ╠═31f71438-ff2f-49f9-a801-3a6489eaf271
 # ╠═5d920ea0-f04d-475f-b05b-86e7b199d7e0
-# ╟─ebf79f0c-8399-42bf-b790-d4934906ede0
+# ╟─52ac8252-51a2-484c-9dac-bbdafa40de41
+# ╠═21589bf0-e7f0-4cf1-b082-e236cf6b3221
+# ╠═1e30612e-7bcd-47dc-a1fb-1e127aad4a55
 # ╟─4348a594-aa99-45dd-af3f-f3b61a4e8142
 # ╟─e5eede17-08bd-4120-846e-36a3058c003e
+# ╟─ebf79f0c-8399-42bf-b790-d4934906ede0
 # ╟─853390f9-6519-4df3-aa24-7b337142dbe4
 # ╠═075d4a2f-cf63-47b1-b309-14df97672a65
 # ╠═4b1759a7-eba1-4de5-8d6a-38106f3301c9
-# ╟─52ac8252-51a2-484c-9dac-bbdafa40de41
-# ╠═1e30612e-7bcd-47dc-a1fb-1e127aad4a55
 # ╟─9873c6d8-84ba-47e5-adcb-4d0f30829227
 # ╟─77382f3e-98b6-4aef-b946-8375018c3c3e
 # ╠═6f53b700-6eba-487b-b91b-085d6e4d38b9
