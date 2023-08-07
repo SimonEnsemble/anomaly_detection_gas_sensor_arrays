@@ -2,7 +2,6 @@ module SyntheticDataGen
 
 using Distributions, DataFrames, JLD2, ColorSchemes, CairoMakie
 
-export GasCompDistribution, setup_gas_comp_distn, gen_gas_comps, sensor_response!, gen_data
 #=
     DEFINE DISTRIBUTIONS OF GAS COMPOSITIONS IN THE FRUIT RIPENING ROOM
     under normal and anomalous circumstances.
