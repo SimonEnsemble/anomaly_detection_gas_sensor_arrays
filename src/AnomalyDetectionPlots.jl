@@ -1,6 +1,6 @@
 module AnomalyDetectionPlots
 
-using ScikitLearn, DataFrames, CairoMakie, ColorSchemes, LinearAlgebra, Statistics, Random, PyCall, LaTeXStrings, JLD2, Makie.GeometryBasics, Revise, PyCallJLD
+using ScikitLearn, DataFrames, CairoMakie, ColorSchemes, LinearAlgebra, Statistics, Random, PyCall, JLD2, Makie.GeometryBasics
 SyntheticDataGen = include("SyntheticDataGen.jl")
 AnomalyDetection = include("AnomalyDetection.jl")
 skopt = pyimport("skopt")
@@ -990,7 +990,8 @@ function viz_f1_score_heatmap(σ_H₂O_max::Float64,
 							  hyperparameter_method="bayesian", 
 							  n_avg::Int=10, 
 							  λ=0.5,
-							  gen_data_flag=true)
+							  gen_data_flag=true,
+							  jld_file_location::String="",)
 	@assert validation_method=="hypersphere" || validation_method=="knee"
 	@assert hyperparameter_method=="bayesian" || hyperparameter_method=="grid"
 
@@ -1041,7 +1042,7 @@ function viz_f1_score_heatmap(σ_H₂O_max::Float64,
 			end
 		end
 	else
-		@load "f1_score_plot.jld2" f1_score_grid
+		@load joinpath(jld_file_location, "f1_score_plot.jld2") f1_score_grid
 	end
 
 	fig = Figure()
