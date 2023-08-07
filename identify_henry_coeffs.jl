@@ -5,19 +5,10 @@ using Markdown
 using InteractiveUtils
 
 # ╔═╡ d090131e-6602-4c03-860c-ad3cb6c7844a
-using CairoMakie,CSV, DataFrames, ColorSchemes, Distributions, Optim, PlutoUI, Colors, JLD2, LinearAlgebra, ScikitLearn, PyCall, LaTeXStrings, LinearAlgebra, Revise, Makie, PyCallJLD,  Makie.GeometryBasics
+using CairoMakie,CSV, DataFrames, ColorSchemes, Distributions, Optim, PlutoUI, Colors, JLD2, ScikitLearn, LinearAlgebra, Makie, PyCall
 
 # ╔═╡ 5019e8ac-040f-48fd-98e8-21ff7970aa23
 include("plot_theme.jl")
-
-# ╔═╡ 6a4411ca-c755-471a-a89a-c2f088d08f6c
-SyntheticDataGen = include("src/SyntheticDataGen.jl")
-
-# ╔═╡ 719afe92-7c53-4fee-8dd7-9f91714e3970
-AnomalyDetectionPlots = include("src/AnomalyDetectionPlots.jl")
-
-# ╔═╡ f70587a7-a2df-4bd2-bd87-f9c6aaadc661
-AnomalyDetection = include("src/AnomalyDetection.jl")
 
 # ╔═╡ 1784c510-5465-11ec-0dd1-13e5a66e4ce6
 md"# identifying C₂H₄, CO₂, and H₂O Henry Coefficients in ZIF-71 and ZIF-8
@@ -26,49 +17,9 @@ md"# identifying C₂H₄, CO₂, and H₂O Henry Coefficients in ZIF-71 and ZIF
 # ╔═╡ 7d0c453f-9396-498b-9dea-e6f9a6be5942
 TableOfContents()
 
-# ╔═╡ f7ee84e8-e7ac-4ff7-9d29-a54c2102353d
-md"""
-## Set up training and test data.
-"""
-
-# ╔═╡ 40328dbb-2afd-40e7-8710-3d902bc7fdbb
-begin
-	num_normal_train_points  = 100
-	num_anomaly_train_points = 0
-	num_normal_test_points   = 100
-	num_anomaly_test_points  = 5
-
-	σ_H₂O = 0.005
-	σ_m   = 0.00005
-	
-	data_set = AnomalyDetection.setup_dataset(num_normal_train_points,
-											  num_anomaly_train_points,
-											  num_normal_test_points,
-											  num_anomaly_test_points,
-									 		  σ_H₂O, 
-											  σ_m)
-end
-
-# ╔═╡ 1e63c725-dcc2-4fd2-b9ff-ba3944451718
-data_set.y_test
-
-# ╔═╡ e7d236ee-5e29-43ac-94fa-0db62c69c7cf
-md"""
-### Visualize composition space.
-"""
-
-# ╔═╡ 0b3c5692-8406-4093-8a83-8dec605b3048
-SyntheticDataGen.viz_C2H4_CO2_composition(data_set.data_train)
-
-# ╔═╡ 5c4124ae-96e5-445a-8d88-2f12b6f3ea7d
-SyntheticDataGen.viz_C2H4_CO2_composition(data_set.data_test)
-
-# ╔═╡ 1c8c91b6-948a-40e2-8cb5-8c0aa804ae67
-SyntheticDataGen.viz_H2O_compositions(data_set.data_test)
-
 # ╔═╡ 526cb580-1168-4385-860a-658d7a5cb017
 md"""
-## Extract Henry coefficients.
+# Extract Henry coefficients.
 """
 
 # ╔═╡ d5c471c3-26be-46c0-a174-d580d0ed7f7d
@@ -455,7 +406,7 @@ end
 
 # ╔═╡ c3dd83be-628a-4283-8b47-06e3ef80576e
 md"""
-### Visualize selectivities.
+### Visualize selectivities
 """
 
 # ╔═╡ 3f81ccc1-97b5-4b51-88ff-a4d782d9b4c8
@@ -471,14 +422,11 @@ Colors = "5ae59095-9a9b-59fe-a467-6f913c188581"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
-LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 Optim = "429524aa-4258-5aef-a3af-852621145aeb"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 PyCall = "438e738f-606a-5dbb-bf0a-cddfbfd45ab0"
-PyCallJLD = "de320387-30cd-5f83-91a8-a6e0ae8b8444"
-Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
 ScikitLearn = "3646fa90-6ef7-5e7e-9f22-8aca16db6324"
 
 [compat]
@@ -489,13 +437,10 @@ Colors = "~0.12.8"
 DataFrames = "~1.3.6"
 Distributions = "~0.25.74"
 JLD2 = "~0.4.23"
-LaTeXStrings = "~1.3.0"
 Makie = "~0.17.13"
 Optim = "~1.7.3"
 PlutoUI = "~0.7.43"
-PyCall = "~1.94.1"
-PyCallJLD = "~0.2.1"
-Revise = "~3.5.1"
+PyCall = "~1.95.1"
 ScikitLearn = "~0.6.4"
 """
 
@@ -505,7 +450,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.8.5"
 manifest_format = "2.0"
-project_hash = "ab7953393750831ac6987bc874a96dfb60360623"
+project_hash = "667ff9cf4d185579ea14e47a834808b7a3d8dd51"
 
 [[deps.AbstractFFTs]]
 deps = ["ChainRulesCore", "LinearAlgebra"]
@@ -564,18 +509,6 @@ version = "1.0.1"
 [[deps.Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
 
-[[deps.Blosc]]
-deps = ["Blosc_jll"]
-git-tree-sha1 = "310b77648d38c223d947ff3f50f511d08690b8d5"
-uuid = "a74b3585-a348-5f62-a45c-50e91977d574"
-version = "0.7.3"
-
-[[deps.Blosc_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Lz4_jll", "Pkg", "Zlib_jll", "Zstd_jll"]
-git-tree-sha1 = "e94024822c0a5b14989abbdba57820ad5b177b95"
-uuid = "0b7ba130-8d10-5ba8-a3d6-c5182647fed9"
-version = "1.21.2+0"
-
 [[deps.Bzip2_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "19a35467a82e236ff51bc17a3a44b69ef35185a2"
@@ -628,12 +561,6 @@ deps = ["ChainRulesCore", "LinearAlgebra", "Test"]
 git-tree-sha1 = "38f7a08f19d8810338d4f5085211c7dfa5d5bdd8"
 uuid = "9e997f8a-9a97-42d5-a9f1-ce6bfc15e2c0"
 version = "0.1.4"
-
-[[deps.CodeTracking]]
-deps = ["InteractiveUtils", "UUIDs"]
-git-tree-sha1 = "0e5c14c3bb8a61b3d53b2c0620570c332c8d0663"
-uuid = "da1fd8a2-8d9e-5ec2-8556-3022fb5608a2"
-version = "1.2.0"
 
 [[deps.CodecZlib]]
 deps = ["TranscodingStreams", "Zlib_jll"]
@@ -952,18 +879,6 @@ git-tree-sha1 = "53bb909d1151e57e2484c3d1b53e19552b887fb2"
 uuid = "42e2da0e-8278-4e71-bc24-59509adca0fe"
 version = "1.0.2"
 
-[[deps.HDF5]]
-deps = ["Blosc", "Compat", "HDF5_jll", "Libdl", "Mmap", "Random", "Requires"]
-git-tree-sha1 = "698c099c6613d7b7f151832868728f426abe698b"
-uuid = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
-version = "0.15.7"
-
-[[deps.HDF5_jll]]
-deps = ["Artifacts", "JLLWrappers", "LibCURL_jll", "Libdl", "OpenSSL_jll", "Pkg", "Zlib_jll"]
-git-tree-sha1 = "4cc2bb72df6ff40b055295fdef6d92955f9dede8"
-uuid = "0234f1f7-429e-5d53-9886-15a909be8d59"
-version = "1.12.2+2"
-
 [[deps.HarfBuzz_jll]]
 deps = ["Artifacts", "Cairo_jll", "Fontconfig_jll", "FreeType2_jll", "Glib_jll", "Graphite2_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Pkg"]
 git-tree-sha1 = "129acf094d168394e80ee1dc4bc06ec835e510a3"
@@ -1082,12 +997,6 @@ git-tree-sha1 = "a3f24677c21f5bbe9d2a714f95dcd58337fb2856"
 uuid = "82899510-4779-5014-852e-03e436cf321d"
 version = "1.0.0"
 
-[[deps.JLD]]
-deps = ["Compat", "FileIO", "HDF5", "Printf"]
-git-tree-sha1 = "390ed210fcbdaffde2efe7890f39bd1e681a62d7"
-uuid = "4138dd39-2aa7-5051-a626-17a0bb65d9c8"
-version = "0.12.5"
-
 [[deps.JLD2]]
 deps = ["FileIO", "MacroTools", "Mmap", "OrderedCollections", "Pkg", "Printf", "Reexport", "TranscodingStreams", "UUIDs"]
 git-tree-sha1 = "6c38bbe47948f74d63434abed68bdfc8d2c46b99"
@@ -1117,12 +1026,6 @@ deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "b53380851c6e6664204efb2e62cd24fa5c47e4ba"
 uuid = "aacddb02-875f-59d6-b918-886e6ef4fbf8"
 version = "2.1.2+0"
-
-[[deps.JuliaInterpreter]]
-deps = ["CodeTracking", "InteractiveUtils", "Random", "UUIDs"]
-git-tree-sha1 = "b289a36229c94e326282f36b3e24416a08dc7bd9"
-uuid = "aa1ae85d-cabe-5617-a682-6adf51b2e16a"
-version = "0.9.21"
 
 [[deps.KernelDensity]]
 deps = ["Distributions", "DocStringExtensions", "FFTW", "Interpolations", "StatsBase"]
@@ -1232,18 +1135,6 @@ version = "0.3.18"
 
 [[deps.Logging]]
 uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
-
-[[deps.LoweredCodeUtils]]
-deps = ["JuliaInterpreter"]
-git-tree-sha1 = "60168780555f3e663c536500aa790b6368adc02a"
-uuid = "6f1432cf-f94c-5a45-995e-cdbf5db27b0b"
-version = "2.3.0"
-
-[[deps.Lz4_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "5d494bc6e85c4c9b626ee0cab05daa4085486ab1"
-uuid = "5ced341a-0733-55b8-9ab6-a4889d929147"
-version = "1.9.3+0"
 
 [[deps.MKL_jll]]
 deps = ["Artifacts", "IntelOpenMP_jll", "JLLWrappers", "LazyArtifacts", "Libdl", "Pkg"]
@@ -1526,15 +1417,9 @@ version = "1.7.2"
 
 [[deps.PyCall]]
 deps = ["Conda", "Dates", "Libdl", "LinearAlgebra", "MacroTools", "Serialization", "VersionParsing"]
-git-tree-sha1 = "53b8b07b721b77144a0fbbbc2675222ebf40a02d"
+git-tree-sha1 = "62f417f6ad727987c755549e9cd88c46578da562"
 uuid = "438e738f-606a-5dbb-bf0a-cddfbfd45ab0"
-version = "1.94.1"
-
-[[deps.PyCallJLD]]
-deps = ["JLD", "PyCall"]
-git-tree-sha1 = "8b7f68cb3bfcdb3526e9f82a0795ae17842bc9de"
-uuid = "de320387-30cd-5f83-91a8-a6e0ae8b8444"
-version = "0.2.1"
+version = "1.95.1"
 
 [[deps.QOI]]
 deps = ["ColorTypes", "FileIO", "FixedPointNumbers"]
@@ -1578,12 +1463,6 @@ deps = ["UUIDs"]
 git-tree-sha1 = "838a3a4188e2ded87a4f9f184b4b0d78a1e91cb7"
 uuid = "ae029012-a4dd-5104-9daa-d747884805df"
 version = "1.3.0"
-
-[[deps.Revise]]
-deps = ["CodeTracking", "Distributed", "FileWatching", "JuliaInterpreter", "LibGit2", "LoweredCodeUtils", "OrderedCollections", "Pkg", "REPL", "Requires", "UUIDs", "Unicode"]
-git-tree-sha1 = "90cb983381a9dc7d3dff5fb2d1ee52cd59877412"
-uuid = "295af30f-e4ad-537b-8983-00126c2a3abe"
-version = "3.5.1"
 
 [[deps.Rmath]]
 deps = ["Random", "Rmath_jll"]
@@ -1889,12 +1768,6 @@ deps = ["Libdl"]
 uuid = "83775a58-1f1d-513f-b197-d71354ab007a"
 version = "1.2.12+3"
 
-[[deps.Zstd_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "e45044cd873ded54b6a5bac0eb5c971392cf1927"
-uuid = "3161d3a3-bdf6-5164-811a-617609db77b4"
-version = "1.5.2+0"
-
 [[deps.isoband_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "51b5eeb3f98367157a7a12a1fb0aa5328946c03c"
@@ -1970,16 +1843,6 @@ version = "3.5.0+0"
 # ╠═d090131e-6602-4c03-860c-ad3cb6c7844a
 # ╠═5019e8ac-040f-48fd-98e8-21ff7970aa23
 # ╠═7d0c453f-9396-498b-9dea-e6f9a6be5942
-# ╠═6a4411ca-c755-471a-a89a-c2f088d08f6c
-# ╠═719afe92-7c53-4fee-8dd7-9f91714e3970
-# ╠═f70587a7-a2df-4bd2-bd87-f9c6aaadc661
-# ╟─f7ee84e8-e7ac-4ff7-9d29-a54c2102353d
-# ╠═40328dbb-2afd-40e7-8710-3d902bc7fdbb
-# ╠═1e63c725-dcc2-4fd2-b9ff-ba3944451718
-# ╟─e7d236ee-5e29-43ac-94fa-0db62c69c7cf
-# ╠═0b3c5692-8406-4093-8a83-8dec605b3048
-# ╠═5c4124ae-96e5-445a-8d88-2f12b6f3ea7d
-# ╠═1c8c91b6-948a-40e2-8cb5-8c0aa804ae67
 # ╟─526cb580-1168-4385-860a-658d7a5cb017
 # ╟─d5c471c3-26be-46c0-a174-d580d0ed7f7d
 # ╠═d657ed23-3eb4-49d0-a59c-811e8189c376

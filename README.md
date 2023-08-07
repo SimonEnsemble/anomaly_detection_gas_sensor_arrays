@@ -3,9 +3,12 @@
 Anomaly detection gas sensor arrays is a project to showcase the utility of the support vector data description (SVDD) in an unsupervised setting by using the python package, scikit-learn, in the julia programming language to make an anomaly detector for a gas sensor array. Via simulation, we demonstrate with (1) a hypothetical sensor array composed of two gravimetric sensors utilizing zeolitic imidazolate frameworks and (2) a synthetic (gas composition, sensor array response) data set pertaining to gas sensing in a fruit ripening room, where (a) CO₂, C₂H₄, and H₂O vary in concentration and (b) anomalies are defined with respect to CO₂ and C₂H₄ concentrations.
 
 # Anomaly detection using the support vector data description (SVDD)
-## using Pluto.jl
+
+## Using Pluto.jl
 * run `identify_henry_coeffs.jl`
+    * this Pluto notebook exports the Henry coefficients jld file necessary for generating synthetic data.
 * run `SVDD_anomalyDet_fruitRipening.jl`
+    * this Pluto notebook uses data in the example folder to generate and evaluate the performance of the anomaly detector in a variety of background interferent (H₂O) variance and sensor error settings.
 
 
 ## Usage example

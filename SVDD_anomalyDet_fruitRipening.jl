@@ -95,11 +95,34 @@ begin
 	plot
 end
 
-# ╔═╡ 9873c6d8-84ba-47e5-adcb-4d0f30829227
-md"!!! example \"\" 
-	Unsupervised hyperparameter validation method 1:
+# ╔═╡ 2083f6c8-429c-40bb-a029-f9d3131886e7
+md"""
+# Gas composition space visuals
+"""
 
-	uniform hypersphere of 'anomalies' around our data"
+# ╔═╡ 5a4c66d9-0166-4c13-8a30-02ed6481b6fe
+md"""
+### Training CO₂ and H₂C₄
+"""
+
+# ╔═╡ ec8c2bbc-f492-4a22-80a8-f125ea048b34
+SyntheticDataGen.viz_C2H4_CO2_composition(mid_data["data"].data_train)
+
+# ╔═╡ 7a43a79f-de0f-469b-b8d9-a25b4c3f9180
+md"""
+### Test CO₂ and H₂C₄
+"""
+
+# ╔═╡ a6c181fe-e73d-46af-a1e6-5b4740ae89e4
+SyntheticDataGen.viz_C2H4_CO2_composition(mid_data["data"].data_test)
+
+# ╔═╡ 8317251c-69ad-42d8-90df-6e2a5cc94b13
+md"""
+### Water
+"""
+
+# ╔═╡ bfe24d5a-de4d-4634-ad5d-0c093a17135a
+SyntheticDataGen.viz_H2O_compositions(mid_data["data"].data_test)
 
 # ╔═╡ 77382f3e-98b6-4aef-b946-8375018c3c3e
 md"# Step 1) Generate uniform hypersphere of synthetic data around normal training data.
@@ -1890,7 +1913,13 @@ version = "3.5.0+0"
 # ╟─853390f9-6519-4df3-aa24-7b337142dbe4
 # ╠═075d4a2f-cf63-47b1-b309-14df97672a65
 # ╠═4b1759a7-eba1-4de5-8d6a-38106f3301c9
-# ╟─9873c6d8-84ba-47e5-adcb-4d0f30829227
+# ╟─2083f6c8-429c-40bb-a029-f9d3131886e7
+# ╟─5a4c66d9-0166-4c13-8a30-02ed6481b6fe
+# ╠═ec8c2bbc-f492-4a22-80a8-f125ea048b34
+# ╟─7a43a79f-de0f-469b-b8d9-a25b4c3f9180
+# ╠═a6c181fe-e73d-46af-a1e6-5b4740ae89e4
+# ╟─8317251c-69ad-42d8-90df-6e2a5cc94b13
+# ╠═bfe24d5a-de4d-4634-ad5d-0c093a17135a
 # ╟─77382f3e-98b6-4aef-b946-8375018c3c3e
 # ╠═6f53b700-6eba-487b-b91b-085d6e4d38b9
 # ╠═3117881e-08e5-435b-b088-be9973bec8aa
