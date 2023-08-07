@@ -17,19 +17,19 @@ AnomalyDetection = include("src/AnomalyDetection.jl")
 AnomalyDetectionPlots = include("src/AnomalyDetectionPlots.jl")
 SyntheticDataGen = include("src/SyntheticDataGen.jl")
 
-# size of data in the synthetic data set
+# size of data in the synthetic data set.
 num_normal_train_points  = 100
 num_anomaly_train_points = 0
 num_normal_test_points   = 100
 num_anomaly_test_points  = 5
 
-# set the variance of the distribution of water vapor concentration [RH]
+# set the variance of the distribution of water vapor concentration [RH].
 σ_H₂O = 0.005
 
 # set the error of the sensor.
 σ_m   = 0.00005
 
-# generate the synthetic data set
+# generate the synthetic data set.
 data_set = AnomalyDetection.setup_dataset(num_normal_train_points,
                                           num_anomaly_train_points,
                                           num_normal_test_points,
@@ -38,13 +38,13 @@ data_set = AnomalyDetection.setup_dataset(num_normal_train_points,
                                           σ_m)
 
 
-# optimize hyperparameters
+# optimize hyperparameters.
 (ν_opt, γ_opt), _ = AnomalyDetection.bayes_validation(Data.X_train_scaled, n_iter=50, plot_data_flag=false)
 
-# train the anomaly detector
+# train the anomaly detector.
 svm = AnomalyDetection.train_anomaly_detector(data_set.X_train_scaled, ν_opt, γ_opt)
 
-# test performance
+# test performance.
 f1_score = AnomalyDetection.performance_metric(data_set.y_test, svm.predict(data_set.X_test_scaled))
 ```
 
