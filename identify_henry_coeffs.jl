@@ -49,6 +49,9 @@ begin
 											  σ_m)
 end
 
+# ╔═╡ 1e63c725-dcc2-4fd2-b9ff-ba3944451718
+data_set.y_test
+
 # ╔═╡ e7d236ee-5e29-43ac-94fa-0db62c69c7cf
 md"""
 ### Visualize composition space.
@@ -1972,6 +1975,7 @@ version = "3.5.0+0"
 # ╠═f70587a7-a2df-4bd2-bd87-f9c6aaadc661
 # ╟─f7ee84e8-e7ac-4ff7-9d29-a54c2102353d
 # ╠═40328dbb-2afd-40e7-8710-3d902bc7fdbb
+# ╠═1e63c725-dcc2-4fd2-b9ff-ba3944451718
 # ╟─e7d236ee-5e29-43ac-94fa-0db62c69c7cf
 # ╠═0b3c5692-8406-4093-8a83-8dec605b3048
 # ╠═5c4124ae-96e5-445a-8d88-2f12b6f3ea7d

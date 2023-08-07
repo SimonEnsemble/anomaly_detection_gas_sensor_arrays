@@ -26,9 +26,6 @@ md"# Anomaly Detection for Gas Sensor Arrays Using Support Vector Data Descripti
 # ╔═╡ 3ba4e1e5-3187-4811-be09-d990973abc77
 TableOfContents()
 
-# ╔═╡ 6d5bc919-351d-4b66-a8a6-5e92a42d4fac
-skopt = pyimport("skopt")
-
 # ╔═╡ 5d920ea0-f04d-475f-b05b-86e7b199d7e0
 begin
 	@sk_import preprocessing : StandardScaler
@@ -1882,7 +1879,6 @@ version = "3.5.0+0"
 # ╠═0a6fe423-c3be-4a75-aa27-dfb84fde7fef
 # ╠═3e7c36ca-8345-40fb-b199-34fe49dea73e
 # ╠═4745788b-d360-4305-b44b-8d0fca2aeb4f
-# ╠═6d5bc919-351d-4b66-a8a6-5e92a42d4fac
 # ╠═31f71438-ff2f-49f9-a801-3a6489eaf271
 # ╠═5d920ea0-f04d-475f-b05b-86e7b199d7e0
 # ╟─52ac8252-51a2-484c-9dac-bbdafa40de41
