@@ -456,7 +456,7 @@ end
 """
 gathers jld files from learning curve simulation and catenates them into a single matrix.
 """
-function catenate_data(;folder::String="jld/", rows_per_file::Int=5)
+function catenate_data(;folder::String="example/jld/", rows_per_file::Int=5)
 
 	# gather all the files
 	files = [file for file in readdir(folder) if isfile(abspath(joinpath(folder, file)))]
