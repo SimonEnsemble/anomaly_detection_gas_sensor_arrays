@@ -370,7 +370,7 @@ end
 
 """
 ****************************************************
-deployment of the One class support vector machine
+deployment of the One class support vector machine and alternative
 ****************************************************
 """
 
@@ -381,6 +381,14 @@ trains a one class support vector machine
 function train_anomaly_detector(X_scaled::Matrix, ν::Float64, γ::Float64)
 	oc_svm = OneClassSVM(kernel="rbf", nu=ν, gamma=γ)
 	return oc_svm.fit(X_scaled)
+end
+
+"""
+trains an elliptic envelope anomaly detector
+"""
+function train_envelope_anomaly_detector(X_scaled::Matrix)
+	envelope = EllipticEnvelope()
+	return envelope.fit(X_scaled)
 end
 
 """
