@@ -111,7 +111,7 @@ visualizes the progression of bayesian optimization of
 hyperparameters ν and γ colored and sized according to the error function
 point by point.
 """
-function viz_bayes_values_by_point(plot_data::Vector{Tuple{Float64, Float64, Float64}}, points::Int)
+function viz_bayes_values_by_point(plot_data::Vector{Tuple{Float64, Float64, Float64}}, points::Int; save::Bool=false)
 
 	num_data = length(plot_data)
 
@@ -148,7 +148,9 @@ function viz_bayes_values_by_point(plot_data::Vector{Tuple{Float64, Float64, Flo
 		γ_opt = γs[ideal_index]
 		scatter!([ν_opt], [γ_opt], marker=:x, markersize=20, color=:red)
 		text!("($(AnomalyDetectionPlots.truncate(ν_opt, 2)), $(AnomalyDetectionPlots.truncate(γ_opt, 2)))",position = (ν_opt, 1.1*γ_opt), align=(:left, :baseline))
-		save("bayes_plot.pdf", fig)
+		if save
+			save("bayes_plot.pdf", fig)
+		end
 	end
 
     return fig
