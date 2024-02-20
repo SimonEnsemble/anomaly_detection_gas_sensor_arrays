@@ -95,7 +95,10 @@ end
 mid_data["data"].X_train[:, :]
 
 # ╔═╡ 2a48b3c0-31af-43ac-9a47-291e88c97d70
-
+function train_envelope_anomaly_detector(X_scaled::Matrix)
+	envelope = 
+	return oc_svm.fit(X_scaled)
+end
 
 # ╔═╡ 6e278c3e-45a3-4aa8-b904-e3dfa73615d5
 AnomalyDetectionPlots.viz_decision_boundary(mid_data["svm"], mid_data["data"].scaler, mid_data["data"].data_test, xlims=xlims, ylims=ylims)
