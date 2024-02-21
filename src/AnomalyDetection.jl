@@ -8,6 +8,7 @@ skopt = pyimport("skopt")
 @sk_import preprocessing : StandardScaler
 @sk_import metrics : confusion_matrix
 @sk_import metrics : f1_score
+@sk_import covariance : EllipticEnvelope
 
 gases = ["C₂H₄", "CO₂", "H₂O"]
 mofs = ["ZIF-71", "ZIF-8"]
@@ -302,18 +303,25 @@ function objective_function(X_train_scaled::Matrix{Float64},
 						    X_sphere::Matrix{Float64}, 
 							ν::Float64, 
 							γ::Float64; 
-							λ::Float64=0.5)
-	svm = AnomalyDetection.train_anomaly_detector(X_train_scaled, ν, γ)
+							λ::Float64=0.5,
+							anom_det_method::String="svm",
+							contamination::Float64=0.1)
+	@assert anom_det_method=="svm" || anom_det_method=="ee"
 
-	# term 1: estimate of error on normal data as fraction support vectors
-	fraction_svs = svm.n_support_[1] / size(X_train_scaled)[1]
+	if anom_det_method=="svm"
+		detector = AnomalyDetection.train_anomaly_detector(X_train_scaled, ν, γ)
+	elseif anom_det_method=="ee"
+		detector = AnomalyDetection.train_envelope_anomaly_detector(X_train_scaled, contamination=contamination)
+	end
 
 	# term 2: estimating the volume inside the decision boundary
-	y_sphere   		= svm.predict(X_sphere)
+	y_sphere   		= detector.predict(X_sphere)
 	num_inside 		= sum(y_sphere .== 1)
+	num_outside 	= size(X_train_scaled)[1] - sum(detector.predict(X_train_scaled).== 1)
 	fraction_inside = num_inside / length(y_sphere)
+	fraction_outside = num_outside  / size(X_train_scaled)[1]
 
-	return λ * fraction_svs + (1 - λ) * fraction_inside
+	return λ * fraction_outside + (1 - λ) * fraction_inside
 end
 
 """
@@ -326,20 +334,27 @@ function objective_function_scaled(X_train_scaled::Matrix{Float64},
 								   ν::Float64, 
 								   γ::Float64, 
 								   max_inside_contour::Int; 
-								   λ::Float64=0.5)
-	svm = AnomalyDetection.train_anomaly_detector(X_train_scaled, ν, γ)
+								   λ::Float64=0.5,
+								   anom_det_method::String="svm",
+								   contamination::Float64=0.1)
+	@assert anom_det_method=="svm" || anom_det_method=="ee"
+	if anom_det_method=="svm"
+		detector = AnomalyDetection.train_anomaly_detector(X_train_scaled, ν, γ)
+	elseif anom_det_method=="ee"
+		detector = AnomalyDetection.train_envelope_anomaly_detector(X_train_scaled, contamination=contamination)
+	end
 
-	# term 1: estimate of error on normal data as fraction support vectors
-	fraction_svs = svm.n_support_[1] / size(X_train_scaled)[1]
+	num_outside = size(X_train_scaled)[1] - sum(detector.predict(mid_data["data"].X_train_scaled).== 1)
 
 	# term 2: estimating the volume inside the decision boundary
-	y_sphere   	= svm.predict(X_sphere)
+	y_sphere   	= detector.predict(X_sphere)
 	num_inside 	= sum(y_sphere .== 1)
 
 	#instead of dividing by the total in the sphere, divide by the maximum inside a trained svm
 	fraction_inside = num_inside / max_inside_contour
+	fraction_outside = num_outside  / size(X_train_scaled)[1]
 
-	return λ * fraction_svs + (1 - λ) * fraction_inside
+	return λ * fraction_outside + (1 - λ) * fraction_inside
 end
 
 """
@@ -367,6 +382,31 @@ function gen_uniform_vector_in_hypersphere()
 	   return x
    end
 end
+"""
+****************************************************
+Optimize contamination for elliptic envelope
+****************************************************
+"""
+
+function determine_contam_opt_hypersphere_search(X_train_scaled::Matrix{Float64};
+	num_outliers::Int=500, λ::Float64=0.5, contam_range=0.005:0.005:0.5)
+	# generate data in hypersphere
+	R_sphere = maximum([norm(x) for x in eachrow(X_train_scaled)])
+	X_sphere = AnomalyDetection.generate_uniform_vectors_in_hypersphere(num_outliers, R_sphere)
+
+	opt_contam = 0.1
+	Λ_opt = Inf
+
+	for contam in contam_range
+		Λ = AnomalyDetection.objective_function(X_train_scaled, X_sphere, 0.0, 0.0, λ=λ, anom_det_method="ee", contamination=contam)
+		if Λ < Λ_opt
+			Λ_opt = copy(Λ)
+			opt_contam = contam
+		end	
+	end
+	return opt_contam, X_sphere
+
+end
 
 """
 ****************************************************
@@ -386,8 +426,8 @@ end
 """
 trains an elliptic envelope anomaly detector
 """
-function train_envelope_anomaly_detector(X_scaled::Matrix)
-	envelope = EllipticEnvelope()
+function train_envelope_anomaly_detector(X_scaled::Matrix; contamination::Float64=0.1)
+	envelope = EllipticEnvelope(contamination=contamination)
 	return envelope.fit(X_scaled)
 end
 

@@ -70,14 +70,8 @@ begin
 							 validation_method="hypersphere",
 							 num_runs=100,
 							 gen_data_flag=gen_data_flag,
-							 jld_file_location=jld_file_folder,
-							 tune_bounds_flag=true,
-							 bound_tuning_low_variance=(0.0002, -0.0002, -0.0002, -0.0005),
-						     bound_tuning_high_variance=(0.0001, 0.0003, 0.0, 0.0))
+							 jld_file_location=jld_file_folder)
 end
-
-# ╔═╡ 6f53b700-6eba-487b-b91b-085d6e4d38b9
-mid_data["data"]
 
 # ╔═╡ 86ba61e6-0633-431f-93a1-b53a8de9dd46
 begin
@@ -86,62 +80,33 @@ begin
 	total_zif8_data = vcat(mid_data["data"].X_test[:, 2], mid_data["data"].X_train[:, 2])
 	xlims = (0.98 * minimum(total_zif71_data), 1.02 * maximum(total_zif71_data))
     ylims= (0.98 * minimum(total_zif8_data), 1.02 * maximum(total_zif8_data))
-
-	# Set high variance data for ν and γ effects plot
-	high_σm_data = plot_data_storage[2, 3, 50]
 end
 
-# ╔═╡ b72b2430-c433-4e36-a5af-cb6302edd849
-mid_data["data"].X_train[:, :]
+# ╔═╡ 3ca410d1-0cd7-462e-a0e6-648830c6ad5b
+md"# Optimized contamination and train envelope detector
+"
 
-# ╔═╡ 2a48b3c0-31af-43ac-9a47-291e88c97d70
-function train_envelope_anomaly_detector(X_scaled::Matrix)
-	envelope = 
-	return oc_svm.fit(X_scaled)
-end
+# ╔═╡ 28909425-194b-48d3-a807-b85e1d50552f
+contam_opt, _ = AnomalyDetection.determine_contam_opt_hypersphere_search(mid_data["data"].X_train_scaled)
+
+# ╔═╡ 482f795e-2a2c-4f42-affb-7fe3e9daa92a
+envelope_detector = AnomalyDetection.train_envelope_anomaly_detector(mid_data["data"].X_train_scaled[:, :], contamination=contam_opt)
+
+# ╔═╡ b62b3672-5b71-499e-9da7-e476f2fe6abb
+md"## visuals
+"
 
 # ╔═╡ 6e278c3e-45a3-4aa8-b904-e3dfa73615d5
-AnomalyDetectionPlots.viz_decision_boundary(mid_data["svm"], mid_data["data"].scaler, mid_data["data"].data_test, xlims=xlims, ylims=ylims)
+AnomalyDetectionPlots.viz_decision_boundary(envelope_detector, mid_data["data"].scaler, mid_data["data"].data_test, xlims=xlims, ylims=ylims)
+
+# ╔═╡ 1546b4ab-7ba7-4ddd-8702-57ff97a7f606
+AnomalyDetectionPlots.viz_decision_boundary(envelope_detector, mid_data["data"].scaler, mid_data["data"].data_train, xlims=xlims, ylims=ylims)
 
 # ╔═╡ ee8029cf-c6a6-439f-b190-cb297e0ddb70
- AnomalyDetectionPlots.viz_cm(mid_data["svm"], mid_data["data"].data_test, mid_data["data"].scaler)
-
-# ╔═╡ 567335d9-8b3f-4bcb-b34c-3e655715b448
-md"## Data visuals
-"
-
-# ╔═╡ 1aaadc59-deab-4374-969f-cddd1b24a025
-md"### train
-"
-
-# ╔═╡ 7e45b82b-3c38-4734-9b58-fe0008747e66
-#sensor response data train
-AnomalyDetectionPlots.viz_decision_boundary(mid_data["svm"], mid_data["data"].scaler, mid_data["data"].data_train, default_lims=false, incl_contour=false,xlims=xlims, ylims=ylims)
-
-# ╔═╡ d20826ad-6775-493a-a124-a2ab146c1381
-md"### Test
-"
-
-# ╔═╡ dc4eedb5-758d-40f9-ba7b-c7ab71f5ec3b
-#sensor response data test
-AnomalyDetectionPlots.viz_decision_boundary(mid_data["svm"], mid_data["data"].scaler, mid_data["data"].data_test, default_lims=false, incl_contour=false, xlims=xlims, ylims=ylims)
-
-# ╔═╡ 76e83d0b-da02-4ba3-a51e-3d570d330d3b
-md"## Hyperparameter effects
-"
-
-# ╔═╡ ee91e0a9-605f-4d8c-8727-d6523e9a72c4
-AnomalyDetectionPlots.viz_ν_γ_effects(high_σm_data, high_σm_data["ν_opt, γ_opt"][1], high_σm_data["ν_opt, γ_opt"][2])
-
-# ╔═╡ 8c426257-f4a5-4015-b39f-eab5e84d91ee
-# check the f1 score to compare to other validation method(s)
-f1_hypersphere = AnomalyDetection.performance_metric(mid_data["data"].y_test, mid_data["svm"].predict(mid_data["data"].X_test_scaled))
-
-# ╔═╡ a2467d27-0664-43d3-8f22-46b0d2ad4a77
-mid_data["data"].data_train
+ AnomalyDetectionPlots.viz_cm(envelope_detector, mid_data["data"].data_test, mid_data["data"].scaler)
 
 # ╔═╡ af557f0c-9cb1-41ba-bcff-c1c95b08c560
-md"## f1 score heatmap
+md"## f1 score heatmap for Elliptic Envelope
 "
 
 # ╔═╡ 00d90c63-6f3e-4906-ad35-ba999439e253
@@ -153,184 +118,11 @@ begin
 	AnomalyDetectionPlots.viz_f1_score_heatmap(σ_H₂O_max, 
 											   σ_m_max, 
 											   res=5, 
-											   validation_method="hypersphere", 
-   											   hyperparameter_method="bayesian", 
 											   λ=0.5, 
 											   n_avg=100,
-											   gen_data_flag=false,
-											   jld_file_location=jld_file_folder)
+											   anom_det_method="ee")
 end
 
-
-# ╔═╡ 6a46c6e8-2dfe-4745-b867-9192265b5d0d
-md"## Learning curve
-"
-
-# ╔═╡ 627ed8d6-ac50-48e8-aa90-c75232c1bd64
-begin
-	#number of normal data points for training and test data
-	num_normal_train_points_learning_curve = [10, 20, 50, 100, 150, 200, 300, 500]
-	#number of each type of anomaly in test data
-	# num_normal_test_points   = 100
-	# num_anomaly_test_points  = 5
-
-	# grab mid variance values
-	σ_H₂O = σ_H₂O_vector[2]
-	σ_m = σ_m_vector[2]
-end
-
-# ╔═╡ 59d2888f-fd1a-4644-b80f-e6e65ee771bc
-#AnomalyDetection.simulate(num_normal_train_points_learning_curve, run_start=1, run_end=1, σ_m=σ_m, σ_H₂O=σ_H₂O)
-
-# ╔═╡ 7ca56cf4-6045-4e1f-bc36-90c0bea8d200
-the_data = AnomalyDetection.catenate_data()
-
-# ╔═╡ 26d59d0a-2f1f-4bd6-b1e3-46c41c5db3da
-lc = AnomalyDetection.score_stats(the_data)
-
-# ╔═╡ 12df72c2-3228-472b-9e47-4610960ec608
-AnomalyDetectionPlots.viz_learning_curve(lc, num_normal_train_points_learning_curve, σ_m=σ_m, σ_H₂O=σ_H₂O)
-
-# ╔═╡ 82ae9099-37cc-4402-9963-62cc064849ad
-md"# Alternative method: Knee
-"
-
-# ╔═╡ 51b0ebd4-1dec-4b35-bb15-cd3df906aca3
-md"!!! example \"\" 
-	Unsupervised hyperparameter validation method 2:
-
-	density measure plot and maximum curvature"
-
-# ╔═╡ 6ceab194-4861-4be1-901c-6713db5a4204
-begin
-	# according to paper K is optimally 0.05 * number of data points
-	K = trunc(Int, 0.05 * num_normal_train_points)
-	
-	# use a density measure method to find optimal ν and γ
-	ν_opt, γ_opt = AnomalyDetection.opt_ν_γ_by_density_measure_method(mid_data["data"].X_train_scaled, K)
-
-	# train the anomaly detector
-	svm = AnomalyDetection.train_anomaly_detector(mid_data["data"].X_train_scaled, ν_opt, γ_opt)
-
-	(ν_opt, γ_opt)
-end
-
-# ╔═╡ 9a9262d4-02ff-4d82-bb7b-8584e8b79022
-AnomalyDetectionPlots.viz_density_measures(mid_data["data"].X_train_scaled, K)
-
-# ╔═╡ f0cb9b40-0ed8-450a-8f03-4f16ca65fa77
-AnomalyDetectionPlots.viz_decision_boundary(svm, mid_data["data"].scaler, mid_data["data"].data_test)
-
-# ╔═╡ 47d6c332-632c-4880-9708-59e6fa187c6c
-AnomalyDetectionPlots.viz_cm(svm, mid_data["data"].data_test, mid_data["data"].scaler)
-
-# ╔═╡ e4723de4-3a82-4c15-9057-c20b331259f7
-AnomalyDetectionPlots.viz_decision_boundary(svm, mid_data["data"].scaler, mid_data["data"].data_train)
-
-# ╔═╡ 55640b9c-9a0a-4d0d-8c29-e67a8228edc2
-# check the f1 score to compare to other validation method(s)
-f1_density = AnomalyDetection.performance_metric(mid_data["data"].y_test, svm.predict(mid_data["data"].X_test_scaled))
-
-# ╔═╡ bbeec9a5-6260-4e8a-a444-a22a59898d22
-md"!!! example \"\" 
-	 Comparing F1 score between median different validation methods and calculating precision and recall."
-
-# ╔═╡ 11e286be-d3a9-4896-a90c-fdd05fc35073
-f1_density
-
-# ╔═╡ f8dab032-e446-4e6e-8022-39ad3dbb1042
-f1_hypersphere
-
-# ╔═╡ bfc27fe6-2f26-41b7-a614-2e0e354267bd
- AnomalyDetectionPlots.viz_cm(mid_data["svm"], mid_data["data"].data_test, mid_data["data"].scaler)
-
-# ╔═╡ cef4a546-18b5-4c4d-a7c6-50caba148d35
-begin
-	correct_normal = 92 #not taken into account
-	false_positives = 8.0 #predicted anomaly, but actually normal
-	false_negatives = 0.0 + 5.0 + 1.0 + 0.0 #based on confusion matrix
-	true_positives = 5.0 + 0.0 + 4.0 + 5.0 #"  "
-
-	precision_sc = true_positives / (true_positives + false_positives)
-
-	recall_sc = true_positives / (true_positives + false_negatives)
-	
-end
-
-# ╔═╡ 3e8ca33e-e6e9-4a2f-b235-2221eb994ce3
-precision_sc
-
-# ╔═╡ e7cddd77-f1d0-44fd-87bb-e3af5b42558b
-recall_sc
-
-# ╔═╡ 3aab547c-8b00-48da-aa8e-3d51e804c5df
-md"!!! example \"\" 
-	f1 score testing for fun"
-
-# ╔═╡ a1843a87-a8d3-40ab-9959-3e14d520a4d1
-function f1(true_pstv, false_pstv, false_ngtv)
-	prec = true_pstv / (true_pstv + false_pstv)
-	rec = true_pstv / (true_pstv + false_ngtv)
-
-	return 2* (prec*rec) / (prec + rec)
-end
-
-# ╔═╡ 923c9837-82ab-4071-b716-faa3565fa327
-begin
-	# test f1 score
-	# the middle plot has 16 true positives, 9 false negatives, 10 false positives
-	# it also has f1 0.62, lets test it
-	pauls_f1 = f1(16, 10, 9)
-
-	#perfect!
-end
-
-# ╔═╡ 211e8b05-6525-448e-80f2-f093e7488beb
-f1(2, 15, 18)
-
-# ╔═╡ b62fd403-cf0d-4ab5-94cf-291cefb0bbbc
-f1(3, 17, 17)
-
-# ╔═╡ 773793c4-021a-4aa8-9b13-c27f94e694b0
-begin
-yy_pred = [ 1,  1, 1, -1, -1, 1, -1, -1]
-yy_true = [-1, -1, 1,  1,  1, 1,  1, -1]
-
-	# how many predicted as anomalous that are actually anomalous?
-	true_pstv = 1.0
-	# how many predicted as normal, but actually anomalous?
-	false_ngtv = 2.0
-	# how many predicted as anomalous, but actually normal?
-	false_pstv = 3.0
-
-	println("paul's = $(f1(true_pstv, false_pstv, false_ngtv))")
-
-	println("sklearn = $(f1_score(-yy_true, -yy_pred))")
-	
-end
-
-# ╔═╡ 3755e438-0850-45d5-992d-e7911ddcb2df
-md"# random anomaly detector test
-"
-
-# ╔═╡ 02b9e2a3-3b98-46b9-b107-661e2cadd555
-function worst_f1(num_normal::Int, num_anomaly::Int, num_sims::Int=10000)
-	p_anomaly = num_anomaly / (num_normal + num_anomaly)
-
-	true_labels = vcat([true for i=1:num_anomaly], [false for i=1:num_normal])
-	
-	f1_sum = 0
-	for s = 1:num_sims
-		predict_labels = [rand() < p_anomaly for i=1:length(true_labels)]
-
-		f1_sum += f1_score(true_labels, predict_labels)
-	end
-
-	return f1_sum / num_sims
-end
-
-# ╔═╡ 4c3c93e3-a595-4984-a091-6466a2b54756
-worst_f1(100, 20)
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -2206,7 +1998,7 @@ version = "3.5.0+0"
 """
 
 # ╔═╡ Cell order:
-# ╠═1784c510-5465-11ec-0dd1-13e5a66e4ce6
+# ╟─1784c510-5465-11ec-0dd1-13e5a66e4ce6
 # ╠═d090131e-6602-4c03-860c-ad3cb6c7844a
 # ╠═3ba4e1e5-3187-4811-be09-d990973abc77
 # ╠═0a6fe423-c3be-4a75-aa27-dfb84fde7fef
@@ -2216,52 +2008,15 @@ version = "3.5.0+0"
 # ╠═5d920ea0-f04d-475f-b05b-86e7b199d7e0
 # ╟─52ac8252-51a2-484c-9dac-bbdafa40de41
 # ╠═4b1759a7-eba1-4de5-8d6a-38106f3301c9
-# ╠═6f53b700-6eba-487b-b91b-085d6e4d38b9
 # ╠═86ba61e6-0633-431f-93a1-b53a8de9dd46
-# ╠═b72b2430-c433-4e36-a5af-cb6302edd849
-# ╠═2a48b3c0-31af-43ac-9a47-291e88c97d70
+# ╟─3ca410d1-0cd7-462e-a0e6-648830c6ad5b
+# ╠═28909425-194b-48d3-a807-b85e1d50552f
+# ╠═482f795e-2a2c-4f42-affb-7fe3e9daa92a
+# ╟─b62b3672-5b71-499e-9da7-e476f2fe6abb
 # ╠═6e278c3e-45a3-4aa8-b904-e3dfa73615d5
+# ╠═1546b4ab-7ba7-4ddd-8702-57ff97a7f606
 # ╠═ee8029cf-c6a6-439f-b190-cb297e0ddb70
-# ╟─567335d9-8b3f-4bcb-b34c-3e655715b448
-# ╟─1aaadc59-deab-4374-969f-cddd1b24a025
-# ╠═7e45b82b-3c38-4734-9b58-fe0008747e66
-# ╟─d20826ad-6775-493a-a124-a2ab146c1381
-# ╠═dc4eedb5-758d-40f9-ba7b-c7ab71f5ec3b
-# ╟─76e83d0b-da02-4ba3-a51e-3d570d330d3b
-# ╠═ee91e0a9-605f-4d8c-8727-d6523e9a72c4
-# ╠═8c426257-f4a5-4015-b39f-eab5e84d91ee
-# ╠═a2467d27-0664-43d3-8f22-46b0d2ad4a77
 # ╟─af557f0c-9cb1-41ba-bcff-c1c95b08c560
 # ╠═00d90c63-6f3e-4906-ad35-ba999439e253
-# ╟─6a46c6e8-2dfe-4745-b867-9192265b5d0d
-# ╠═627ed8d6-ac50-48e8-aa90-c75232c1bd64
-# ╠═59d2888f-fd1a-4644-b80f-e6e65ee771bc
-# ╠═7ca56cf4-6045-4e1f-bc36-90c0bea8d200
-# ╠═26d59d0a-2f1f-4bd6-b1e3-46c41c5db3da
-# ╠═12df72c2-3228-472b-9e47-4610960ec608
-# ╟─82ae9099-37cc-4402-9963-62cc064849ad
-# ╟─51b0ebd4-1dec-4b35-bb15-cd3df906aca3
-# ╠═6ceab194-4861-4be1-901c-6713db5a4204
-# ╠═9a9262d4-02ff-4d82-bb7b-8584e8b79022
-# ╠═f0cb9b40-0ed8-450a-8f03-4f16ca65fa77
-# ╠═47d6c332-632c-4880-9708-59e6fa187c6c
-# ╠═e4723de4-3a82-4c15-9057-c20b331259f7
-# ╠═55640b9c-9a0a-4d0d-8c29-e67a8228edc2
-# ╟─bbeec9a5-6260-4e8a-a444-a22a59898d22
-# ╠═11e286be-d3a9-4896-a90c-fdd05fc35073
-# ╠═f8dab032-e446-4e6e-8022-39ad3dbb1042
-# ╠═bfc27fe6-2f26-41b7-a614-2e0e354267bd
-# ╠═cef4a546-18b5-4c4d-a7c6-50caba148d35
-# ╠═3e8ca33e-e6e9-4a2f-b235-2221eb994ce3
-# ╠═e7cddd77-f1d0-44fd-87bb-e3af5b42558b
-# ╟─3aab547c-8b00-48da-aa8e-3d51e804c5df
-# ╠═923c9837-82ab-4071-b716-faa3565fa327
-# ╠═a1843a87-a8d3-40ab-9959-3e14d520a4d1
-# ╠═211e8b05-6525-448e-80f2-f093e7488beb
-# ╠═b62fd403-cf0d-4ab5-94cf-291cefb0bbbc
-# ╠═773793c4-021a-4aa8-9b13-c27f94e694b0
-# ╟─3755e438-0850-45d5-992d-e7911ddcb2df
-# ╠═02b9e2a3-3b98-46b9-b107-661e2cadd555
-# ╠═4c3c93e3-a595-4984-a091-6466a2b54756
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

@@ -998,7 +998,8 @@ function viz_f1_score_heatmap(σ_H₂O_max::Float64,
 							  λ=0.5,
 							  gen_data_flag=true,
 							  jld_file_location::String="",
-							  anom_det_method::String="svm")
+							  anom_det_method::String="svm",
+							  contamination::Float64=0.1)
 	@assert validation_method=="hypersphere" || validation_method=="knee"
 	@assert hyperparameter_method=="bayesian" || hyperparameter_method=="grid"
 	@assert anom_det_method=="svm" || anom_det_method=="ee"
@@ -1023,25 +1024,25 @@ function viz_f1_score_heatmap(σ_H₂O_max::Float64,
 											num_anomaly_test_points,
 											σ_H₂O, 
 											σ_m)
-		
-					#optimize hyperparameters and determine f1score
-					if validation_method == "hypersphere" && method=="svm"
-						if hyperparameter_method == "bayesian"
-							ν_space::Tuple{Float64, Float64}=(1.0e-3, 0.3)
-							#γ_space::Tuple{Float64, Float64}=(1.0e-3, 0.99)
-							(ν_opt, γ_opt), _ = AnomalyDetection.bayes_validation(data.X_train_scaled, n_iter=50) #, γ_space=γ_space)
-						elseif hyperparameter_method == "grid"
-							(ν_opt, γ_opt), _ = AnomalyDetection.determine_ν_opt_γ_opt_hypersphere_grid_search(data.X_train_scaled)
-						end
-					elseif validation_method == "knee" && method=="svm"
-						K            = trunc(Int, num_normal_train_points*0.05)
-						ν_opt, γ_opt = AnomalyDetection.opt_ν_γ_by_density_measure_method(data.X_train_scaled, K)
-					end
 					
 					if anom_det_method=="svm"
+						#optimize hyperparameters and determine f1score
+						if validation_method == "hypersphere" && method=="svm"
+							if hyperparameter_method == "bayesian"
+								ν_space::Tuple{Float64, Float64}=(1.0e-3, 0.3)
+								#γ_space::Tuple{Float64, Float64}=(1.0e-3, 0.99)
+								(ν_opt, γ_opt), _ = AnomalyDetection.bayes_validation(data.X_train_scaled, n_iter=50) #, γ_space=γ_space)
+							elseif hyperparameter_method == "grid"
+								(ν_opt, γ_opt), _ = AnomalyDetection.determine_ν_opt_γ_opt_hypersphere_grid_search(data.X_train_scaled)
+							end
+						elseif validation_method == "knee" && method=="svm"
+							K            = trunc(Int, num_normal_train_points*0.05)
+							ν_opt, γ_opt = AnomalyDetection.opt_ν_γ_by_density_measure_method(data.X_train_scaled, K)
+						end
 						detector = AnomalyDetection.train_anomaly_detector(data.X_train_scaled, ν_opt, γ_opt)
 					else
-						detector = AnomalyDetection.train_envelope_anomaly_detector(data.X_train_scaled)
+						contamination, _ = determine_contam_opt_hypersphere_search(data.X_train_scaled)
+						detector = AnomalyDetection.train_envelope_anomaly_detector(data.X_train_scaled, contamination=contamination)
 					end
 					y_pred 	 = detector.predict(data.X_test_scaled)
 					f1_score = AnomalyDetection.performance_metric(data.y_test, y_pred)
@@ -1071,13 +1072,13 @@ function viz_f1_score_heatmap(σ_H₂O_max::Float64,
 			      colormap=ColorSchemes.RdYlGn_4, colorrange=(0.0, 1.0))
 	Colorbar(fig[1, 2], hm, label="F1 score")
 
-	if anom_det_method="svm"
+	if anom_det_method=="svm"
 		if validation_method == "hypersphere"
 			save("f1_score_plot_hypersphere.pdf", fig)
 		elseif validation_method == "knee"
 			save("f1_score_plot_knee.pdf", fig)
 		end
-	elseif anom_det_method="ee"
+	elseif anom_det_method=="ee"
 		save("f1_score_plot_ee.pdf", fig)
 	end
 
