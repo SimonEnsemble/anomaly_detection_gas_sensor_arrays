@@ -90,7 +90,7 @@ md"# Optimized contamination and train envelope detector
 contam_opt, _ = AnomalyDetection.determine_contam_opt_hypersphere_search(mid_data["data"].X_train_scaled)
 
 # ╔═╡ 482f795e-2a2c-4f42-affb-7fe3e9daa92a
-envelope_detector = AnomalyDetection.train_envelope_anomaly_detector(mid_data["data"].X_train_scaled[:, :], contamination=contam_opt)
+envelope_detector = AnomalyDetection.train_envelope_anomaly_detector(mid_data["data"].X_train_scaled, contamination=contam_opt)
 
 # ╔═╡ b62b3672-5b71-499e-9da7-e476f2fe6abb
 md"## visuals
@@ -120,7 +120,9 @@ begin
 											   res=5, 
 											   λ=0.5, 
 											   n_avg=100,
-											   anom_det_method="ee")
+											   anom_det_method="ee",
+											   jld_file_location="example",
+											   gen_data_flag=false)
 end
 
 
