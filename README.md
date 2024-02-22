@@ -13,7 +13,6 @@ We also showcase a much simpler alternative anomaly detection algorithm, the ell
 * run `Eenvelope_anomalyDet_fruitRipening.jl`
     * this Pluto notebook uses data in the example folder to generate and evaluate an alternative anomaly detector, the elliptic envelope.
 
- ## folders
  ### src folder
  This folder contains three files, AnomalyDetection.jl, AnomalyDetectionPlots.jl and SyntheticDataGen.jl. 
  * AnomalyDetection.jl
