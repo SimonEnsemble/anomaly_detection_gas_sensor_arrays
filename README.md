@@ -22,10 +22,10 @@ We also showcase a much simpler alternative anomaly detection algorithm, the ell
  * SyntheticDataGen.jl
    This file contains any functions associated with gas compositions of our model prior to realization of the sensor response.
 
- ### data
+ ### data folder
  * This folder contains equilibrium adsorption isotherm csv files used to extract the Henry coefficients for zeolitic imidizolate frameworks ZIF-8 and ZIF-71.
    
- ### example
+ ### example folder
  * This folder contains JLD files used for quick visualizations of simulated response vectors and their associated statistics already computed.
 
 
