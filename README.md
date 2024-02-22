@@ -13,6 +13,22 @@ We also showcase a much simpler alternative anomaly detection algorithm, the ell
 * run `Eenvelope_anomalyDet_fruitRipening.jl`
     * this Pluto notebook uses data in the example folder to generate and evaluate an alternative anomaly detector, the elliptic envelope.
 
+ ## folders
+ ### src folder
+ This folder contains three files, AnomalyDetection.jl, AnomalyDetectionPlots.jl and SyntheticDataGen.jl. 
+ * AnomalyDetection.jl
+   This file contains functions necessary to train, deploy, optimize and evaluate the SVDD and elliptic envelope algorithms.
+ * AnomalyDetectionPlots.jl
+   This file contains any plotting functions related to sensor readouts, deployment, optimization and evaluation of the SVDD and elliptic envelope algorithms.
+ * SyntheticDataGen.jl
+   This file contains any functions associated with gas compositions of our model prior to realization of the sensor response.
+
+ ### data
+ * This folder contains equilibrium adsorption isotherm csv files used to extract the Henry coefficients for zeolitic imidizolate frameworks ZIF-8 and ZIF-71.
+   
+ ### example
+ * This folder contains JLD files used for quick visualizations of simulated response vectors and their associated statistics already computed.
+
 
 ## Usage example
 
