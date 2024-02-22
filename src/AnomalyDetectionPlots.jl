@@ -1041,7 +1041,7 @@ function viz_f1_score_heatmap(σ_H₂O_max::Float64,
 						end
 						detector = AnomalyDetection.train_anomaly_detector(data.X_train_scaled, ν_opt, γ_opt)
 					else
-						contamination, _ = determine_contam_opt_hypersphere_search(data.X_train_scaled)
+						contamination, _ = AnomalyDetection.determine_contam_opt_hypersphere_search(data.X_train_scaled)
 						detector = AnomalyDetection.train_envelope_anomaly_detector(data.X_train_scaled, contamination=contamination)
 					end
 					y_pred 	 = detector.predict(data.X_test_scaled)
