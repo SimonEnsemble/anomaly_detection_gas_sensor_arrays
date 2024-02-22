@@ -573,10 +573,11 @@ function viz_decision_boundary!(ax,
 								xlims, 
 								ylims; 
 								incl_legend::Bool=true,
-								incl_contour::Bool=true)
+								incl_contour::Bool=true,
+								res::Int64=300)
 
 	# generate the grid
-	x₁s, x₂s, predictions = generate_response_grid(svm, scaler, xlims, ylims)
+	x₁s, x₂s, predictions = generate_response_grid(svm, scaler, xlims, ylims, res=res)
 
 	viz_responses!(ax, data_test, incl_legend=incl_legend)
 	if incl_contour
@@ -595,7 +596,7 @@ end
 """
 generates a grid of anomaly scores based on a trained svm and given resolution
 """
-function generate_response_grid(svm, scaler, xlims, ylims, res=100)
+function generate_response_grid(svm, scaler, xlims, ylims; res=100)
 	# lay grid over feature space
 	x₁s = range(xlims[1], xlims[2], length=res)
 	x₂s = range(ylims[1], ylims[2], length=res)
@@ -982,12 +983,12 @@ end
 
 """
 vizualizes a res x res plot of f1 scores as a heatmap of the two validation methods for svm:
-method 1: hypersphere
-method 2: knee
+method 1: "hypersphere"
+method 2: "knee"
 
 there are two anomaly detection methods, one class svm or elliptic envelope.
-method 1: svm
-method 2: ee
+method 1: "svm"
+method 2: "ee"
 """
 function viz_f1_score_heatmap(σ_H₂O_max::Float64, 
 							  σ_m_max::Float64; 
@@ -1054,8 +1055,10 @@ function viz_f1_score_heatmap(σ_H₂O_max::Float64,
 				@warn "grid space ($(i), $(j)) finished, σ_H₂O=$(σ_H₂O), σ_m=$(σ_m), f1=$(f1_avg)"
 			end
 		end
-	else !gen_data_flag && 
+	elseif !gen_data_flag && anom_det_method=="svm"
 		@load joinpath(jld_file_location, "f1_score_plot.jld2") f1_score_grid
+	elseif !gen_data_flag && anom_det_method=="ee"
+		@load joinpath(jld_file_location, "f1_score_plot_ee.jld2") f1_score_grid
 	end
 
 	fig = Figure()
