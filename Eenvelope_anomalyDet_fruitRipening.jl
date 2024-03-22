@@ -126,6 +126,37 @@ begin
 end
 
 
+# ╔═╡ e06d9244-2202-4705-bac1-cd48a5f0ecd3
+md"## compare performance of f1 score heatmap for Elliptic Envelope with SVM
+"
+
+# ╔═╡ 0ff2b293-b97f-4623-bd70-b4e9f762db9a
+begin
+	#load heatmap data for svm and elliptic envelope
+	jld_folder   = "jld"
+	jld_file_ee  = joinpath("example", "f1_score_plot_ee.jld2")
+	jld_file_svm = joinpath("example", "f1_score_plot.jld2")
+	ee_f1_map    = JLD2.load(jld_file_ee)["f1_score_grid"]
+	svm_f1_map   = JLD2.load(jld_file_svm)["f1_score_grid"]
+
+	#confirm they are the same size
+	@assert size(ee_f1_map, 1) == size(svm_f1_map, 1)
+	@assert size(ee_f1_map, 2) == size(svm_f1_map, 2)
+
+	#score the average improvement by elliptic envelope
+	num_vals = size(ee_f1_map, 1) * size(ee_f1_map, 2)
+	total_score = 0.0
+	for i = 1:size(ee_f1_map, 1)
+		for j = 1:size(ee_f1_map, 2)
+			global total_score += ee_f1_map[i, j] - svm_f1_map[i, j]
+		end
+	end
+
+	#show results
+	average_f1_improvement = total_score/num_vals
+	show(average_f1_improvement)
+end
+
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
@@ -2020,5 +2051,7 @@ version = "3.5.0+0"
 # ╠═ee8029cf-c6a6-439f-b190-cb297e0ddb70
 # ╟─af557f0c-9cb1-41ba-bcff-c1c95b08c560
 # ╠═00d90c63-6f3e-4906-ad35-ba999439e253
+# ╟─e06d9244-2202-4705-bac1-cd48a5f0ecd3
+# ╠═0ff2b293-b97f-4623-bd70-b4e9f762db9a
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
