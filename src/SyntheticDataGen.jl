@@ -47,9 +47,9 @@ function setup_gas_comp_distn(σ_H₂O::Float64, label::String)
         ),
         # CO₂. 410 ppm to 5000 ppm
         Uniform(400.0e-6, 5000.0e-6),
-        # H₂O: 85% RH on average
+        # H₂O: 90 % RH on average
         truncated(
-            Normal(0.85 * p_H₂O_vapor, σ_H₂O * p_H₂O_vapor), 
+            Normal(0.90 * p_H₂O_vapor, σ_H₂O * p_H₂O_vapor), 
             0.0, Inf
         )
     )
