@@ -306,7 +306,7 @@ function viz_C2H4_CO2_H2O_density_distributions(σ_H₂O)
 			#gray axis
 			if gas == "H₂O"
 				lines!(axes[i, j], 
-					   [0.8, 0.8, 0.9], 
+					   [0.85, 0.85, 0.95], 
 					   [1258, 0, 0],
 					   color=:grey,				   	 
 	         		   linewidth=0.5)

@@ -48,7 +48,7 @@ function setup_dataset(num_normal_train_points,
 					   system="non-injective",
 					   seed=abs(rand(Int)))
 	@assert system=="non-injective" || system=="injective"
-	Random.seed!(seed)
+	#Random.seed!(seed)
 	
 	# generate synthetic training data
 	data_train = SyntheticDataGen.gen_data(num_normal_train_points, 
@@ -497,7 +497,7 @@ function simulate(num_normal_train::Vector{Int64};
 				σ_m::Float64=1.0e-5)
 	for i=run_start:run_end
 		simulation = learning_curve(num_normal_train, num_iter=iter_per_run, σ_H₂O=σ_H₂O, σ_m=σ_m)
-		JLD2.jldsave("jld/learning_curve_sim_$(i)"*".jld2", i=simulation)  
+		JLD2.jldsave("example/jld/learning_curve_sim_$(i)"*".jld2", i=simulation)  
 	end
 end
 

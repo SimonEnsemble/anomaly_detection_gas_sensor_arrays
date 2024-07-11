@@ -77,7 +77,7 @@ begin
 	num_normal_train_points  = 100
 	num_anomaly_train_points = 0
 	num_normal_test_points   = 100
-	num_anomaly_test_points  = 5
+	num_anomaly_test_points  = 10
 	
 	mid_data, plot  = AnomalyDetectionPlots.viz_sensorδ_waterσ_grid(σ_H₂O_vector, 
 							 σ_m_vector,
@@ -90,8 +90,8 @@ begin
 							 gen_data_flag=gen_data_flag,
 							 jld_file_location=jld_file_folder,
 							 tune_bounds_flag=true,
-							 bound_tuning_low_variance=(0.0002, -0.0002, -0.0002, -0.0005),
-						     bound_tuning_high_variance=(0.0001, 0.0003, 0.0, 0.0))
+							 bound_tuning_low_variance=(0.0002, -0.0003, -0.0002,      -0.0005),
+						     bound_tuning_high_variance=(-0.0001, 0.0001, -0.0002,         0.0))
 	plot
 end
 
@@ -122,7 +122,7 @@ md"""
 """
 
 # ╔═╡ bfe24d5a-de4d-4634-ad5d-0c093a17135a
-SyntheticDataGen.viz_H2O_compositions(mid_data["data"].data_test)
+SyntheticDataGen.viz_H2O_compositions(mid_data["data"].data_train)
 
 # ╔═╡ 77382f3e-98b6-4aef-b946-8375018c3c3e
 md"# Step 1) Generate uniform hypersphere of synthetic data around normal training data.
@@ -158,11 +158,14 @@ begin
 end
 
 # ╔═╡ ccbe1d74-df04-4dbf-9ee4-683890963892
-md"## Decision boundary and test data
+md"## Decision boundary and data
 "
 
 # ╔═╡ 6e278c3e-45a3-4aa8-b904-e3dfa73615d5
 AnomalyDetectionPlots.viz_decision_boundary(mid_data["svm"], mid_data["data"].scaler, mid_data["data"].data_test, xlims=xlims, ylims=ylims)
+
+# ╔═╡ bb9b1c23-db1e-48bb-9b47-1ba239470123
+AnomalyDetectionPlots.viz_decision_boundary(mid_data["svm"], mid_data["data"].scaler, mid_data["data"].data_train, xlims=xlims, ylims=ylims)
 
 # ╔═╡ c930cd71-446c-47f5-8bed-15602afa2304
 md"## Confusion Matrix
@@ -244,8 +247,11 @@ begin
 	σ_m = σ_m_vector[2]
 end
 
+# ╔═╡ a6700f58-c006-4893-8437-8e6c2b3048f7
+SyntheticDataGen.viz_C2H4_CO2_H2O_density_distributions(σ_H₂O)
+
 # ╔═╡ 59d2888f-fd1a-4644-b80f-e6e65ee771bc
-#AnomalyDetection.simulate(num_normal_train_points_learning_curve, run_start=1, run_end=1, σ_m=σ_m, σ_H₂O=σ_H₂O)
+AnomalyDetection.simulate(num_normal_train_points_learning_curve, run_start=1, run_end=20, σ_m=σ_m, σ_H₂O=σ_H₂O)
 
 # ╔═╡ 7ca56cf4-6045-4e1f-bc36-90c0bea8d200
 the_data = AnomalyDetection.catenate_data()
@@ -267,6 +273,8 @@ md"!!! example \"\"
 	density measure plot and maximum curvature"
 
 # ╔═╡ 6ceab194-4861-4be1-901c-6713db5a4204
+# ╠═╡ disabled = true
+#=╠═╡
 begin
 	# according to paper K is optimally 0.05 * number of data points
 	K = trunc(Int, 0.05 * num_normal_train_points)
@@ -279,29 +287,47 @@ begin
 
 	(ν_opt, γ_opt)
 end
+  ╠═╡ =#
 
 # ╔═╡ 9a9262d4-02ff-4d82-bb7b-8584e8b79022
+# ╠═╡ disabled = true
+#=╠═╡
 AnomalyDetectionPlots.viz_density_measures(mid_data["data"].X_train_scaled, K)
+  ╠═╡ =#
 
 # ╔═╡ f0cb9b40-0ed8-450a-8f03-4f16ca65fa77
+# ╠═╡ disabled = true
+#=╠═╡
 AnomalyDetectionPlots.viz_decision_boundary(svm, mid_data["data"].scaler, mid_data["data"].data_test)
+  ╠═╡ =#
 
 # ╔═╡ 47d6c332-632c-4880-9708-59e6fa187c6c
+# ╠═╡ disabled = true
+#=╠═╡
 AnomalyDetectionPlots.viz_cm(svm, mid_data["data"].data_test, mid_data["data"].scaler)
+  ╠═╡ =#
 
 # ╔═╡ e4723de4-3a82-4c15-9057-c20b331259f7
+# ╠═╡ disabled = true
+#=╠═╡
 AnomalyDetectionPlots.viz_decision_boundary(svm, mid_data["data"].scaler, mid_data["data"].data_train)
+  ╠═╡ =#
 
 # ╔═╡ 55640b9c-9a0a-4d0d-8c29-e67a8228edc2
+# ╠═╡ disabled = true
+#=╠═╡
 # check the f1 score to compare to other validation method(s)
 f1_density = AnomalyDetection.performance_metric(mid_data["data"].y_test, svm.predict(mid_data["data"].X_test_scaled))
+  ╠═╡ =#
 
 # ╔═╡ bbeec9a5-6260-4e8a-a444-a22a59898d22
 md"!!! example \"\" 
 	 Comparing F1 score between median different validation methods and calculating precision and recall."
 
 # ╔═╡ 11e286be-d3a9-4896-a90c-fdd05fc35073
+#=╠═╡
 f1_density
+  ╠═╡ =#
 
 # ╔═╡ f8dab032-e446-4e6e-8022-39ad3dbb1042
 f1_hypersphere
@@ -2288,6 +2314,7 @@ version = "3.5.0+0"
 # ╟─853390f9-6519-4df3-aa24-7b337142dbe4
 # ╠═075d4a2f-cf63-47b1-b309-14df97672a65
 # ╠═4b1759a7-eba1-4de5-8d6a-38106f3301c9
+# ╠═a6700f58-c006-4893-8437-8e6c2b3048f7
 # ╟─2083f6c8-429c-40bb-a029-f9d3131886e7
 # ╟─5a4c66d9-0166-4c13-8a30-02ed6481b6fe
 # ╠═ec8c2bbc-f492-4a22-80a8-f125ea048b34
@@ -2302,8 +2329,9 @@ version = "3.5.0+0"
 # ╠═7990ef58-1e45-44d0-8add-ba410a48dc98
 # ╟─97a7e102-1a87-4364-9835-c7ed370f573c
 # ╠═86ba61e6-0633-431f-93a1-b53a8de9dd46
-# ╟─ccbe1d74-df04-4dbf-9ee4-683890963892
+# ╠═ccbe1d74-df04-4dbf-9ee4-683890963892
 # ╠═6e278c3e-45a3-4aa8-b904-e3dfa73615d5
+# ╠═bb9b1c23-db1e-48bb-9b47-1ba239470123
 # ╟─c930cd71-446c-47f5-8bed-15602afa2304
 # ╠═ee8029cf-c6a6-439f-b190-cb297e0ddb70
 # ╟─567335d9-8b3f-4bcb-b34c-3e655715b448
