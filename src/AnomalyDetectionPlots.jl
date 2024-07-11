@@ -268,7 +268,7 @@ visualizes effect on SVM by increasing/decreasing ν and γ
 function viz_ν_γ_effects(data::Dict{String, Any},
 						ν_opt::Float64,
 						γ_opt::Float64)
-	scale_factor = 4
+	scale_factor = 10
 	zif71_lims   = (0.99 * minimum(data["data"].data_train[:, "m ZIF-71 [g/g]"]),
 				    1.01 * maximum(data["data"].data_train[:, "m ZIF-71 [g/g]"]))
 	zif8_lims    = (0.99 * minimum(data["data"].data_train[:, "m ZIF-8 [g/g]"]),
