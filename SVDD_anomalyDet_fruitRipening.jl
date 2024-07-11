@@ -225,7 +225,7 @@ begin
    											   hyperparameter_method="bayesian", 
 											   λ=0.5, 
 											   n_avg=100,
-											   gen_data_flag=false,
+											   gen_data_flag=true,
 											   jld_file_location=jld_file_folder)
 end
 
@@ -251,7 +251,7 @@ end
 SyntheticDataGen.viz_C2H4_CO2_H2O_density_distributions(σ_H₂O)
 
 # ╔═╡ 59d2888f-fd1a-4644-b80f-e6e65ee771bc
-AnomalyDetection.simulate(num_normal_train_points_learning_curve, run_start=1, run_end=20, σ_m=σ_m, σ_H₂O=σ_H₂O)
+#AnomalyDetection.simulate(num_normal_train_points_learning_curve, run_start=1, run_end=20, σ_m=σ_m, σ_H₂O=σ_H₂O)
 
 # ╔═╡ 7ca56cf4-6045-4e1f-bc36-90c0bea8d200
 the_data = AnomalyDetection.catenate_data()

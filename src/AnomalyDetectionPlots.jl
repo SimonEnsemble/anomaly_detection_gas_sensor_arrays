@@ -1028,7 +1028,7 @@ function viz_f1_score_heatmap(σ_H₂O_max::Float64,
 					
 					if anom_det_method=="svm"
 						#optimize hyperparameters and determine f1score
-						if validation_method == "hypersphere" && method=="svm"
+						if validation_method == "hypersphere" && anom_det_method=="svm"
 							if hyperparameter_method == "bayesian"
 								ν_space::Tuple{Float64, Float64}=(1.0e-3, 0.3)
 								#γ_space::Tuple{Float64, Float64}=(1.0e-3, 0.99)
