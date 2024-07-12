@@ -453,7 +453,7 @@ num_iter is the number rows in the matrix.
 """
 function learning_curve(num_normal_train_points::Vector{Int64};
 						num_normal_test::Int64=100,
-						num_anomaly_test::Int64=5,
+						num_anomaly_test::Int64=10,
 						gen_data_flag::Bool=true,
 						num_iter::Int64=5,
 						σ_H₂O::Float64=0.01,
