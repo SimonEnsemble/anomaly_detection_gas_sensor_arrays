@@ -1010,7 +1010,7 @@ function viz_f1_score_heatmap(σ_H₂O_max::Float64,
 
 	num_normal_test_points = num_normal_train_points = 100
 	num_anomaly_train_points = 0
-	num_anomaly_test_points = 5
+	num_anomaly_test_points = 10
 	f1_score_grid = zeros(res, res)
 	
 	if gen_data_flag
