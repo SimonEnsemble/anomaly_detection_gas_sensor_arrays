@@ -552,13 +552,13 @@ function viz_decision_boundary(svm,
 		Label(fig[1, 1], rich("σ", CairoMakie.subscript("m"), " [g/g] = $(σ_m)"), 
 				tellwidth=false, 
 				tellheight=false, 
-				halign=0.09, 
+				halign=0.12, 
 				valign=0.9,
 			  	fontsize=21)
 		Label(fig[1, 1], rich("σ", CairoMakie.subscript("H2O"), " [RH] = $(σ_h₂o)"), 
 				tellwidth=false, 
 				tellheight=false, 
-				halign=0.09, 
+				halign=0.12, 
 				valign=0.85,
 				fontsize=21)
 	end

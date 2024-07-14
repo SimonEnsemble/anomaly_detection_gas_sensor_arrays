@@ -206,7 +206,7 @@ AnomalyDetectionPlots.viz_ν_γ_effects(high_σm_data, high_σm_data["ν_opt, γ
 f1_hypersphere = AnomalyDetection.performance_metric(mid_data["data"].y_test, mid_data["svm"].predict(mid_data["data"].X_test_scaled))
 
 # ╔═╡ a2467d27-0664-43d3-8f22-46b0d2ad4a77
-mid_data["data"].data_train
+mid_data
 
 # ╔═╡ af557f0c-9cb1-41ba-bcff-c1c95b08c560
 md"## f1 score heatmap
@@ -251,7 +251,7 @@ end
 SyntheticDataGen.viz_C2H4_CO2_H2O_density_distributions(σ_H₂O)
 
 # ╔═╡ 59d2888f-fd1a-4644-b80f-e6e65ee771bc
-#AnomalyDetection.simulate(num_normal_train_points_learning_curve, run_start=1, run_end=20, σ_m=σ_m, σ_H₂O=σ_H₂O)
+AnomalyDetection.simulate(num_normal_train_points_learning_curve, run_start=18, run_end=20, σ_m=σ_m, σ_H₂O=σ_H₂O)
 
 # ╔═╡ 7ca56cf4-6045-4e1f-bc36-90c0bea8d200
 the_data = AnomalyDetection.catenate_data()

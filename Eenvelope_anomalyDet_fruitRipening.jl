@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.38
+# v0.19.40
 
 using Markdown
 using InteractiveUtils
@@ -81,6 +81,9 @@ begin
 	xlims = (0.98 * minimum(total_zif71_data), 1.02 * maximum(total_zif71_data))
     ylims= (0.98 * minimum(total_zif8_data), 1.02 * maximum(total_zif8_data))
 end
+
+# ╔═╡ b5263e12-e311-41d1-afc7-e5f75dc51352
+mid_data
 
 # ╔═╡ 3ca410d1-0cd7-462e-a0e6-648830c6ad5b
 md"# Optimized contamination and train envelope detector
@@ -194,7 +197,7 @@ ScikitLearn = "~0.6.6"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.10.0"
+julia_version = "1.10.4"
 manifest_format = "2.0"
 project_hash = "8085e11490c49fe4af886feb11ab5d5031845d42"
 
@@ -431,7 +434,7 @@ version = "3.47.0"
 [[deps.CompilerSupportLibraries_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "e66e0078-7015-5450-92f7-15fbd957f2ae"
-version = "1.0.5+1"
+version = "1.1.1+0"
 
 [[deps.Conda]]
 deps = ["Downloads", "JSON", "VersionParsing"]
@@ -1262,7 +1265,7 @@ version = "1.3.5+1"
 [[deps.OpenBLAS_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Libdl"]
 uuid = "4536629a-c528-5b80-bd46-f80d51c5b363"
-version = "0.3.23+2"
+version = "0.3.23+4"
 
 [[deps.OpenEXR]]
 deps = ["Colors", "FileIO", "OpenEXR_jll"]
@@ -2042,6 +2045,7 @@ version = "3.5.0+0"
 # ╟─52ac8252-51a2-484c-9dac-bbdafa40de41
 # ╠═4b1759a7-eba1-4de5-8d6a-38106f3301c9
 # ╠═86ba61e6-0633-431f-93a1-b53a8de9dd46
+# ╠═b5263e12-e311-41d1-afc7-e5f75dc51352
 # ╟─3ca410d1-0cd7-462e-a0e6-648830c6ad5b
 # ╠═28909425-194b-48d3-a807-b85e1d50552f
 # ╠═482f795e-2a2c-4f42-affb-7fe3e9daa92a
