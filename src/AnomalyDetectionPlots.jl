@@ -771,6 +771,9 @@ function viz_sensorδ_waterσ_grid(σ_H₂Os::Vector{Float64},
 			 rotation = pi/2)
 	end
 
+#due to a new issue with JLD2, the mutable struct needs to be rebuilt outside the jld_file_location
+temp_data_storage = Array{Any}(undef, 3, 3)
+
 if gen_data_flag
 #find max/min for plots
 	zif71_lims_high_σ = [Inf, 0]
@@ -811,6 +814,7 @@ if gen_data_flag
 				plot_data_storage[i, j, k]["f1_score"] = truncate(
 					AnomalyDetection.performance_metric(plot_data_storage[i, j, k]["data"].y_test, 
 														plot_data_storage[i, j, k]["svm"].predict(plot_data_storage[i, j, k]["data"].X_test_scaled)), 2)
+				plot_data_storage[i, j, k]["data"].scaler = 0
 			end
 			@warn "grid space ($(i), $(j)) finished"
 			#sort the plot data storage by f1score and identify median data
@@ -870,11 +874,44 @@ else
 	for (i, σ_H₂O) in enumerate(σ_H₂Os)
 		for (j, σ_m) in enumerate(σ_ms)
 			mid_num = trunc(Int, num_runs/2)
+			ν_opt   = plot_data_storage[i, j, mid_num]["ν_opt, γ_opt"][1]
+			γ_opt   = plot_data_storage[i, j, mid_num]["ν_opt, γ_opt"][2]
+			temp_data_storage[i, j] = Dict(
+				"bayes_plot_data" => plot_data_storage[i, j, mid_num]["bayes_plot_data"],
+				"zif8_lims" => plot_data_storage[i, j, mid_num]["zif8_lims"],
+				"zif71_lims" => plot_data_storage[i, j, mid_num]["zif71_lims"],
+				"X_sphere" => plot_data_storage[i, j, mid_num]["X_sphere"],
+				"ν_opt, γ_opt" => plot_data_storage[i, j, mid_num]["ν_opt, γ_opt"],
+				"f1_score" => plot_data_storage[i, j, mid_num]["f1_score"],
+				"data" => DataSet(plot_data_storage[i, j, mid_num]["data"].data_train,
+								  plot_data_storage[i, j, mid_num]["data"].X_train,
+								  plot_data_storage[i, j, mid_num]["data"].X_train_scaled,
+								  plot_data_storage[i, j, mid_num]["data"].y_train,
+								  plot_data_storage[i, j, mid_num]["data"].data_test,
+								  plot_data_storage[i, j, mid_num]["data"].X_test,
+								  plot_data_storage[i, j, mid_num]["data"].X_test_scaled,
+								  plot_data_storage[i, j, mid_num]["data"].y_test,
+								  StandardScaler().fit(plot_data_storage[i, j, mid_num]["data"].X_train),
+								 ),
+				"svm" => AnomalyDetection.train_anomaly_detector(plot_data_storage[i, j, mid_num]["data"].X_train_scaled, ν_opt, γ_opt)
+			)
 
-			ν_opt = plot_data_storage[i, j, mid_num]["ν_opt, γ_opt"][1]
-			γ_opt = plot_data_storage[i, j, mid_num]["ν_opt, γ_opt"][2]
-			plot_data_storage[i, j, mid_num]["svm"] = AnomalyDetection.train_anomaly_detector(plot_data_storage[i, j, mid_num]["data"].X_train_scaled, ν_opt, γ_opt)
-			plot_data_storage[i, j, mid_num]["data"].scaler = StandardScaler().fit(plot_data_storage[i, j, mid_num]["data"].X_train)
+		
+			#plot_data_storage[i, j, mid_num]["svm"] = AnomalyDetection.train_anomaly_detector(plot_data_storage[i, j, mid_num]["data"].X_train_scaled, ν_opt, γ_opt)
+			#print(plot_data_storage[i, j, mid_num]["data"])
+			#plot_data_storage[i, j, mid_num]["data"].scaler = StandardScaler().fit(plot_data_storage[i, j, mid_num]["data"].X_train)
+			#=temp_data = DataSet(
+			plot_data_storage[i, j, mid_num]["data"].data_train,
+			plot_data_storage[i, j, mid_num]["data"].X_train,
+			plot_data_storage[i, j, mid_num]["data"].X_train_scaled,
+			plot_data_storage[i, j, mid_num]["data"].y_train,
+			plot_data_storage[i, j, mid_num]["data"].data_test,
+			plot_data_storage[i, j, mid_num]["data"].X_test,
+			plot_data_storage[i, j, mid_num]["data"].X_test_scaled,
+			plot_data_storage[i, j, mid_num]["data"].y_test,
+			StandardScaler().fit(plot_data_storage[i, j, mid_num]["data"].X_train)
+			)
+			plot_data_storage[i, j, mid_num]["data"] = temp_data=#
 		end
 	end
 end
@@ -895,8 +932,15 @@ if tune_bounds_flag
 			plot_data_storage[i, j, trunc(Int, num_runs/2)]["zif71_lims"] = [zif71_lims_high_σ[1] + bound_tuning_high_variance[1], zif71_lims_high_σ[2] + bound_tuning_high_variance[2]]
 			plot_data_storage[i, j, trunc(Int, num_runs/2)]["zif8_lims"]  = [zif8_lims_high_σ[1] + bound_tuning_high_variance[3], zif8_lims_high_σ[2] + bound_tuning_high_variance[4]]
 			end
+
+			if !gen_data_flag
+				temp_data_storage[i, j]["zif71_lims"] = plot_data_storage[i, j, trunc(Int, num_runs/2)]["zif71_lims"]
+				temp_data_storage[i, j]["zif8_lims"] = plot_data_storage[i, j, trunc(Int, num_runs/2)]["zif8_lims"]
+			end
 		end
 	end
+
+
 end
 
 #Plot the median data, contour, confusion matrix for each water variance and sensor error value
@@ -904,7 +948,11 @@ end
 		for (j, σ_m) in enumerate(σ_ms)
 
 #identify median data set as the third dim index num_runs/2
-			median_data = plot_data_storage[i, j, trunc(Int, num_runs/2)]
+			if gen_data_flag
+				median_data = plot_data_storage[i, j, trunc(Int, num_runs/2)]
+			else
+				median_data = temp_data_storage[i, j]
+			end
 			median_data["zif71_lims"] = [truncate(median_data["zif71_lims"][1], 4), truncate(median_data["zif71_lims"][2], 4)]
 			median_data["zif8_lims"] = [truncate(median_data["zif8_lims"][1], 4), truncate(median_data["zif8_lims"][2], 4)]
 
@@ -977,8 +1025,13 @@ end
 		#JLD.save("sensor_error_&_H2O_variance_plot.jld", "plot_data_storage", plot_data_storage)
 		@save "sensor_error_&_H2O_variance_plot.jld" plot_data_storage
 	end
+	if gen_data_flag
+		return plot_data_storage[2, 2, trunc(Int, num_runs/2)], fig
+	else
+		return temp_data_storage[2, 2], fig
+	end
 
-	return plot_data_storage[2, 2, trunc(Int, num_runs/2)], fig
+	
 end
 
 """

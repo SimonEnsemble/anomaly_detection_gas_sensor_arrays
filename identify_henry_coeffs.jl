@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.40
+# v0.19.45
 
 using Markdown
 using InteractiveUtils
@@ -377,7 +377,7 @@ function viz_selectivity(henry_data)
 		   height = s_values,
            dodge = [1, 2, 3, 1, 2, 3]
        )
-	s_colors = [ColorSchemes.Spectral_4[i] for i=1:length(gases)]
+	s_colors = [ColorSchemes.Archambault[i] for i=1:length(gases)]
 	colors = vcat(s_colors, s_colors)
 	elements = [PolyElement(polycolor = s_colors[i]) for i=1:length(gases)]
 
@@ -448,7 +448,7 @@ ScikitLearn = "~0.6.4"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.10.3"
+julia_version = "1.10.4"
 manifest_format = "2.0"
 project_hash = "667ff9cf4d185579ea14e47a834808b7a3d8dd51"
 
