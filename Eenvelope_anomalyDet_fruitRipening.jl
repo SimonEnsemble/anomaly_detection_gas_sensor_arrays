@@ -100,13 +100,13 @@ md"## visuals
 "
 
 # ╔═╡ 6e278c3e-45a3-4aa8-b904-e3dfa73615d5
-AnomalyDetectionPlots.viz_decision_boundary(envelope_detector, mid_data["data"].scaler, mid_data["data"].data_test, xlims=xlims, ylims=ylims)
+AnomalyDetectionPlots.viz_decision_boundary(envelope_detector, mid_data["data"].scaler, mid_data["data"].data_test, xlims=xlims, ylims=ylims, save_pdf=true, default_lims=false, text_align=(0.1, 0.9), file_name="ee_decision_boundary_test_data")
 
 # ╔═╡ 1546b4ab-7ba7-4ddd-8702-57ff97a7f606
-AnomalyDetectionPlots.viz_decision_boundary(envelope_detector, mid_data["data"].scaler, mid_data["data"].data_train, xlims=xlims, ylims=ylims)
+AnomalyDetectionPlots.viz_decision_boundary(envelope_detector, mid_data["data"].scaler, mid_data["data"].data_train, xlims=xlims, ylims=ylims, save_pdf=true, default_lims=false, text_align=(0.1, 0.9), file_name="ee_decision_boundary_training_data")
 
 # ╔═╡ ee8029cf-c6a6-439f-b190-cb297e0ddb70
- AnomalyDetectionPlots.viz_cm(envelope_detector, mid_data["data"].data_test, mid_data["data"].scaler)
+ AnomalyDetectionPlots.viz_cm(envelope_detector, mid_data["data"].data_test, mid_data["data"].scaler, save_pdf=true, file_name="ee_confusion_matrix")
 
 # ╔═╡ af557f0c-9cb1-41ba-bcff-c1c95b08c560
 md"## f1 score heatmap for Elliptic Envelope

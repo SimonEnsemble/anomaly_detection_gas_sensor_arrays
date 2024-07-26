@@ -194,9 +194,9 @@ begin
 		if water_only
 			fig = Figure(resolution=(res, res))
 		else
-			fig = Figure(resolution=(res, res))
+			#fig = Figure(resolution=(res, res))
 		end
-		
+		fig = Figure(resolution = (res+1.0*res/6.0, res-0.5*res/6.0))
 
 		ax = Axis(fig[1:5, 1:5], 
 				   xlabel = rich("m", CairoMakie.subscript("ZIF-71"), " [g gas/g ZIF]"),
@@ -229,17 +229,17 @@ begin
 		end
 	
 		if viz_σ && !water_only
-			Label(fig[2, 1], rich("σ", CairoMakie.subscript("m"), " [g/g] = $(σ_m)"), 
+			Label(fig[1, 1], rich("σ", CairoMakie.subscript("m"), " [g/g] = $(σ_m)"), 
 					tellwidth=false, 
 					tellheight=false, 
 					halign=-0.12, 
-					valign=0.95,
+					valign=0.35,
 				  	fontsize=19)
-			Label(fig[2, 1], rich("σ", CairoMakie.subscript("H2O"), " [RH] = $(σ_h₂o)"), 
+			Label(fig[1, 1], rich("σ", CairoMakie.subscript("H2O"), " [RH] = $(σ_h₂o)"), 
 					tellwidth=false, 
 					tellheight=false, 
 					halign=-0.12, 
-					valign=0.65,
+					valign=0.0,
 					fontsize=19)
 		end
 		if !water_only
@@ -250,7 +250,8 @@ begin
 			y_vals = [ylims[1], ylims[1], ylims[2], ylims[2], ylims[1]]
 			lines!(ax, x_vals, y_vals, color=:gray)
 		end
-	
+		resize_to_layout!(fig)
+	save("decision_boundary_test_data.pdf", fig)
 		fig
 	end
 	
@@ -317,7 +318,7 @@ end
 					   water_only::Bool=false)
 		X_test, _ = AnomalyDetection.data_to_Xy(data_test)
 
-		poly!(ax, Point2f[(xlims[1], ylims[1]), (xlims[2], ylims[1]), (xlims[2], ylims[2]), (xlims[1], ylims[2])], color = ColorSchemes.dense[0.01], strokecolor = ColorSchemes.grays[0.5], strokewidth = 2)
+		poly!(ax, Point2f[(xlims[1], ylims[1]), (xlims[2], ylims[1]), (xlims[2], ylims[2]), (xlims[1], ylims[2])], color = :white, strokecolor = ColorSchemes.grays[0.5], strokewidth = 2)
 	
 		if default_lims
 			xlims = (0.98 * minimum(X_test[:, 1]), 1.02 * maximum(X_test[:, 1])+0.0001)
@@ -463,7 +464,7 @@ function gen_gas_comps(n_compositions::Int, label::String, σ_H₂O::Float64)
 end
 
 # ╔═╡ bb9b1c23-db1e-48bb-9b47-1ba239470123
-AnomalyDetectionPlots.viz_decision_boundary(mid_data["svm"], mid_data["data"].scaler, mid_data["data"].data_train, xlims=xlims, ylims=ylims)
+AnomalyDetectionPlots.viz_decision_boundary(mid_data["svm"], mid_data["data"].scaler, mid_data["data"].data_train, xlims=xlims, ylims=ylims, save_pdf=true)
 
 # ╔═╡ c930cd71-446c-47f5-8bed-15602afa2304
 md"## Confusion Matrix
@@ -554,7 +555,7 @@ function viz_cm(svm, data_test::DataFrame, scaler)
     )
 
 	viz_cm!(ax, svm, data_test, scaler, gen_cm_flag=false, cm=cm)
-
+	save("confusion_matrix.pdf", fig)
     fig
 end
 
@@ -718,6 +719,157 @@ f1_hypersphere
 
 # ╔═╡ bfc27fe6-2f26-41b7-a614-2e0e354267bd
  AnomalyDetectionPlots.viz_cm(mid_data["svm"], mid_data["data"].data_test, mid_data["data"].scaler)
+
+# ╔═╡ fd857053-3e7f-44a7-a872-be872dd92db8
+function viz_C2H4_CO2_H2O_density_distributions(σ_H₂O)
+
+    #establish axes and figs for the grid
+	fig  = Figure(resolution = (2600, 2000))
+
+	axes = zeros(length(viable_labels), length(gases))
+	axes = convert(Array{Any, 2}, axes)
+
+	for (i, label) in enumerate(viable_labels)
+		for (j, gas) in enumerate(gases)
+			gas == "CO₂" ? num_ticks = 4 : num_ticks = 6
+			
+			if j==1 && i==length(viable_labels)
+				axes[i, j] = Axis(fig[i, j], 
+								  yticklabelsvisible = false, 
+								  ylabel="density", 
+								  xlabel="ppm", 
+								  xlabelsize=62, 
+								  ylabelsize=62,
+							      xticklabelsize=40,
+								  xticks=WilkinsonTicks(num_ticks))
+			elseif j==1
+				axes[i, j] = Axis(fig[i, j], 
+								  yticklabelsvisible = false, 
+								  ylabel="density", 
+								  xticklabelsvisible = false, 
+								  ylabelsize=62)
+			elseif i==length(viable_labels)
+				if gas=="H₂O" 
+					axes[i, j] = Axis(fig[i, j], 
+									  yticklabelsvisible = false, 
+									  xlabel="RH", 
+								      xlabelsize=62,
+									  xticklabelsize=40)
+				else
+					axes[i, j] = Axis(fig[i, j], 
+									  yticklabelsvisible = false, 
+									  xlabel="ppm", 
+									  xlabelsize=62,
+								      xticklabelsize=40,
+								      xticks=WilkinsonTicks(num_ticks))
+				end
+			else
+				axes[i, j] = Axis(fig[i, j], 
+								  yticklabelsvisible = false, 
+								  xticklabelsvisible = false)
+			end
+		end
+	end
+	figs = [fig[i, j] for i in 1:length(viable_labels), j in 1:length(gases)]
+
+    #top gas labels
+	for (label, layout) in zip(gases, figs[1, 1:length(gases)])
+		Label(layout[1, 1, Top()], 
+			 label,
+			 fontsize = 120,
+			 padding = (0, 0, 25, 0),
+			 halign = :center)
+	end
+
+    #left normal/anomaly type labels
+	for (label, layout) in zip(viable_labels, figs[1:length(viable_labels), 1])
+		Label(layout[1, 1, Left()], 
+			 SyntheticDataGen.reduced_labels[label],
+			 fontsize = 80,
+			 padding = (0, 120, 0, 0),
+			 valign = :center,
+			 rotation = 0.0)
+	end
+		
+	for (i, label) in enumerate(viable_labels)
+		for (j, gas) in enumerate(gases)
+			#generate a distribution
+			gas_distr = SyntheticDataGen.setup_gas_comp_distn(σ_H₂O, label)
+			if gas == "H₂O" 
+				distr = gas_distr.f_H₂O
+			else
+				gas == "CO₂" ? distr = gas_distr.f_CO₂ : distr = gas_distr.f_C₂H₄
+			end
+
+			#create distribution densities and corresponding pressures
+			p_min, p_max = quantile.(distr, [0.001, 0.999])
+			ps = range(p_min, p_max, 1000)
+			densities = [pdf(distr, ps[i]) for i=1:length(ps)]
+			gas=="H₂O" ? ps = ps/SyntheticDataGen.p_H₂O_vapor : ps = ps * 1e6
+
+			#distribution plot using band for shading
+			band!(axes[i, j], 
+				  ps, 
+				  [0 for i=1:length(ps)], 
+				  densities, 
+				  color=(SyntheticDataGen.label_to_color[label], 0.20))
+			lines!(axes[i, j], 
+				   ps, 
+				   densities,
+				   color=SyntheticDataGen.label_to_color[label],				   	 
+         		   linewidth=5)
+			
+			#line to zero for uniform distr
+			lines!(axes[i, j], 
+				   [ps[1], ps[1]], 
+				   [densities[1], 0],
+				   color=SyntheticDataGen.label_to_color[label],				   	 
+         		   linewidth=2.5)
+			lines!(axes[i, j], 
+				   [ps[end], ps[end]], 
+				   [densities[end], 0],
+				   color=SyntheticDataGen.label_to_color[label],				   
+  				   linewidth=2.5)
+			#gray axis
+			if gas == "H₂O"
+				lines!(axes[i, j], 
+					   [0.50, 0.50, 0.95], 
+					   [1258, 0, 0],
+					   color=:grey,				   	 
+	         		   linewidth=0.5)
+			elseif gas == "CO₂"
+				lines!(axes[i, j], 
+					   [0, 0, 2.0*10^4], 
+					   [220, 0, 0],
+					   color=:grey,				   	 
+	         		   linewidth=0.5)
+			elseif gas == "C₂H₄"
+				lines!(axes[i, j], 
+					   [0, 0, 2.0*10^3], 
+					   [20000, 0, 0],
+					   color=:grey,				   	 
+	         		   linewidth=0.5)
+				#end
+			end
+		end
+	end
+	
+	colgap!(fig.layout, Relative(0.05))
+	linkyaxes!(axes[1, 1], axes[2, 1], axes[3, 1], axes[5, 1], axes[6, 1])
+	
+	for j = 1:length(gases)
+		linkxaxes!(axes[1, j], axes[2, j], axes[3, j], axes[4, j], axes[5, j], axes[6, j])
+		if gases[j] != "C₂H₄"
+			linkyaxes!(axes[1, j], axes[2, j], axes[3, j], axes[4, j], axes[5, j], axes[6, j])
+		end
+	end
+
+	save("data_distributions.pdf", fig)
+	return fig
+end
+
+# ╔═╡ 7fa507ca-60c9-43fb-a81d-adf0b57d7929
+viz_C2H4_CO2_H2O_density_distributions(0.01)
 
 # ╔═╡ cef4a546-18b5-4c4d-a7c6-50caba148d35
 begin
@@ -2573,6 +2725,8 @@ version = "3.5.0+0"
 # ╠═11e286be-d3a9-4896-a90c-fdd05fc35073
 # ╠═f8dab032-e446-4e6e-8022-39ad3dbb1042
 # ╠═bfc27fe6-2f26-41b7-a614-2e0e354267bd
+# ╠═7fa507ca-60c9-43fb-a81d-adf0b57d7929
+# ╠═fd857053-3e7f-44a7-a872-be872dd92db8
 # ╠═cef4a546-18b5-4c4d-a7c6-50caba148d35
 # ╠═3e8ca33e-e6e9-4a2f-b235-2221eb994ce3
 # ╠═e7cddd77-f1d0-44fd-87bb-e3af5b42558b

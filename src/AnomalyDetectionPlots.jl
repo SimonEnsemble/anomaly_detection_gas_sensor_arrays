@@ -421,7 +421,7 @@ deployment of the One class support vector machine
 """
 visualizes the confusion matrix by anomaly type
 """
-function viz_cm(svm, data_test::DataFrame, scaler)
+function viz_cm(svm, data_test::DataFrame, scaler; save_pdf::Bool=false, file_name::String="training_data_sensor_response")
 	all_labels = SyntheticDataGen.viable_labels
 	n_labels = length(all_labels)
 
@@ -438,6 +438,10 @@ function viz_cm(svm, data_test::DataFrame, scaler)
 
 	viz_cm!(ax, svm, data_test, scaler, gen_cm_flag=false, cm=cm)
 
+	if save_pdf
+		save("$(file_name).pdf", fig)
+	end
+	
     fig
 end
 
@@ -522,7 +526,7 @@ function viz_decision_boundary(svm,
 							   ylims::Tuple{Float64, Float64}= (0.01, 0.02),
 							   σ_m="1.0e-5",
 							   σ_h₂o="0.01",
-							   text_align=(0.25, 0.9))
+							   text_align=(0.25, 0.9), save_pdf::Bool=false, file_name::String="training_data_sensor_response")
 	X_test, _ = AnomalyDetection.data_to_Xy(data_test)
 
 	if default_lims
@@ -564,7 +568,9 @@ function viz_decision_boundary(svm,
 				valign=text_align[2]-0.05,
 				fontsize=21)
 	end
-
+	if save_pdf
+		save("$(file_name).pdf", fig)
+	end
 	fig
 end
 
