@@ -33,8 +33,8 @@ reduced_labels = Dict("normal" => "normal",
                     "low humidity" => "H₂O ↓",
                     "anomalous" => "anomaly")
 
-function setup_gas_comp_distn(σ_H₂O::Float64, label::String)
-    if ! (label in viable_labels)
+function setup_gas_comp_distn(σ_H₂O::Float64, label::String; only_water::Bool=false)
+    if ! (label in viable_labels) && !only_water
         error(label * "not a viable label")
     end
     
@@ -65,14 +65,14 @@ function setup_gas_comp_distn(σ_H₂O::Float64, label::String)
 		gas_comp_distn.f_CO₂ = Uniform(7500e-6, 20000e-6)
 		gas_comp_distn.f_C₂H₄ = Uniform(300e-6, 2000e-6)
     elseif label == "low humidity"
-        gas_comp_distn.f_H₂O = Uniform(0.2 * p_H₂O_vapor, 0.75 * p_H₂O_vapor)
+        gas_comp_distn.f_H₂O = Uniform(0.5 * p_H₂O_vapor, 0.80 * p_H₂O_vapor)
     end
 
     return gas_comp_distn
 end
 
-function gen_gas_comps(n_compositions::Int, label::String, σ_H₂O::Float64)
-    gas_comp_distn = setup_gas_comp_distn(σ_H₂O, label)
+function gen_gas_comps(n_compositions::Int, label::String, σ_H₂O::Float64; only_water::Bool=false)
+    gas_comp_distn = setup_gas_comp_distn(σ_H₂O, label, only_water=only_water)
 
     data = DataFrame("p C₂H₄ [bar]" => zeros(n_compositions), 
                      "p CO₂ [bar]"  => zeros(n_compositions),
@@ -109,16 +109,27 @@ function sensor_response!(data::DataFrame, noise::Distribution)
 	return data
 end
 
-function gen_data(n_normal::Int, n_anomaly::Int, σ_H₂O::Float64, σ_m::Float64)
+function gen_data(n_normal::Int, n_anomaly::Int, σ_H₂O::Float64, σ_m::Float64; only_water::Bool=false)
     noise = Normal(0.0, σ_m)
-    data = gen_gas_comps(n_normal, "normal", σ_H₂O)
-    for label in anomaly_labels
-        append!(data, 
-            gen_gas_comps(n_anomaly, label, σ_H₂O)
-        )    
-    end
-    sensor_response!(data, noise)
-    return data
+    
+	if only_water
+		data = gen_gas_comps(n_anomaly, "low humidity", σ_H₂O, only_water=only_water)
+		sensor_response!(data, noise)
+		return data
+	else
+		data = gen_gas_comps(n_normal, "normal", σ_H₂O)
+		for label in anomaly_labels
+			if label != "low humidity"
+				append!(data, 
+					gen_gas_comps(n_anomaly, label, σ_H₂O)
+				)    
+			end
+		end
+
+		sensor_response!(data, noise)
+		return data
+	end
+
 end
 
 function viz_C2H4_CO2_composition(data::DataFrame)

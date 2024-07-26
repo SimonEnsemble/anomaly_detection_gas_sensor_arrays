@@ -26,6 +26,14 @@ md"# Anomaly Detection for Gas Sensor Arrays Using Support Vector Data Descripti
 # ╔═╡ 3ba4e1e5-3187-4811-be09-d990973abc77
 TableOfContents()
 
+# ╔═╡ d578dbf8-dc4d-4a80-a68f-e12284a75953
+begin
+	gases = ["C₂H₄", "CO₂", "H₂O"]
+	mofs = ["ZIF-71", "ZIF-8"]
+	anomaly_labels = ["CO₂ buildup", "C₂H₄ buildup", "C₂H₄ off", "CO₂ & C₂H₄ buildup", "low humidity"]
+viable_labels = vcat(["normal"], anomaly_labels)
+end
+
 # ╔═╡ 5d920ea0-f04d-475f-b05b-86e7b199d7e0
 begin
 	@sk_import preprocessing : StandardScaler
@@ -48,26 +56,6 @@ end
 
 # ╔═╡ 1e30612e-7bcd-47dc-a1fb-1e127aad4a55
 plot_data_storage = JLD.load(jld_file, "plot_data_storage")
-
-# ╔═╡ 061b8ce8-bdda-47be-8428-adc0c02ec3ef
-for (key, val) in plot_data_storage[1, 1, 1]
-	println(key)
-end
-
-# ╔═╡ 41055bc8-5c4f-4bdf-9fbb-dc1f1af7108e
-plot_data_storage[1, 1, 1]["data"].X_train = zeros(2,2)
-
-# ╔═╡ 6ad5f680-23a3-4249-a46d-4fc915916d27
-mutable struct DataSet
-	
-	X_train::Matrix{Float64}
-
-
-	scaler
-end
-
-# ╔═╡ cdec1584-e5ff-44a0-b84d-2e65b8ee5025
-DataSet(plot_data_storage[1, 1, 1]["data"].X_train, 0)
 
 # ╔═╡ 4348a594-aa99-45dd-af3f-f3b61a4e8142
 md"## Generating data and visualizing the effects of sensor error and water variance.
@@ -151,21 +139,30 @@ SyntheticDataGen.viz_H2O_compositions(mid_data["data"].data_train)
 """
 visualizes sensor response data by label
 """
-function viz_responses!(ax, data::DataFrame; incl_legend::Bool=true)
+function viz_responses!(ax, data::DataFrame; incl_legend::Bool=true, water_only::Bool=false)
 	for data_l in groupby(data, "label")
 		label = data_l[1, "label"]
-		scatter!(ax, data_l[:, "m $(mofs[1]) [g/g]"], data_l[:, "m $(mofs[2]) [g/g]"],
-				strokewidth=1,
-				markersize=15,
-				marker=label == "normal" ? :circle : :x,
-				color=(:white, 0.0),
-				strokecolor=SyntheticDataGen.label_to_color[label],
-				label=label)
-		
+		if !water_only
+			scatter!(ax, data_l[:, "m $(mofs[1]) [g/g]"], data_l[:, "m $(mofs[2]) [g/g]"],
+					strokewidth=1,
+					markersize=15,
+					marker=label == "normal" ? :circle : :x,
+					color=(:white, 0.0),
+					strokecolor=SyntheticDataGen.label_to_color[label],
+					label=label)
+		elseif water_only && label == "low humidity"
+			scatter!(ax, data_l[:, "m $(mofs[1]) [g/g]"], data_l[:, "m $(mofs[2]) [g/g]"],
+					strokewidth=1,
+					markersize=10,
+					marker=label == "normal" ? :circle : :x,
+					color=(:white, 0.0),
+					strokecolor=SyntheticDataGen.label_to_color[label],
+					label=label)
+		end
     end
 
 	if incl_legend
-    	axislegend(ax, position=:rb, labelsize=19)
+    	#axislegend(ax, position=:rb, labelsize=19)
 	end
 end
 
@@ -185,7 +182,8 @@ begin
 								   xlims::Tuple{Float64, Float64}= (0.01, 0.02),
 								   ylims::Tuple{Float64, Float64}= (0.01, 0.02),
 								   σ_m="1.0e-5",
-								   σ_h₂o="0.01")
+								   σ_h₂o="0.01", 
+								   water_only::Bool=false)
 		X_test, _ = AnomalyDetection.data_to_Xy(data_test)
 	
 		if default_lims
@@ -193,10 +191,14 @@ begin
 			ylims = (0.98 * minimum(X_test[:, 2]), 1.02 * maximum(X_test[:, 2]))
 		end
 	
-	
-		fig = Figure(resolution=(res, res))
+		if water_only
+			fig = Figure(resolution=(res, res))
+		else
+			fig = Figure(resolution=(res, res))
+		end
 		
-		ax = Axis(fig[1, 1], 
+
+		ax = Axis(fig[1:5, 1:5], 
 				   xlabel = rich("m", CairoMakie.subscript("ZIF-71"), " [g gas/g ZIF]"),
 				   ylabel = rich("m", CairoMakie.subscript("ZIF-8"), " [g gas/g ZIF]"),
 				   aspect = DataAspect(),
@@ -204,27 +206,49 @@ begin
 				   xticklabelsize=25,
 				   ylabelsize=31,
 				   yticklabelsize=25,)
+
+		water_ax = Axis(fig[3:4, 4:5], 
+				   xlabel = rich("m", CairoMakie.subscript("ZIF-71"), " [g gas/g ZIF]"),
+				   ylabel = rich("m", CairoMakie.subscript("ZIF-8"), " [g gas/g ZIF]"),
+				   aspect = DataAspect(),
+			xticks = WilkinsonTicks(5),
+				   xlabelsize=31,
+				   xticklabelsize=25,
+				   ylabelsize=31,
+				   yticklabelsize=25)
+
+		sub_plot!(water_ax, svm, scaler, data_test, res=res, xlims=(0.0078, 0.0147), ylims=(0.0108, 0.0197), default_lims=false, water_only=true)
+
+		#ax2 = Axis()
 				   
-		viz_decision_boundary!(ax, svm, scaler, data_test, xlims, ylims,incl_legend=incl_legend, incl_contour=incl_contour)
+		viz_decision_boundary!(ax, svm, scaler, data_test, xlims, ylims,incl_legend=incl_legend, incl_contour=incl_contour, water_only=water_only)
 	
 		if !default_lims
 			xlims!(ax, xlims)
 			ylims!(ax, ylims)
 		end
 	
-		if viz_σ
-			Label(fig[1, 1], rich("σ", CairoMakie.subscript("m"), " [g/g] = $(σ_m)"), 
+		if viz_σ && !water_only
+			Label(fig[2, 1], rich("σ", CairoMakie.subscript("m"), " [g/g] = $(σ_m)"), 
 					tellwidth=false, 
 					tellheight=false, 
-					halign=0.12, 
-					valign=0.9,
-				  	fontsize=21)
-			Label(fig[1, 1], rich("σ", CairoMakie.subscript("H2O"), " [RH] = $(σ_h₂o)"), 
+					halign=-0.12, 
+					valign=0.95,
+				  	fontsize=19)
+			Label(fig[2, 1], rich("σ", CairoMakie.subscript("H2O"), " [RH] = $(σ_h₂o)"), 
 					tellwidth=false, 
 					tellheight=false, 
-					halign=0.12, 
-					valign=0.85,
-					fontsize=21)
+					halign=-0.12, 
+					valign=0.65,
+					fontsize=19)
+		end
+		if !water_only
+			Legend(fig[2:4, 6], ax)
+		else
+			hidedecorations!(ax)
+			x_vals = [xlims[1], xlims[2], xlims[2], xlims[1], xlims[1]]
+			y_vals = [ylims[1], ylims[1], ylims[2], ylims[2], ylims[1]]
+			lines!(ax, x_vals, y_vals, color=:gray)
 		end
 	
 		fig
@@ -238,12 +262,13 @@ begin
 									ylims; 
 									incl_legend::Bool=true,
 									incl_contour::Bool=true,
-									res::Int64=300)
+									res::Int64=300, 
+								    water_only::Bool=false)
 	
 		# generate the grid
 		x₁s, x₂s, predictions = generate_response_grid(svm, scaler, xlims, ylims, res=res)
 	
-		viz_responses!(ax, data_test, incl_legend=incl_legend)
+		viz_responses!(ax, data_test, incl_legend=incl_legend, water_only=water_only)
 		if incl_contour
 			contour!(ax,
 					x₁s, 
@@ -256,7 +281,111 @@ begin
 		end
 	
 	end
+
+	function generate_response_grid(svm, scaler, xlims, ylims; res=100)
+	# lay grid over feature space
+	x₁s = range(xlims[1], xlims[2], length=res)
+	x₂s = range(ylims[1], ylims[2], length=res)
+	
+	# get svm prediciton at each point
+	predictions = zeros(res, res)
+	for i = 1:res
+		for j = 1:res
+			x = [x₁s[i] x₂s[j]]
+			x_scaled = scaler.transform(x)
+			predictions[i, j] = svm.predict(x_scaled)[1]
+		end
+	end
+	
+	return x₁s, x₂s, predictions
+	end
 end
+
+# ╔═╡ 5c4dd3f5-f62c-4d76-b03b-2acfd992969e
+	function sub_plot!(ax, svm, 
+					   scaler, 
+					   data_test::DataFrame; 
+					   res::Int=700, 
+					   incl_legend::Bool=true, 
+					   incl_contour::Bool=true,
+					   default_lims=true,
+					   viz_σ::Bool=true,
+					   xlims::Tuple{Float64, Float64}= (0.01, 0.02),
+					   ylims::Tuple{Float64, Float64}= (0.01, 0.02),
+					   σ_m="1.0e-5",
+					   σ_h₂o="0.01", 
+					   water_only::Bool=false)
+		X_test, _ = AnomalyDetection.data_to_Xy(data_test)
+
+		poly!(ax, Point2f[(xlims[1], ylims[1]), (xlims[2], ylims[1]), (xlims[2], ylims[2]), (xlims[1], ylims[2])], color = ColorSchemes.dense[0.01], strokecolor = ColorSchemes.grays[0.5], strokewidth = 2)
+	
+		if default_lims
+			xlims = (0.98 * minimum(X_test[:, 1]), 1.02 * maximum(X_test[:, 1])+0.0001)
+			ylims = (0.98 * minimum(X_test[:, 2]), 1.02 * maximum(X_test[:, 2]))
+		end
+	
+		if water_only
+			fig = Figure(resolution=(res, res))
+		else
+			fig = Figure(resolution=(res, res))
+		end
+		#=
+		if !water_only
+		ax = Axis(fig[1, 1], 
+				   xlabel = rich("m", CairoMakie.subscript("ZIF-71"), " [g gas/g ZIF]"),
+				   ylabel = rich("m", CairoMakie.subscript("ZIF-8"), " [g gas/g ZIF]"),
+				   aspect = DataAspect(),
+				   xlabelsize=31,
+				   xticklabelsize=25,
+				   ylabelsize=31,
+				   yticklabelsize=25)
+		else
+		ax = Axis(fig[1, 1], 
+				   xlabel = rich("m", CairoMakie.subscript("ZIF-71"), " [g gas/g ZIF]"),
+				   ylabel = rich("m", CairoMakie.subscript("ZIF-8"), " [g gas/g ZIF]"),
+				   aspect = DataAspect(),
+			xticks = WilkinsonTicks(5),
+				   xlabelsize=31,
+				   xticklabelsize=25,
+				   ylabelsize=31,
+				   yticklabelsize=25,
+					title="low humidity",
+					titlesize=30)
+		end =#
+		#ax2 = Axis()
+				   
+		viz_decision_boundary!(ax, svm, scaler, data_test, xlims, ylims,incl_legend=incl_legend, incl_contour=incl_contour, water_only=water_only)
+	
+		if !default_lims
+			xlims!(ax, xlims)
+			ylims!(ax, ylims)
+		end
+	
+		if viz_σ && !water_only
+			Label(fig[1, 1], rich("σ", CairoMakie.subscript("m"), " [g/g] = $(σ_m)"), 
+					tellwidth=false, 
+					tellheight=false, 
+					halign=0.12, 
+					valign=0.85,
+				  	fontsize=21)
+			Label(fig[1, 1], rich("σ", CairoMakie.subscript("H2O"), " [RH] = $(σ_h₂o)"), 
+					tellwidth=false, 
+					tellheight=false, 
+					halign=0.12, 
+					valign=0.8,
+					fontsize=21)
+		end
+		if !water_only
+			Legend(fig[1, 2], ax)
+		else
+			hidedecorations!(ax)
+			#=
+			x_vals = [xlims[1], xlims[2], xlims[2], xlims[1], xlims[1]]
+			y_vals = [ylims[1], ylims[1], ylims[2], ylims[2], ylims[1]]
+			lines!(ax, x_vals, y_vals, color=:gray)
+			=#
+		end
+	end
 
 # ╔═╡ 77382f3e-98b6-4aef-b946-8375018c3c3e
 md"# Step 1) Generate uniform hypersphere of synthetic data around normal training data.
@@ -295,11 +424,43 @@ end
 md"## Decision boundary and data
 "
 
-# ╔═╡ 6e278c3e-45a3-4aa8-b904-e3dfa73615d5
-AnomalyDetectionPlots.viz_decision_boundary(mid_data["svm"], mid_data["data"].scaler, mid_data["data"].data_test, xlims=xlims, ylims=ylims)
+# ╔═╡ b67f7643-3994-4e04-8a5c-e748c3c54346
+AnomalyDetectionPlots.viz_decision_boundary(mid_data["svm"], mid_data["data"].scaler, mid_data["data"].data_train, xlims=(0.0132, 0.0143), ylims=(0.0178, 0.0195), default_lims=false)
 
-# ╔═╡ 462f29f6-b701-4d37-a38a-1691bd1c393e
-mid_data["data"]
+# ╔═╡ 13f4acb4-4434-4ac3-97be-900be400d908
+begin
+	my_test = mid_data["data"].data_test
+	low_humidity_data = SyntheticDataGen.gen_data(0, 10, 0.01, 1.0*10^-5, only_water=true)
+	append!(my_test, low_humidity_data)
+end
+
+# ╔═╡ 6e278c3e-45a3-4aa8-b904-e3dfa73615d5
+viz_decision_boundary(mid_data["svm"], mid_data["data"].scaler, my_test, xlims=(0.0132, 0.0148), ylims=(0.0178, 0.0195), default_lims=false)
+
+# ╔═╡ c5e13fe4-3a7e-4aa0-9550-d56c18f673bf
+#
+
+# ╔═╡ 95344881-f912-412d-8d9b-42b8bb3452b9
+my_test
+
+# ╔═╡ 0b416525-f0b8-496f-98e6-90e6a6f5cbcd
+function gen_gas_comps(n_compositions::Int, label::String, σ_H₂O::Float64)
+    gas_comp_distn = setup_gas_comp_distn(σ_H₂O, label)
+
+    data = DataFrame("p C₂H₄ [bar]" => zeros(n_compositions), 
+                     "p CO₂ [bar]"  => zeros(n_compositions),
+                     "p H₂O [bar]"  => zeros(n_compositions),
+                     "label" => [label for _ = 1:n_compositions]
+                    )
+
+    for i = 1:n_compositions
+        data[i, "p C₂H₄ [bar]"] = rand(gas_comp_distn.f_C₂H₄)
+        data[i, "p CO₂ [bar]"]  = rand(gas_comp_distn.f_CO₂)
+        data[i, "p H₂O [bar]"]  = rand(gas_comp_distn.f_H₂O)
+        data[i, "label"]      = label
+    end
+    return data
+end
 
 # ╔═╡ bb9b1c23-db1e-48bb-9b47-1ba239470123
 AnomalyDetectionPlots.viz_decision_boundary(mid_data["svm"], mid_data["data"].scaler, mid_data["data"].data_train, xlims=xlims, ylims=ylims)
@@ -308,8 +469,97 @@ AnomalyDetectionPlots.viz_decision_boundary(mid_data["svm"], mid_data["data"].sc
 md"## Confusion Matrix
 "
 
+# ╔═╡ 2041cc5f-d583-4fca-bf75-6bee5d6d876b
+
+
+# ╔═╡ 8b9d65e9-2c28-4eca-a44e-1ae051300777
+function viz_cm!(ax, 
+				 svm, 
+				 data_test::DataFrame, 
+				 scaler; 
+				 gen_cm_flag=true, 
+				 cm=zeros(2, length(viable_labels)))
+
+	all_labels = viable_labels
+	n_labels = length(all_labels)
+
+	if gen_cm_flag
+		cm = AnomalyDetectionPlots.generate_cm(svm, data_test, scaler, all_labels)
+	end
+
+	@assert SyntheticDataGen.viable_labels[1] == "normal"
+	good_colors = reverse(ColorSchemes.diverging_gwr_55_95_c38_n256[0:0.01:0.5])
+	bad_colors = ColorSchemes.diverging_gwr_55_95_c38_n256[0.5:0.01:1.0]
+
+	# anomalies
+	heatmap!(1:1, 2:n_labels, reshape(cm[1, 2:end], (1, 4)),
+			      colormap=good_colors, colorrange=(0, 5))
+	heatmap!(2:2, 2:n_labels, reshape(cm[2, 2:end], (1, 4)),
+			      colormap=bad_colors, colorrange=(0, 5))
+	# normal data
+	heatmap!(1:1, 1:1, [cm[1, 1]],
+			      colormap=bad_colors, colorrange=(0, 100))
+	heatmap!(2:2, 1:1, [cm[2, 1]],
+			      colormap=good_colors, colorrange=(0, 100))
+    for i = 1:2
+        for j = 1:length(all_labels)
+            text!("$(cm[i, j])",
+                  position=(i, j), align=(:center, :center), 
+                  color=cm[i, j] > sum(cm[:, j]) / 2 ? :white : :black)
+        end
+    end
+end
+
+# ╔═╡ a5be5660-7a97-4730-bb72-938ce12c6b03
+function generate_cm(svm, data_test::DataFrame, scaler, labels)
+	n_labels = length(labels)
+
+	# confusion matrix. each row pertains to a label.
+	# col 1 = -1 predicted anomaly, col 2 = 1 predicted normal.
+	cm = zeros(Int, 2, n_labels)
+
+	for (l, label) in enumerate(labels)
+		# get all test data with this label
+		data_test_l = filter(row -> row["label"] == label, data_test)
+		# get feature matrix
+		X_test_l, y_test_l = AnomalyDetection.data_to_Xy(data_test_l)
+		# scale
+		X_test_l_scaled = scaler.transform(X_test_l)
+		# make predictions for this subset of test data
+		y_pred_l = svm.predict(X_test_l_scaled)
+		# how many are predicted as anomaly?
+		cm[1, l] = sum(y_pred_l .== -1)
+		# how many predicted as normal?
+		cm[2, l] = sum(y_pred_l .== 1)
+	end
+	#@assert sum(cm) == nrow(data_test)
+
+	return cm
+end
+
+# ╔═╡ 9426e500-45c9-4bb3-bfce-85fc6a527d61
+function viz_cm(svm, data_test::DataFrame, scaler)
+	all_labels = viable_labels
+	n_labels = length(all_labels)
+
+	cm = generate_cm(svm, data_test, scaler, all_labels)
+
+	fig = Figure()
+	ax = Axis(fig[1, 1],
+		  xticks=([1, 2], ["anomaly", "normal"]),
+		  yticks=([i for i=1:n_labels], [reduced_labels[all_labels[i]] for i=1:n_labels]),
+		  #xticklabelrotation=25.5,
+		  ylabel="truth",
+		  xlabel="prediction"
+    )
+
+	viz_cm!(ax, svm, data_test, scaler, gen_cm_flag=false, cm=cm)
+
+    fig
+end
+
 # ╔═╡ ee8029cf-c6a6-439f-b190-cb297e0ddb70
- AnomalyDetectionPlots.viz_cm(mid_data["svm"], mid_data["data"].data_test, mid_data["data"].scaler)
+viz_cm(mid_data["svm"], my_test, mid_data["data"].scaler)
 
 # ╔═╡ 567335d9-8b3f-4bcb-b34c-3e655715b448
 md"## Data visuals
@@ -336,7 +586,7 @@ md"## Hyperparameter effects
 "
 
 # ╔═╡ ee91e0a9-605f-4d8c-8727-d6523e9a72c4
-AnomalyDetectionPlots.viz_ν_γ_effects(high_σm_data, high_σm_data["ν_opt, γ_opt"][1], high_σm_data["ν_opt, γ_opt"][2])
+#AnomalyDetectionPlots.viz_ν_γ_effects(high_σm_data, high_σm_data["ν_opt, γ_opt"][1], high_σm_data["ν_opt, γ_opt"][2])
 
 # ╔═╡ 8c426257-f4a5-4015-b39f-eab5e84d91ee
 # check the f1 score to compare to other validation method(s)
@@ -2251,14 +2501,11 @@ version = "3.5.0+0"
 # ╠═3e7c36ca-8345-40fb-b199-34fe49dea73e
 # ╠═4745788b-d360-4305-b44b-8d0fca2aeb4f
 # ╠═31f71438-ff2f-49f9-a801-3a6489eaf271
+# ╠═d578dbf8-dc4d-4a80-a68f-e12284a75953
 # ╠═5d920ea0-f04d-475f-b05b-86e7b199d7e0
 # ╟─52ac8252-51a2-484c-9dac-bbdafa40de41
 # ╠═21589bf0-e7f0-4cf1-b082-e236cf6b3221
 # ╠═1e30612e-7bcd-47dc-a1fb-1e127aad4a55
-# ╠═061b8ce8-bdda-47be-8428-adc0c02ec3ef
-# ╠═41055bc8-5c4f-4bdf-9fbb-dc1f1af7108e
-# ╠═6ad5f680-23a3-4249-a46d-4fc915916d27
-# ╠═cdec1584-e5ff-44a0-b84d-2e65b8ee5025
 # ╟─4348a594-aa99-45dd-af3f-f3b61a4e8142
 # ╟─e5eede17-08bd-4120-846e-36a3058c003e
 # ╟─ebf79f0c-8399-42bf-b790-d4934906ede0
@@ -2273,6 +2520,7 @@ version = "3.5.0+0"
 # ╠═a6c181fe-e73d-46af-a1e6-5b4740ae89e4
 # ╟─8317251c-69ad-42d8-90df-6e2a5cc94b13
 # ╠═bfe24d5a-de4d-4634-ad5d-0c093a17135a
+# ╠═5c4dd3f5-f62c-4d76-b03b-2acfd992969e
 # ╠═43945e20-929f-4045-8c44-66eb4a149483
 # ╠═38f64f12-7eb3-4029-ad94-12307a5ee885
 # ╟─77382f3e-98b6-4aef-b946-8375018c3c3e
@@ -2284,9 +2532,17 @@ version = "3.5.0+0"
 # ╠═86ba61e6-0633-431f-93a1-b53a8de9dd46
 # ╠═ccbe1d74-df04-4dbf-9ee4-683890963892
 # ╠═6e278c3e-45a3-4aa8-b904-e3dfa73615d5
-# ╠═462f29f6-b701-4d37-a38a-1691bd1c393e
+# ╠═b67f7643-3994-4e04-8a5c-e748c3c54346
+# ╠═13f4acb4-4434-4ac3-97be-900be400d908
+# ╠═c5e13fe4-3a7e-4aa0-9550-d56c18f673bf
+# ╠═95344881-f912-412d-8d9b-42b8bb3452b9
+# ╠═0b416525-f0b8-496f-98e6-90e6a6f5cbcd
 # ╠═bb9b1c23-db1e-48bb-9b47-1ba239470123
 # ╟─c930cd71-446c-47f5-8bed-15602afa2304
+# ╠═2041cc5f-d583-4fca-bf75-6bee5d6d876b
+# ╠═9426e500-45c9-4bb3-bfce-85fc6a527d61
+# ╠═8b9d65e9-2c28-4eca-a44e-1ae051300777
+# ╠═a5be5660-7a97-4730-bb72-938ce12c6b03
 # ╠═ee8029cf-c6a6-439f-b190-cb297e0ddb70
 # ╟─567335d9-8b3f-4bcb-b34c-3e655715b448
 # ╟─1aaadc59-deab-4374-969f-cddd1b24a025

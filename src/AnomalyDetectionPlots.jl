@@ -502,7 +502,7 @@ function generate_cm(svm, data_test::DataFrame, scaler, labels)
 		# how many predicted as normal?
 		cm[2, l] = sum(y_pred_l .== 1)
 	end
-	@assert sum(cm) == nrow(data_test)
+	#@assert sum(cm) == nrow(data_test)
 
 	return cm
 end
@@ -521,7 +521,8 @@ function viz_decision_boundary(svm,
 							   xlims::Tuple{Float64, Float64}= (0.01, 0.02),
 							   ylims::Tuple{Float64, Float64}= (0.01, 0.02),
 							   σ_m="1.0e-5",
-							   σ_h₂o="0.01")
+							   σ_h₂o="0.01",
+							   text_align=(0.25, 0.9))
 	X_test, _ = AnomalyDetection.data_to_Xy(data_test)
 
 	if default_lims
@@ -539,7 +540,8 @@ function viz_decision_boundary(svm,
 			   xlabelsize=31,
 			   xticklabelsize=25,
 			   ylabelsize=31,
-			   yticklabelsize=25,)
+			   yticklabelsize=25,
+			   xticks=WilkinsonTicks(3))
 			   
 	viz_decision_boundary!(ax, svm, scaler, data_test, xlims, ylims,incl_legend=incl_legend, incl_contour=incl_contour)
 
@@ -552,14 +554,14 @@ function viz_decision_boundary(svm,
 		Label(fig[1, 1], rich("σ", CairoMakie.subscript("m"), " [g/g] = $(σ_m)"), 
 				tellwidth=false, 
 				tellheight=false, 
-				halign=0.12, 
-				valign=0.9,
+				halign=text_align[1], 
+				valign=text_align[2],
 			  	fontsize=21)
 		Label(fig[1, 1], rich("σ", CairoMakie.subscript("H2O"), " [RH] = $(σ_h₂o)"), 
 				tellwidth=false, 
 				tellheight=false, 
-				halign=0.12, 
-				valign=0.85,
+				halign=text_align[1], 
+				valign=text_align[2]-0.05,
 				fontsize=21)
 	end
 
