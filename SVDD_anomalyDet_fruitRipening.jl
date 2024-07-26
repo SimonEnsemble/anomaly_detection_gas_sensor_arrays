@@ -492,9 +492,9 @@ function viz_cm!(ax,
 	bad_colors = ColorSchemes.diverging_gwr_55_95_c38_n256[0.5:0.01:1.0]
 
 	# anomalies
-	heatmap!(1:1, 2:n_labels, reshape(cm[1, 2:end], (1, 4)),
+	heatmap!(1:1, 2:n_labels, reshape(cm[1, 2:end], (1, 5)),
 			      colormap=good_colors, colorrange=(0, 5))
-	heatmap!(2:2, 2:n_labels, reshape(cm[2, 2:end], (1, 4)),
+	heatmap!(2:2, 2:n_labels, reshape(cm[2, 2:end], (1, 5)),
 			      colormap=bad_colors, colorrange=(0, 5))
 	# normal data
 	heatmap!(1:1, 1:1, [cm[1, 1]],
@@ -547,7 +547,7 @@ function viz_cm(svm, data_test::DataFrame, scaler)
 	fig = Figure()
 	ax = Axis(fig[1, 1],
 		  xticks=([1, 2], ["anomaly", "normal"]),
-		  yticks=([i for i=1:n_labels], [reduced_labels[all_labels[i]] for i=1:n_labels]),
+		  yticks=([i for i=1:n_labels], [SyntheticDataGen.reduced_labels[all_labels[i]] for i=1:n_labels]),
 		  #xticklabelrotation=25.5,
 		  ylabel="truth",
 		  xlabel="prediction"
